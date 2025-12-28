@@ -1,0 +1,18 @@
+{
+	"1": {
+		"key_points": [
+			"Set clear goals",
+			"Delegated tasks",
+			"Resolved conflicts",
+			"Delivered results"
+		]
+	},
+	"2": {
+		"key_points": [
+			"Processes have isolated memory",
+			"Threads share memory",
+			"Context switching differs",
+			"Use-cases vary"
+		]
+	}
+}

@@ -1,0 +1,12 @@
+[
+	{
+		"id": 1,
+		"category": "behavioral",
+		"text": "Tell me about a time you led a team."
+	},
+	{
+		"id": 2,
+		"category": "technical",
+		"text": "Explain the difference between processes and threads."
+	}
+]

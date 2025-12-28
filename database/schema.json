@@ -1,0 +1,12 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Firebase Schema (Template)",
+	"type": "object",
+	"properties": {
+		"users": { "type": "object" },
+		"jobs": { "type": "object" },
+		"events": { "type": "object" },
+		"interviews": { "type": "object" },
+		"evaluations": { "type": "object" }
+	}
+}
