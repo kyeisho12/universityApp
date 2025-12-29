@@ -26,9 +26,9 @@ function NavBar() {
 	}
 
 	return (
-		<nav style={{ padding: 12, borderBottom: '1px solid #ddd', display: 'flex', gap: 12 }}>
-			<Link to="/">Home</Link>
-			<Link to="/login">Login</Link>
+		<nav style={{ padding: 12, borderBottom: '1px solid #333', display: 'flex', gap: 12, backgroundColor: '#000000', color: '#ffffff' }}>
+			<Link to="/" style={{ color: '#ffffff' }}>Home</Link>
+			<Link to="/login" style={{ color: '#ffffff' }}>Login</Link>
 			{user ? (
 				<button onClick={handleSignOut} style={{ marginLeft: 'auto' }}>
 					Sign out
