@@ -1,5 +1,2 @@
-Flask>=3.0.0
-Flask-Cors>=4.0.0
-python-dotenv>=1.0.0
-requests>=2.32.0
-pytest>=8.0.0
+# Backend dependencies - To be added in future sprints
+# This folder is a placeholder for backend implementation
