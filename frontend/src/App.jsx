@@ -2,6 +2,8 @@ import React from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Login from './components/auth/Login'
+import Register from './components/auth/Register'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 
 function Home() {
 	const { user } = useAuth()
@@ -29,6 +31,8 @@ function NavBar() {
 		<nav style={{ padding: 12, borderBottom: '1px solid #333', display: 'flex', gap: 12, backgroundColor: '#000000', color: '#ffffff' }}>
 			<Link to="/" style={{ color: '#ffffff' }}>Home</Link>
 			<Link to="/login" style={{ color: '#ffffff' }}>Login</Link>
+			<Link to="/register" style={{ color: '#ffffff' }}>Register</Link>
+			{user && <Link to="/admin" style={{ color: '#ffffff' }}>Admin</Link>}
 			{user ? (
 				<button onClick={handleSignOut} style={{ marginLeft: 'auto' }}>
 					Sign out
@@ -45,6 +49,8 @@ export default function App() {
 			<Routes>
 				<Route path="/" element={<Home />} />
 				<Route path="/login" element={<Login />} />
+				<Route path="/register" element={<Register />} />
+				<Route path="/admin" element={<AdminDashboardPage />} />
 				<Route path="*" element={<div>Not Found</div>} />
 			</Routes>
 		</div>
