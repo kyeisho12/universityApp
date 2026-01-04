@@ -9,7 +9,6 @@ export default function Login() {
 	const { user, signIn, signUp } = useAuth()
 	const navigate = useNavigate()
 	const [mode, setMode] = useState('signin') // 'signin' | 'signup'
-	const [userType, setUserType] = useState('student') // 'student' | 'admin'
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
 	const [error, setError] = useState('')
@@ -19,10 +18,15 @@ export default function Login() {
 		if (user) navigate('/')
 	}, [user, navigate])
 
-	function validateEmail(email, type) {
-		const domain = type === 'student' ? STUDENT_DOMAIN : ADMIN_DOMAIN
-		if (!email.endsWith(domain)) {
-			return `Email must end with ${domain}`
+	function getUserTypeFromEmail(email) {
+		if (email.endsWith(ADMIN_DOMAIN)) return 'admin'
+		if (email.endsWith(STUDENT_DOMAIN)) return 'student'
+		return null
+	}
+
+	function validateEmail(email) {
+		if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
+			return `Email must end with ${STUDENT_DOMAIN} or ${ADMIN_DOMAIN}`
 		}
 		return null
 	}
@@ -32,7 +36,7 @@ export default function Login() {
 		setError('')
 
 		// Validate email domain
-		const validationError = validateEmail(email, userType)
+		const validationError = validateEmail(email)
 		if (validationError) {
 			setError(validationError)
 			return
@@ -45,7 +49,11 @@ export default function Login() {
 			} else {
 				await signUp(email, password)
 			}
-			navigate('/')
+			
+			// Redirect based on email domain
+			const userType = getUserTypeFromEmail(email)
+			const redirectPath = userType === 'admin' ? '/admin' : '/'
+			navigate(redirectPath)
 		} catch (err) {
 			setError(err.message || 'Something went wrong')
 		} finally {
@@ -62,22 +70,10 @@ export default function Login() {
 				<br />- Admin: anything@admin.tsu.edu.ph
 				<br />
 				<br />
-				<strong>Example:</strong> g.francisco00050@student.tsu.edu.ph
+				<strong>Example (Admin):</strong> testadmin@admin.tsu.edu.ph
 			</p>
 
 			<form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-				<label>
-					User Type
-					<select
-						value={userType}
-						onChange={(e) => setUserType(e.target.value)}
-						style={{ width: '100%', padding: 8 }}
-					>
-						<option value="student">Student</option>
-						<option value="admin">Admin</option>
-					</select>
-				</label>
-
 				<label>
 					Email
 					<input
