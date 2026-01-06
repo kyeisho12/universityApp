@@ -2,23 +2,35 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { useAuthContext } from './AuthContext'
 import { getStudentProfile, upsertStudentProfile } from '../services/studentService'
 
-type StudentProfile = Record<string, unknown> | null
+export interface StudentProfile {
+  id: string
+  email: string
+  full_name?: string
+  university?: string
+  major?: string
+  graduation_year?: string | number
+  phone?: string
+  bio?: string
+  [key: string]: unknown
+}
+
+type StudentProfileData = StudentProfile | null
 
 type StudentContextValue = {
-  profile: StudentProfile
+  profile: StudentProfileData
   profileError: unknown
   isProfileLoading: boolean
   isProfileComplete: boolean
-  refreshProfile: () => Promise<StudentProfile>
-  saveProfile: (updates: Record<string, unknown>) => Promise<{ data: StudentProfile; error: unknown }>
+  refreshProfile: () => Promise<StudentProfileData>
+  saveProfile: (updates: Record<string, unknown>) => Promise<{ data: StudentProfileData; error: unknown }>
 }
 
 const StudentContext = createContext<StudentContextValue | undefined>(undefined)
 
-function isProfileComplete(profile: StudentProfile) {
+function isProfileComplete(profile: StudentProfileData) {
   const requiredFields = ['full_name', 'university', 'major', 'graduation_year']
   return requiredFields.every((field) => {
-    const value = (profile as Record<string, unknown> | null)?.[field]
+    const value = (profile as StudentProfile | null)?.[field]
     if (value === null || value === undefined) return false
     if (typeof value === 'string') return value.trim().length > 0
     return true
@@ -27,7 +39,7 @@ function isProfileComplete(profile: StudentProfile) {
 
 export function StudentProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthContext()
-  const [profile, setProfile] = useState<StudentProfile>(null)
+  const [profile, setProfile] = useState<StudentProfileData>(null)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState<unknown>(null)
 
@@ -76,9 +88,9 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     }
     const { data, error } = await upsertStudentProfile(payload)
     setProfileError(error ?? null)
-    if (!error) setProfile((data as StudentProfile) ?? payload)
+    if (!error) setProfile((data as StudentProfileData) ?? payload)
     setIsProfileLoading(false)
-    return { data: (data as StudentProfile) ?? null, error }
+    return { data: (data as StudentProfileData) ?? null, error }
   }
 
   const value = useMemo(

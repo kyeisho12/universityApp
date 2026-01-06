@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react'
-import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { useStudent } from './context/StudentContext'
 import Login from './components/auth/Login'
@@ -7,50 +7,6 @@ import Register from './components/auth/Register'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
-
-function NavBar() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
-
-  async function handleSignOut() {
-    await signOut()
-    navigate('/login')
-  }
-
-  const isAdmin = Boolean(user?.email?.endsWith('@admin.tsu.edu.ph'))
-
-  return (
-    <nav className="flex items-center gap-4 border-b border-neutral-800 bg-black px-4 py-3 text-white">
-      <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/">
-        Home
-      </Link>
-      {user && (
-        <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/">
-          Dashboard
-        </Link>
-      )}
-      <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/login">
-        Login
-      </Link>
-      <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/register">
-        Register
-      </Link>
-      {user && isAdmin && (
-        <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/admin">
-          Admin
-        </Link>
-      )}
-      {user ? (
-        <button
-          onClick={handleSignOut}
-          className="ml-auto rounded-md border border-white/30 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-95"
-        >
-          Sign out
-        </button>
-      ) : null}
-    </nav>
-  )
-}
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -69,7 +25,6 @@ function RequireProfile({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <NavBar />
       <main className="mx-auto max-w-6xl px-4 py-6">
         <Routes>
           <Route

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import { isCurrentUserAdmin, getUserStats } from '../services/adminService'
 import UserManagement from '../components/admin/UserManagement'
 import JobManagement from '../components/admin/JobManagement'
@@ -27,6 +28,7 @@ const AdminDashboardPage = () => {
     recruiters: 0,
   })
   const navigate = useNavigate()
+  const { signOut } = useAuth()
 
   useEffect(() => {
     checkAdminAccess()
@@ -70,6 +72,11 @@ const AdminDashboardPage = () => {
     }
   }
 
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login')
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 text-neutral-700">
@@ -92,10 +99,10 @@ const AdminDashboardPage = () => {
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           </div>
           <button
-            onClick={() => navigate('/')}
+            onClick={handleSignOut}
             className="inline-flex items-center justify-center rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-95"
           >
-            Back to Home
+            Sign out
           </button>
         </div>
       </header>

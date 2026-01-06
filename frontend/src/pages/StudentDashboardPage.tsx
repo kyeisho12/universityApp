@@ -1,6 +1,51 @@
 import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useStudent } from '../context/StudentContext'
+
+function NavBar() {
+  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/login')
+  }
+
+  const isAdmin = Boolean(user?.email?.endsWith('@admin.tsu.edu.ph'))
+
+  return (
+    <nav className="flex items-center gap-4 border-b border-neutral-800 bg-black px-4 py-3 text-white">
+      <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/">
+        Home
+      </Link>
+      {user && (
+        <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/">
+          Dashboard
+        </Link>
+      )}
+      <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/login">
+        Login
+      </Link>
+      <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/register">
+        Register
+      </Link>
+      {user && isAdmin && (
+        <Link className="text-sm font-medium text-white transition hover:text-indigo-200" to="/admin">
+          Admin
+        </Link>
+      )}
+      {user ? (
+        <button
+          onClick={handleSignOut}
+          className="ml-auto rounded-md border border-white/30 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-95"
+        >
+          Sign out
+        </button>
+      ) : null}
+    </nav>
+  )
+}
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()
@@ -8,7 +53,9 @@ export default function StudentDashboardPage() {
   const [showProfile, setShowProfile] = useState(false)
 
   return (
-    <div className="space-y-6">
+    <>
+      <NavBar />
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
       <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200/60">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -65,6 +112,7 @@ export default function StudentDashboardPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }
