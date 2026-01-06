@@ -1,0 +1,61 @@
+System features
+| Backlog ID | Feature                            | Description                                                   | Priority |
+| ---------- | ---------------------------------- | ------------------------------------------------------------- | -------- |
+| PB-01      | User Authentication                | Student and Admin login, registration, and role management    | High     |
+| PB-02      | Student Profile Management         | Manage educational background, skills, and career preferences | High     |
+| PB-03      | Résumé / CV Management (F2)        | Create, upload, download résumés and cover letters            | High     |
+| PB-04      | Job & Internship Listings (F1)     | View and apply for job and internship opportunities           | High     |
+| PB-05      | Employer Company Profiles (F4)     | Manage partner company profiles and postings                  | Medium   |
+| PB-06      | Career Events & Announcements (F3) | Register for seminars, workshops, and job fairs               | Medium   |
+| PB-07      | AI Mock Interview Interface        | Video conferencing with audio capture                         | High     |
+| PB-08      | Whisper Speech-to-Text             | Transcribe student interview responses                        | High     |
+| PB-09      | Phi-3 Follow-Up Questions          | Generate adaptive follow-up interview questions               | High     |
+| PB-10      | RoBERTa Evaluation                 | Score responses using semantic similarity                     | High     |
+| PB-11      | Zero-Shot Learning (STAR)          | Handle unseen interview questions                             | High     |
+| PB-12      | Student Analytics (F5)             | Track applications, interviews, and event participation       | Medium   |
+| PB-13      | Admin Reports & Export             | Generate reports and performance metrics                      | Medium   |
+
+Sprint 1
+| Task ID | Task Description                           | Status      |
+| ------- | ------------------------------------------ | ----------- |
+| S1-01   | Design system architecture                 | Not done    |
+| S1-02   | Implement student and admin authentication | In progress |
+| S1-03   | Create student profile management          | In progress |
+| S1-04   | Admin account verification                 | In progress |
+| S1-05   | Initial UI design (client & admin side)    | Not done    |
+
+
+Sprint 2
+| Task ID | Task Description                   |
+| ------- | ---------------------------------- |
+| S2-01   | Job & internship listings (F1)     |
+| S2-02   | Employer/company profiles (F4)     |
+| S2-03   | Résumé upload & download (F2)      |
+| S2-04   | Career events & announcements (F3) |
+| S2-05   | Event registration tracking        |
+
+Sprint 3
+| Task ID | Task Description                        |
+| ------- | --------------------------------------- |
+| S3-01   | Video interview interface               |
+| S3-02   | Whisper AI speech-to-text integration   |
+| S3-03   | RoBERTa response evaluation             |
+| S3-04   | Zero-Shot Learning for unseen questions |
+| S3-05   | STAR method handling (no ideal answers) |
+| S3-06   | Phi-3 adaptive follow-up questions      |
+
+
+Sprint 4
+| Task ID | Task Description                  |
+| ------- | --------------------------------- |
+| S4-01   | Functional testing (ISO 25010)    |
+| S4-02   | Functional suitability evaluation |
+| S4-03   | Confusion matrix accuracy testing |
+| S4-04   | Admin analytics & reporting       |
+| S4-05   | UI improvements and bug fixing    |
+| S4-06   | Final documentation               |
+
+
+
+
+
