@@ -45,7 +45,16 @@ export default function Login() {
 			} else {
 				await signUp(email, password)
 			}
-			navigate('/')
+			// Redirect based on user role
+			const isStudent = email.endsWith(STUDENT_DOMAIN)
+			const isAdmin = email.endsWith(ADMIN_DOMAIN)
+			if (isStudent) {
+				navigate('/student')
+			} else if (isAdmin) {
+				navigate('/admin')
+			} else {
+				navigate('/') // fallback
+			}
 		} catch (err) {
 			setError(err.message || 'Something went wrong')
 		} finally {

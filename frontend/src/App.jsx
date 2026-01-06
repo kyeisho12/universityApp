@@ -2,6 +2,8 @@ import React from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Login from './components/auth/Login'
+import StudentPage from './components/student/StudentPage'
+import AdminPage from './components/admin/AdminPage'
 
 function Home() {
 	const { user } = useAuth()
@@ -45,6 +47,8 @@ export default function App() {
 			<Routes>
 				<Route path="/" element={<Home />} />
 				<Route path="/login" element={<Login />} />
+				<Route path="/student" element={<StudentPage />} />
+				<Route path="/admin" element={<AdminPage />} />
 				<Route path="*" element={<div>Not Found</div>} />
 			</Routes>
 		</div>
