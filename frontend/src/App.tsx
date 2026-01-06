@@ -25,7 +25,7 @@ function RequireProfile({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto px-4 py-6">
         <Routes>
           <Route
             path="/"
