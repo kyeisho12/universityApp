@@ -1,150 +1,342 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
 const STUDENT_DOMAIN = '@student.tsu.edu.ph'
 const ADMIN_DOMAIN = '@admin.tsu.edu.ph'
 
-type Mode = 'signin' | 'signup'
+type View = 'login' | 'signup'
 
-type AuthError = string | null
+type LoginFormProps = {
+  onLogin: (email: string, password: string) => Promise<void>
+  onSignUpClick: () => void
+}
+
+type SignUpFormProps = {
+  onSignUp: (email: string, password: string, fullName: string) => Promise<void>
+  onBack: () => void
+}
+
+function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError('')
+
+    if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
+      setError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      await onLogin(email, password)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login failed'
+      setError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md">
+      <div className="flex items-center gap-3 mb-12">
+        <div className="w-16 h-16 bg-[#1B2744] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-[#1B2744] text-xl font-bold font-serif leading-tight">TSU Career</h1>
+          <p className="text-gray-400 text-sm font-medium">Management System</p>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-[#1B2744] text-4xl font-bold mb-2 italic font-serif">Welcome back</h2>
+        <p className="text-gray-500 text-base">Sign in to access your portal</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-800">Email Address</label>
+          <input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-2xl border-2 border-gray-200 px-5 py-3.5 placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
+            required
+          />
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+        </div>
+
+        <div className="space-y-2 relative">
+          <label className="block text-sm font-medium text-gray-800">Password</label>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-2xl border-2 border-gray-200 px-5 py-3.5 placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700 pr-12"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute right-4 top-10 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+
+        <div className="flex justify-between items-center text-sm">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-5 h-5 text-[#1B2744] border-2 border-gray-300 rounded focus:ring-0 accent-[#1B2744] cursor-pointer"
+            />
+            <span className="text-gray-600">Remember me</span>
+          </label>
+          <button type="button" className="text-gray-600 hover:text-[#1B2744] transition-colors font-medium">
+            Forgot password?
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-[#1B2744] text-white py-3.5 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-[#131d33] transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-8"
+        >
+          {isLoading ? (
+            <span className="border-2 border-white/30 border-t-white rounded-full w-5 h-5 animate-spin"></span>
+          ) : (
+            <>
+              Sign In <ArrowRight size={20} strokeWidth={2.5} />
+            </>
+          )}
+        </button>
+
+        <div className="mt-6 text-center text-sm text-gray-600">
+          Don't have an account?{' '}
+          <button onClick={onSignUpClick} className="text-[#1B2744] font-semibold hover:underline">
+            Sign Up
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError('')
+
+    if (!fullName.trim()) {
+      setError('Full name is required')
+      return
+    }
+    if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
+      setError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      await onSignUp(email, password, fullName)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign up failed'
+      setError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md">
+      <div className="flex items-center gap-3 mb-12">
+        <div className="w-16 h-16 bg-[#1B2744] rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-[#1B2744] text-xl font-bold font-serif leading-tight">TSU Career</h1>
+          <p className="text-gray-400 text-sm font-medium">Management System</p>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-[#1B2744] text-4xl font-bold mb-2 italic font-serif">Create Account</h2>
+        <p className="text-gray-500 text-base">Sign up to get started</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-800">Full Name</label>
+          <input
+            type="text"
+            placeholder="Enter your full name"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full rounded-2xl border-2 border-gray-200 px-5 py-3.5 placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-800">Email Address</label>
+          <input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-2xl border-2 border-gray-200 px-5 py-3.5 placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
+            required
+          />
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+        </div>
+
+        <div className="space-y-2 relative">
+          <label className="block text-sm font-medium text-gray-800">Password</label>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-2xl border-2 border-gray-200 px-5 py-3.5 placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700 pr-12"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute right-4 top-10 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+
+        <div className="space-y-2 relative">
+          <label className="block text-sm font-medium text-gray-800">Confirm Password</label>
+          <input
+            type={showConfirmPassword ? 'text' : 'password'}
+            placeholder="Confirm your password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full rounded-2xl border-2 border-gray-200 px-5 py-3.5 placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700 pr-12"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
+            className="absolute right-4 top-10 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-[#1B2744] text-white py-3.5 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-[#131d33] transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-8"
+        >
+          {isLoading ? (
+            <span className="border-2 border-white/30 border-t-white rounded-full w-5 h-5 animate-spin"></span>
+          ) : (
+            <>
+              Create Account <ArrowRight size={20} strokeWidth={2.5} />
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="mt-6 text-center text-sm text-gray-600">
+        Already have an account?{' '}
+        <button onClick={onBack} className="text-[#1B2744] font-semibold hover:underline">
+          Sign In
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function Login() {
   const { user, signIn, signUp } = useAuth()
   const navigate = useNavigate()
-  const [mode, setMode] = useState<Mode>('signin')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<AuthError>('')
-  const [submitting, setSubmitting] = useState(false)
+  const [view, setView] = useState<View>('login')
 
   useEffect(() => {
     if (user) navigate('/')
   }, [user, navigate])
 
-  function getUserTypeFromEmail(nextEmail: string) {
-    if (nextEmail.endsWith(ADMIN_DOMAIN)) return 'admin'
-    if (nextEmail.endsWith(STUDENT_DOMAIN)) return 'student'
-    return null
+  const handleLogin = async (email: string, password: string) => {
+    await signIn(email, password)
+    const redirectPath = email.endsWith(ADMIN_DOMAIN) ? '/admin' : '/'
+    navigate(redirectPath)
   }
 
-  function validateEmail(nextEmail: string) {
-    if (!nextEmail.endsWith(STUDENT_DOMAIN) && !nextEmail.endsWith(ADMIN_DOMAIN)) {
-      return `Email must end with ${STUDENT_DOMAIN} or ${ADMIN_DOMAIN}`
-    }
-    return null
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-
-    const validationError = validateEmail(email)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      if (mode === 'signin') {
-        await signIn(email, password)
-      } else {
-        await signUp(email, password)
-      }
-
-      const userType = getUserTypeFromEmail(email)
-      const redirectPath = userType === 'admin' ? '/admin' : '/'
-      navigate(redirectPath)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
-      setError(message)
-    } finally {
-      setSubmitting(false)
-    }
+  const handleSignUp = async (email: string, password: string, _fullName: string) => {
+    await signUp(email, password)
+    const redirectPath = email.endsWith(ADMIN_DOMAIN) ? '/admin' : '/'
+    navigate(redirectPath)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-600 to-fuchsia-600 px-4 py-12">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 lg:flex-row lg:items-center">
-        <div className="text-white lg:w-5/12">
-          <p className="mb-3 inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/90">
-            Secure Access
-          </p>
-          <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
-            Welcome back. Sign {mode === 'signin' ? 'in' : 'up'} to continue.
-          </h1>
-          <p className="mt-4 text-sm text-white/80">
-            Use your university-issued email. Admins must use the {ADMIN_DOMAIN} domain and students the {STUDENT_DOMAIN} domain.
-          </p>
-          <div className="mt-6 space-y-2 rounded-2xl bg-white/10 p-4 text-sm backdrop-blur">
-            <p className="font-semibold text-white">Allowed formats</p>
-            <ul className="space-y-1 text-white/80">
-              <li>Student: anything{STUDENT_DOMAIN}</li>
-              <li>Admin: anything{ADMIN_DOMAIN}</li>
-              <li className="text-white/70">Example admin: testadmin{ADMIN_DOMAIN}</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="w-full lg:w-7/12">
-          <div className="rounded-2xl bg-white p-8 shadow-2xl shadow-indigo-500/20">
-            <div className="mb-6 flex gap-3">
-              <button
-                onClick={() => setMode('signin')}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'signin' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => setMode('signup')}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'signup' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'}`}
-              >
-                Sign Up
-              </button>
-            </div>
-
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <label className="block space-y-1 text-sm font-semibold text-neutral-800">
-                <span>Email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={`name${STUDENT_DOMAIN}`}
-                  required
-                  className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                />
-              </label>
-
-              <label className="block space-y-1 text-sm font-semibold text-neutral-800">
-                <span>Password</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                />
-              </label>
-
-              {error ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
-                </div>
-              ) : null}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {submitting ? 'Working...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
-              </button>
-            </form>
-          </div>
-        </div>
+    <div className="min-h-screen bg-neutral-50">
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-center px-4 py-16">
+        {view === 'login' ? (
+          <LoginForm
+            onLogin={handleLogin}
+            onSignUpClick={() => setView('signup')}
+          />
+        ) : (
+          <SignUpForm
+            onSignUp={handleSignUp}
+            onBack={() => setView('login')}
+          />
+        )}
       </div>
     </div>
   )
