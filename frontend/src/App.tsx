@@ -6,6 +6,7 @@ import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
+import JobsPage from './pages/JobsPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -48,6 +49,16 @@ export default function App() {
             }
           />
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route
+            path="/jobs"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <JobsPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
           <Route path="*" element={<div className="text-sm text-neutral-600">Not Found</div>} />
         </Routes>
       </main>
