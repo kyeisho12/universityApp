@@ -11,18 +11,72 @@ import {
   ChevronRight,
   Upload,
   Eye,
+  X,
 } from "lucide-react";
+import { Sidebar } from "../common/Sidebar";
 
 export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
   const userName = email.split("@")[0];
   const userID = "2024-00001";
+  const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar (hidden on small screens) */}
+      <div className="hidden md:block">
+        <Sidebar
+          userName={userName}
+          userID={userID}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          activeNav="dashboard"
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden"> 
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <Sidebar
+                userName={userName}
+                userID={userID}
+                onLogout={() => {
+                  setMobileOpen(false);
+                  onLogout();
+                }}
+                onNavigate={(r) => {
+                  setMobileOpen(false);
+                  onNavigate(r);
+                }}
+                activeNav="dashboard"
+              />
+            </div>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="flex-1 overflow-auto flex flex-col">
+      <div className="flex-1 flex flex-col">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-10 gap-3">
+          <div className="md:hidden mr-2">
+            <button
+              aria-label="Open sidebar"
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              <LayoutGrid className="w-5 h-5 text-gray-700" />
+            </button>
+          </div>
           <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md">
             <input
               type="text"
@@ -34,7 +88,7 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-auto">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
           {/* Welcome Section */}
           <div className="mb-3 sm:mb-4 md:mb-5 lg:mb-6">
             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-0.5 sm:mb-1">

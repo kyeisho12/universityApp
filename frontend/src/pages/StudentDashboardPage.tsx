@@ -18,11 +18,13 @@ export default function StudentDashboardPage() {
 
   return (
     <>
-      <Dashboard 
-        email={user?.email || ''} 
-        onLogout={handleLogout} 
-        onNavigate={handleNavigate}
-      />
+      <div className="-mx-4 md:-mx-6 -my-6">
+        <Dashboard 
+          email={user?.email || ''} 
+          onLogout={handleLogout} 
+          onNavigate={handleNavigate}
+        />
+      </div>
     </>
   )
 }
