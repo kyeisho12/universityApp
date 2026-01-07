@@ -140,3 +140,4 @@ function NavItem({ icon, label, badge, active, onClick }: { icon: React.ReactNod
     </button>
   );
 }
+

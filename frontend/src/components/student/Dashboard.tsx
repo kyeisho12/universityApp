@@ -80,7 +80,7 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
           <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md">
             <input
               type="text"
-              placeholder="Search jobs, events..."
+              placeholder="Search jobs, events, resources..."
               className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:bg-white focus:ring-0 outline-none placeholder-gray-500"
             />
           </div>
@@ -299,3 +299,4 @@ function EventItem({ title, type, date }: { title: string; type: string; date: s
     </div>
   );
 }
+

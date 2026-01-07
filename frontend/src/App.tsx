@@ -26,7 +26,7 @@ function RequireProfile({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <main className="mx-auto px-4 py-6">
+      <main className="mx-auto">
         <Routes>
           <Route
             path="/"
@@ -59,7 +59,7 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="*" element={<div className="text-sm text-neutral-600">Not Found</div>} />
+          <Route path="*" element={<div className="px-6 py-8 text-sm text-neutral-600">Not Found</div>} />
         </Routes>
       </main>
     </div>

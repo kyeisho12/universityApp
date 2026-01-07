@@ -13,18 +13,19 @@ export default function StudentDashboardPage() {
   }
 
   function handleNavigate(route: string) {
-    navigate(`/${route}`)
+    // Handle special case for dashboard which maps to root path
+    if (route === 'dashboard') {
+      navigate('/')
+    } else {
+      navigate(`/${route}`)
+    }
   }
 
   return (
-    <>
-      <div className="-mx-4 md:-mx-6 -my-6">
-        <Dashboard 
-          email={user?.email || ''} 
-          onLogout={handleLogout} 
-          onNavigate={handleNavigate}
-        />
-      </div>
-    </>
+    <Dashboard 
+      email={user?.email || ''} 
+      onLogout={handleLogout} 
+      onNavigate={handleNavigate}
+    />
   )
 }

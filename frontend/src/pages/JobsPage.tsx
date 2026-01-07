@@ -8,6 +8,8 @@ import {
   Clock,
   Filter,
   ArrowRight,
+  LayoutGrid,
+  X,
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
@@ -17,6 +19,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const userID = "2024-00001";
   const [selectedJob, setSelectedJob] = useState(null);
   const [saved, setSaved] = useState(new Set());
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const jobs = [
     {
@@ -100,32 +103,74 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const currentJob = selectedJob ? jobs.find((j) => j.id === selectedJob) : jobs[0];
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar
-        userName={userName}
-        userID={userID}
-        onLogout={onLogout}
-        onNavigate={onNavigate}
-        activeNav="jobs"
-      />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar (hidden on small screens) */}
+      <div className="hidden md:block">
+        <Sidebar
+          userName={userName}
+          userID={userID}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          activeNav="jobs"
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden"> 
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <Sidebar
+                userName={userName}
+                userID={userID}
+                onLogout={() => {
+                  setMobileOpen(false);
+                  onLogout();
+                }}
+                onNavigate={(r) => {
+                  setMobileOpen(false);
+                  onNavigate(r);
+                }}
+                activeNav="jobs"
+              />
+            </div>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex flex-col">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex-1 max-w-md">
+        <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-10 gap-3">
+          <div className="md:hidden mr-2">
+            <button
+              aria-label="Open sidebar"
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              <LayoutGrid className="w-5 h-5 text-gray-700" />
+            </button>
+          </div>
+          <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md">
             <input
               type="text"
               placeholder="Search jobs, events, resources..."
               className="w-full px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:bg-white focus:ring-0 outline-none placeholder-gray-500"
             />
           </div>
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900" />
+          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0" />
         </div>
 
         {/* Content Area */}
-        <div className="p-8">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
           {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -350,7 +395,12 @@ export default function JobsPage() {
   }
 
   function handleNavigate(route: string) {
-    navigate(route)
+    // Handle special case for dashboard which maps to root path
+    if (route === 'dashboard') {
+      navigate('/')
+    } else {
+      navigate(`/${route}`)
+    }
   }
 
   return (
