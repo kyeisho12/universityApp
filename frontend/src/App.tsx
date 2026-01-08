@@ -48,7 +48,6 @@ export default function App() {
               </RequireAuth>
             }
           />
-<<<<<<< HEAD
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route
             path="/jobs"
@@ -61,20 +60,6 @@ export default function App() {
             }
           />
           <Route path="*" element={<div className="px-6 py-8 text-sm text-neutral-600">Not Found</div>} />
-=======
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route
-            path="/jobs"
-            element={
-              <RequireAuth>
-                <RequireProfile>
-                  <JobsPage />
-                </RequireProfile>
-              </RequireAuth>
-            }
-          />
-          <Route path="*" element={<div className="px-6 py-8 text-sm text-neutral-600">Not Found</div>} />
->>>>>>> d12e12a76763d877491724878232fb145cb3f8a7
         </Routes>
       </main>
     </div>
