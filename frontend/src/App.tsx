@@ -4,8 +4,9 @@ import { useAuth } from './hooks/useAuth'
 import { useStudent } from './context/StudentContext'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
-import AdminPage from './pages/AdminPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
+import JobsPage from './pages/JobsPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -25,7 +26,7 @@ function RequireProfile({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <main className="mx-auto min-h-screen">
+      <main className="mx-auto">
         <Routes>
           <Route
             path="/"
@@ -47,8 +48,33 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="*" element={<div className="text-sm text-neutral-600">Not Found</div>} />
+<<<<<<< HEAD
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route
+            path="/jobs"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <JobsPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route path="*" element={<div className="px-6 py-8 text-sm text-neutral-600">Not Found</div>} />
+=======
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route
+            path="/jobs"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <JobsPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route path="*" element={<div className="px-6 py-8 text-sm text-neutral-600">Not Found</div>} />
+>>>>>>> d12e12a76763d877491724878232fb145cb3f8a7
         </Routes>
       </main>
     </div>
