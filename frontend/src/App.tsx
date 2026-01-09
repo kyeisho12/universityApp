@@ -4,7 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { useStudent } from './context/StudentContext'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
-import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminPage from './pages/AdminPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
 import JobsPage from './pages/JobsPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
@@ -48,7 +48,7 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route
             path="/jobs"
             element={
