@@ -2,9 +2,10 @@
 import {
   LayoutGrid,
   Briefcase,
-  FileText,
-  Calendar,
-  Zap,
+  ChartColumn,
+  MessageSquare,
+  Users,
+  Settings,
   LogOut,
   User,
 } from "lucide-react";
@@ -73,28 +74,34 @@ export const AdminNavbar = ({
         />
         <NavItem
           icon={<Briefcase className="w-5 h-5" />}
-          label="Job & Internships"
-          active={activeNav === "jobs"}
-          onClick={() => handleNavClick("jobs")}
+          label="Employer Partners"
+          active={activeNav === "admin/employer_partners"}
+          onClick={() => handleNavClick("admin/employer_partners")}
         />
         <NavItem
-          icon={<FileText className="w-5 h-5" />}
-          label="My Résumés"
-          active={activeNav === "resumes"}
-          onClick={() => handleNavClick("resumes")}
+          icon={<ChartColumn className="w-5 h-5" />}
+          label="Student Analytics"
+          active={activeNav === "admin/student_analytics"}
+          onClick={() => handleNavClick("admin/student_analytics")}
         />
         <NavItem
-          icon={<Calendar className="w-5 h-5" />}
-          label="Career Events"
-          active={activeNav === "events"}
-          onClick={() => handleNavClick("events")}
-        />
-        <NavItem
-          icon={<Zap className="w-5 h-5" />}
-          label="Mock Interview"
+          icon={<MessageSquare className="w-5 h-5" />}
+          label="Mock Interviews"
           badge="AI"
-          active={activeNav === "interview"}
-          onClick={() => handleNavClick("interview")}
+          active={activeNav === "admin/mock_interview"}
+          onClick={() => handleNavClick("admin/mock_interview")}
+        />
+        <NavItem
+          icon={<Users className="w-5 h-5" />}
+          label="Manage Students"
+          active={activeNav === "admin/manage_students"}
+          onClick={() => handleNavClick("admin/manage_students")}
+        />
+        <NavItem
+          icon={<Settings className="w-5 h-5" />}
+          label="Settings"
+          active={activeNav === "settings"}
+          onClick={() => handleNavClick("settings")}
         />
       </nav>
 

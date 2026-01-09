@@ -27,9 +27,9 @@ export default function AdminPage() {
   }
 
   function handleNavigate(route: string) {
-    // Handle special case for dashboard which maps to root path
+    // Handle special case for dashboard which maps to admin path
     if (route === 'dashboard') {
-      navigate('/')
+      navigate('/admin')
     } else {
       navigate(`/${route}`)
     }
