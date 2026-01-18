@@ -4,10 +4,15 @@ import { useAuth } from './hooks/useAuth'
 import { useStudent } from './context/StudentContext'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
-import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminPage from './pages/AdminPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
 import JobsPage from './pages/JobsPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
+import EmployerPartners from './components/admin/EmployerPartners'
+import StudentAnalytics from './components/admin/StudentAnalytics'
+import AdminMockInterview from './components/admin/AdminMockInterview'
+import ManageStudents from './components/admin/ManageStudents'
+import Settings from './pages/Settings'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -48,13 +53,67 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin" element={<RequireAuth>
+                <RequireProfile>
+                  <AdminPage />
+                </RequireProfile>
+              </RequireAuth>} />
           <Route
             path="/jobs"
             element={
               <RequireAuth>
                 <RequireProfile>
                   <JobsPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/employer_partners"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <EmployerPartners />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/student_analytics"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <StudentAnalytics />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/mock_interview"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <AdminMockInterview />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/manage_students"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <ManageStudents />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <Settings />
                 </RequireProfile>
               </RequireAuth>
             }

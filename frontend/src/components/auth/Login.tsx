@@ -307,10 +307,6 @@ export default function Login() {
   const navigate = useNavigate()
   const [view, setView] = useState<View>('login')
 
-  useEffect(() => {
-    if (user) navigate('/')
-  }, [user, navigate])
-
   const handleLogin = async (email: string, password: string) => {
     await signIn(email, password)
     const redirectPath = email.endsWith(ADMIN_DOMAIN) ? '/admin' : '/'
