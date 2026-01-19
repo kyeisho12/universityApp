@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../common/Sidebar";
 
-export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
-  const userName = email.split("@")[0];
+export const Dashboard = ({ email, fullName, displayName, onLogout, onNavigate }: { email: string; fullName?: string; displayName?: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
+  const userName = displayName?.trim() || fullName?.trim() || email.split("@")[0];
   const userID = "2024-00001";
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
 
