@@ -21,74 +21,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [saved, setSaved] = useState(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const jobs = [
-    {
-      id: 1,
-      title: "Software Developer Intern",
-      company: "TechCorp Philippines",
-      location: "Tarlac City",
-      type: "Internship",
-      timeAgo: "1d ago",
-      salary: "₱15,000 - ₱20,000/month",
-      description:
-        "Join our development team and work on exciting web and mobile projects. Great opportunity for fresh graduates.",
-      requirements: [
-        "JavaScript/TypeScript",
-        "React or Vue.js",
-        "Git version control",
-      ],
-      deadline: "2024-01-15",
-    },
-    {
-      id: 2,
-      title: "Junior Web Developer",
-      company: "Digital Solutions Inc.",
-      location: "Clark, Pampanga",
-      type: "Full-time",
-      timeAgo: "2d ago",
-      salary: "₱18,000 - ₱25,000/month",
-      description: "Work on cutting-edge web applications for various clients.",
-      requirements: ["HTML/CSS", "JavaScript", "Backend knowledge"],
-      deadline: "2024-01-20",
-    },
-    {
-      id: 3,
-      title: "IT Support Specialist",
-      company: "Global Tech Services",
-      location: "Remote",
-      type: "Full-time",
-      timeAgo: "3d ago",
-      salary: "₱16,000 - ₱22,000/month",
-      description: "Provide technical support and maintain company systems.",
-      requirements: ["IT Troubleshooting", "Customer Service", "Networking"],
-      deadline: "2024-01-18",
-    },
-    {
-      id: 4,
-      title: "Data Analyst Trainee",
-      company: "Analytics PH",
-      location: "Quezon City",
-      type: "Internship",
-      timeAgo: "4d ago",
-      salary: "₱12,000 - ₱18,000/month",
-      description:
-        "Learn data analysis and work with real-world datasets from partner companies.",
-      requirements: ["Excel", "SQL basics", "Attention to detail"],
-      deadline: "2024-01-22",
-    },
-    {
-      id: 5,
-      title: "Business Development Associate",
-      company: "Enterprise Solutions Corp",
-      location: "Makati City",
-      type: "Full-time",
-      timeAgo: "5d ago",
-      salary: "₱20,000 - ₱28,000/month",
-      description: "Help expand our client base and manage business relationships.",
-      requirements: ["Communication skills", "Sales experience", "Problem-solving"],
-      deadline: "2024-01-25",
-    },
-  ];
+  const jobs = [];
 
   const toggleSave = (jobId) => {
     const newSaved = new Set(saved);
@@ -103,7 +36,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const currentJob = selectedJob ? jobs.find((j) => j.id === selectedJob) : jobs[0];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Sidebar (hidden on small screens) */}
       <div className="hidden md:block">
         <Sidebar
@@ -147,9 +80,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-10 gap-3">
+        <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between z-10 gap-3 flex-shrink-0">
           <div className="md:hidden mr-2">
             <button
               aria-label="Open sidebar"
@@ -170,9 +103,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden flex flex-col">
           {/* Page Header */}
-          <div className="mb-8">
+          <div className="mb-4 sm:mb-6 md:mb-8 flex-shrink-0">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Job & Internship Listings
             </h1>
@@ -181,10 +114,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
             {/* Jobs List */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-24">
+            <div className="lg:col-span-1 flex flex-col overflow-hidden">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
                 {/* Search and Filters */}
                 <div className="space-y-4 mb-6">
                   <input
@@ -216,74 +149,82 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 </p>
 
                 {/* Jobs List */}
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {jobs.map((job) => (
-                    <button
-                      key={job.id}
-                      onClick={() => setSelectedJob(job.id)}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                        selectedJob === job.id
-                          ? "border-[#1B2744] bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <svg
-                            className="w-5 h-5 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">
-                            {job.title}
-                          </h4>
-                          <p className="text-xs text-gray-500">{job.company}</p>
-                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                            <MapPin className="w-3 h-3" />
-                            {job.location}
-                            <Clock className="w-3 h-3 ml-2" />
-                            {job.timeAgo}
+                <div className="space-y-3 flex-1 overflow-y-auto flex items-center justify-center">
+                  {jobs.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Bookmark className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 font-medium mb-2">No job listings available</p>
+                      <p className="text-gray-400 text-sm">Check back soon for new opportunities</p>
+                    </div>
+                  ) : (
+                    jobs.map((job) => (
+                      <button
+                        key={job.id}
+                        onClick={() => setSelectedJob(job.id)}
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                          selectedJob === job.id
+                            ? "border-[#1B2744] bg-gray-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                              />
+                            </svg>
                           </div>
-                          <span className="inline-block text-xs font-medium text-[#00B4D8] mt-2">
-                            {job.type}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                              {job.title}
+                            </h4>
+                            <p className="text-xs text-gray-500">{job.company}</p>
+                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                              <MapPin className="w-3 h-3" />
+                              {job.location}
+                              <Clock className="w-3 h-3 ml-2" />
+                              {job.timeAgo}
+                            </div>
+                            <span className="inline-block text-xs font-medium text-[#00B4D8] mt-2">
+                              {job.type}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSave(job.id);
+                            }}
+                            className="flex-shrink-0"
+                          >
+                            <Bookmark
+                              className={`w-5 h-5 ${
+                                saved.has(job.id)
+                                  ? "fill-gray-400 text-gray-400"
+                                  : "text-gray-400"
+                              }`}
+                            />
+                          </button>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSave(job.id);
-                          }}
-                          className="flex-shrink-0"
-                        >
-                          <Bookmark
-                            className={`w-5 h-5 ${
-                              saved.has(job.id)
-                                ? "fill-gray-400 text-gray-400"
-                                : "text-gray-400"
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Job Details */}
-            {currentJob && (
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <div className="lg:col-span-2 flex flex-col overflow-hidden">
+              {currentJob ? (
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 overflow-y-auto">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-start gap-4">
@@ -376,8 +317,16 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     <p className="text-gray-600 font-medium">{currentJob.deadline}</p>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex items-center justify-center h-full">
+                  <div className="text-center py-16">
+                    <Search className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium text-lg mb-2">No job selected</p>
+                    <p className="text-gray-400">Select a job from the list to view details</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

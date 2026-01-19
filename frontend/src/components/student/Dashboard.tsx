@@ -7,7 +7,6 @@ import {
   FileText,
   Calendar,
   Zap,
-  LogOut,
   ChevronRight,
   Upload,
   Eye,
@@ -21,7 +20,7 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Sidebar (hidden on small screens) */}
       <div className="hidden md:block">
         <Sidebar
@@ -65,9 +64,9 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-10 gap-3">
+        <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between z-10 gap-3 flex-shrink-0">
           <div className="md:hidden mr-2">
             <button
               aria-label="Open sidebar"
@@ -85,19 +84,12 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
             />
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors font-medium flex-shrink-0"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
             <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0" />
           </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto">
           {/* Welcome Section */}
           <div className="mb-3 sm:mb-4 md:mb-5 lg:mb-6">
             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-0.5 sm:mb-1">
@@ -112,22 +104,22 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-5 lg:mb-6">
             <StatCard
               icon={<Briefcase className="w-8 h-8 text-gray-400" />}
-              number="47"
+              number="0"
               label="Active Job Listings"
             />
             <StatCard
               icon={<FileText className="w-8 h-8 text-gray-400" />}
-              number="2"
+              number="0"
               label="My Résumés"
             />
             <StatCard
               icon={<Calendar className="w-8 h-8 text-gray-400" />}
-              number="3"
+              number="0"
               label="Upcoming Events"
             />
             <StatCard
               icon={<Eye className="w-8 h-8 text-gray-400" />}
-              number="4"
+              number="0"
               label="Mock Interviews"
             />
           </div>
@@ -149,42 +141,12 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
                   </button>
                 </div>
 
-                <div className="space-y-1.5 sm:space-y-2 md:space-y-3 flex-1 overflow-y-auto">
-                  <JobListingItem
-                    title="Software Developer Intern"
-                    company="TechCorp PH"
-                    location="Tarlac City"
-                    type="Internship"
-                    timeAgo="1d ago"
-                  />
-                  <JobListingItem
-                    title="Junior Web Developer"
-                    company="Digital Solutions"
-                    location="Clark, Pampanga"
-                    type="Full-time"
-                    timeAgo="2d ago"
-                  />
-                  <JobListingItem
-                    title="IT Support Specialist"
-                    company="Global Tech"
-                    location="Remote"
-                    type="Full-time"
-                    timeAgo="3d ago"
-                  />
-                  <JobListingItem
-                    title="Data Analyst Trainee"
-                    company="Analytics PH"
-                    location="Quezon City"
-                    type="Internship"
-                    timeAgo="4d ago"
-                  />
-                  <JobListingItem
-                    title="Business Development Associate"
-                    company="Enterprise Solutions Corp"
-                    location="Makati City"
-                    type="Full-time"
-                    timeAgo="5d ago"
-                  />
+                <div className="space-y-1.5 sm:space-y-2 md:space-y-3 flex-1 overflow-y-auto flex items-center justify-center">
+                  <div className="text-center py-8">
+                    <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">No job listings available yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Check back soon for new opportunities</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -225,22 +187,12 @@ export const Dashboard = ({ email, onLogout, onNavigate }: { email: string; onLo
                   <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-400" />
                 </button>
 
-                <div className="space-y-1.5 sm:space-y-2 md:space-y-3">
-                  <EventItem
-                    title="Virtual Job Fair 2024"
-                    type="Job Fair"
-                    date="Dec 15"
-                  />
-                  <EventItem
-                    title="Resume Writing Workshop"
-                    type="Workshop"
-                    date="Dec 18"
-                  />
-                  <EventItem
-                    title="Interview Skills Seminar"
-                    type="Seminar"
-                    date="Dec 20"
-                  />
+                <div className="space-y-1.5 sm:space-y-2 md:space-y-3 flex items-center justify-center flex-1">
+                  <div className="text-center py-8">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">No upcoming events</p>
+                    <p className="text-gray-400 text-xs mt-1">Events will appear here when available</p>
+                  </div>
                 </div>
               </div>
             </div>
