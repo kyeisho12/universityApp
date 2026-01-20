@@ -54,9 +54,7 @@ export default function App() {
             }
           />
           <Route path="/admin" element={<RequireAuth>
-                <RequireProfile>
-                  <AdminPage />
-                </RequireProfile>
+                <AdminPage />
               </RequireAuth>} />
           <Route
             path="/jobs"
@@ -72,9 +70,7 @@ export default function App() {
             path="/admin/employer_partners"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <EmployerPartners />
-                </RequireProfile>
+                <EmployerPartners />
               </RequireAuth>
             }
           />
@@ -82,9 +78,7 @@ export default function App() {
             path="/admin/student_analytics"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <StudentAnalytics />
-                </RequireProfile>
+                <StudentAnalytics />
               </RequireAuth>
             }
           />
@@ -92,9 +86,7 @@ export default function App() {
             path="/admin/mock_interview"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <AdminMockInterview />
-                </RequireProfile>
+                <AdminMockInterview />
               </RequireAuth>
             }
           />
@@ -102,9 +94,7 @@ export default function App() {
             path="/admin/manage_students"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <ManageStudents />
-                </RequireProfile>
+                <ManageStudents />
               </RequireAuth>
             }
           />

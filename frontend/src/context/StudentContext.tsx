@@ -11,6 +11,7 @@ export interface StudentProfile {
   graduation_year?: string | number
   phone?: string
   bio?: string
+  role?: 'student' | 'admin' | 'recruiter'
   [key: string]: unknown
 }
 
@@ -21,6 +22,7 @@ type StudentContextValue = {
   profileError: unknown
   isProfileLoading: boolean
   isProfileComplete: boolean
+  isAdmin: boolean
   refreshProfile: () => Promise<StudentProfileData>
   saveProfile: (updates: Record<string, unknown>) => Promise<{ data: StudentProfileData; error: unknown }>
 }
@@ -99,6 +101,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       profileError,
       isProfileLoading,
       isProfileComplete: isProfileComplete(profile),
+      isAdmin: (profile as StudentProfile | null)?.role === 'admin',
       refreshProfile,
       saveProfile,
     }),

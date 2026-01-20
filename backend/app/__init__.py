@@ -1,9 +1,13 @@
 from flask import Flask
 from flask_cors import CORS
+from dotenv import load_dotenv
 import os
 
 
 def create_app():
+	# Ensure environment variables from .env are loaded before any config/service imports
+	load_dotenv()
+
 	app = Flask(__name__)
 
 	# Load config
