@@ -7,6 +7,9 @@ import Register from './components/auth/Register'
 import AdminPage from './pages/AdminPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
 import JobsPage from './pages/JobsPage'
+import ResumesPage from './pages/ResumesPage'
+import EventsPage from './pages/EventsPage'
+import MockInterviewPage from './pages/MockInterviewPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
 import EmployerPartners from './components/admin/EmployerPartners'
 import StudentAnalytics from './components/admin/StudentAnalytics'
@@ -62,6 +65,36 @@ export default function App() {
               <RequireAuth>
                 <RequireProfile>
                   <JobsPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/resumes"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <ResumesPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/events"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <EventsPage />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/interview"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <MockInterviewPage />
                 </RequireProfile>
               </RequireAuth>
             }
