@@ -1,10 +1,10 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import { AdminNavbar } from "../components/common/AdminNavbar";
+import { useAuth } from "../../hooks/useAuth";
+import { AdminNavbar } from "../common/AdminNavbar";
 import { X, Search, Bell, Menu, Settings } from "lucide-react";
 
-export default function SettingsPage() {
+export default function AdminSettings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
@@ -42,7 +42,7 @@ export default function SettingsPage() {
           userID={userID}
           onLogout={handleLogout}
           onNavigate={handleNavigate}
-          activeNav="settings"
+          activeNav="admin/settings"
         />
       </div>
 
@@ -63,7 +63,7 @@ export default function SettingsPage() {
                   setMobileOpen(false);
                   handleNavigate(r);
                 }}
-                activeNav="settings"
+                activeNav="admin/settings"
               />
             </div>
             <button
