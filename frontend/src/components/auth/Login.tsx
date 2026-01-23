@@ -24,7 +24,8 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
   const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   // Load saved email if user previously selected "Remember me"
   useEffect(() => {
@@ -41,10 +42,11 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setError('')
+    setEmailError('')
+    setPasswordError('')
 
     if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
-      setError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      setEmailError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
       return
     }
 
@@ -63,7 +65,13 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed'
-      setError(message)
+      // Supabase returns a generic message for invalid credentials. Surface it by the email field to clarify login details.
+      if (message.toLowerCase().includes('invalid login credentials')) {
+        setEmailError('Invalid email or password')
+        setPasswordError('')
+      } else {
+        setPasswordError(message)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -106,7 +114,7 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
             className="w-full rounded-xl sm:rounded-2xl border-2 border-gray-200 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
             required
           />
-          {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+          {emailError && <p className="text-red-500 text-xs sm:text-sm">{emailError}</p>}
         </div>
 
         <div className="space-y-2 relative">
@@ -126,6 +134,7 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
           >
             {showPassword ? <EyeOff size={18} className="sm:w-5 sm:h-5" /> : <Eye size={18} className="sm:w-5 sm:h-5" />}
           </button>
+          {passwordError && <p className="text-red-500 text-xs sm:text-sm mt-1">{passwordError}</p>}
         </div>
 
         <div className="flex justify-between items-center text-xs sm:text-sm">
