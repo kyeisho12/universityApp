@@ -25,6 +25,12 @@ export const AdminNavbar = ({
 }) => {
   const [activeNav, setActiveNav] = React.useState<string>(initialActive || "dashboard");
 
+  React.useEffect(() => {
+    if (initialActive) {
+      setActiveNav(initialActive);
+    }
+  }, [initialActive]);
+
   const handleNavClick = (nav: string) => {
     setActiveNav(nav);
     if (onNavigate) onNavigate(nav);
