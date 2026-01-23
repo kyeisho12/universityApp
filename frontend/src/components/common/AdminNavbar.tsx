@@ -59,7 +59,7 @@ export const AdminNavbar = ({
           </div>
           <div>
             <h1 className="font-bold leading-tight">TSU Career</h1>
-            <p className="text-xs text-gray-400">Student Portal</p>
+            <p className="text-xs text-gray-400">Admin Portal</p>
           </div>
         </div>
       </div>

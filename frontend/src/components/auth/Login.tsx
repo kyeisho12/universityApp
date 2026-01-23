@@ -26,6 +26,19 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Load saved email if user previously selected "Remember me"
+  useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem('tsu_remember_email')
+      if (savedEmail) {
+        setEmail(savedEmail)
+        setRememberMe(true)
+      }
+    } catch (_) {
+      // ignore storage access errors
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
@@ -38,6 +51,16 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
     setIsLoading(true)
     try {
       await onLogin(email, password)
+      // Persist or clear remembered email based on checkbox
+      try {
+        if (rememberMe) {
+          localStorage.setItem('tsu_remember_email', email)
+        } else {
+          localStorage.removeItem('tsu_remember_email')
+        }
+      } catch (_) {
+        // ignore storage access errors
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed'
       setError(message)
