@@ -93,7 +93,6 @@ export const AdminNavbar = ({
         <NavItem
           icon={<MessageSquare className="w-5 h-5" />}
           label="Mock Interviews"
-          badge="AI"
           active={activeNav === "admin/mock_interview"}
           onClick={() => handleNavClick("admin/mock_interview")}
         />
