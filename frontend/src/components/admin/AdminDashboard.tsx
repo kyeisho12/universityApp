@@ -27,7 +27,7 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
           userID={userID}
           onLogout={onLogout}
           onNavigate={onNavigate}
-          activeNav="dashboard"
+          activeNav="admin/dashboard"
         />
       </div>
 

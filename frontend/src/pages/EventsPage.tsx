@@ -138,7 +138,7 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
         userID={userID}
         onLogout={onLogout}
         onNavigate={onNavigate}
-        activeNav="events"
+        activeNav="student/events"
       />
 
       {/* Main Content */}
@@ -297,11 +297,7 @@ export default function EventsPage() {
   }
 
   function handleNavigate(route: string) {
-    if (route === "dashboard") {
-      navigate("/");
-    } else {
-      navigate(`/${route}`);
-    }
+    navigate(`/${route}`);
   }
 
   return (

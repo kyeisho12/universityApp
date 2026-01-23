@@ -44,12 +44,7 @@ export default function StudentDashboardPage() {
   const displayName = isNameLoading ? '' : (fullName?.trim() || emailPrefix)
 
   function handleNavigate(route: string) {
-    // Handle special case for dashboard which maps to root path
-    if (route === 'dashboard') {
-      navigate('/')
-    } else {
-      navigate(`/${route}`)
-    }
+    navigate(`/${route}`);
   }
 
   return (

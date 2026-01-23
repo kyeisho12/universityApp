@@ -65,7 +65,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   setMobileOpen(false);
                   onNavigate(r);
                 }}
-                activeNav="jobs"
+                activeNav="student/jobs"
               />
             </div>
             <button
@@ -344,12 +344,7 @@ export default function JobsPage() {
   }
 
   function handleNavigate(route: string) {
-    // Handle special case for dashboard which maps to root path
-    if (route === 'dashboard') {
-      navigate('/')
-    } else {
-      navigate(`/${route}`)
-    }
+    navigate(`/${route}`);
   }
 
   return (

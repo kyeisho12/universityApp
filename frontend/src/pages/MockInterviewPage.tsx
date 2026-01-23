@@ -93,7 +93,7 @@ function MockInterviewPageContent({
           userID={userID}
           onLogout={onLogout}
           onNavigate={onNavigate}
-          activeNav="interview"
+          activeNav="student/interview"
         />
 
         {/* Main Content */}
@@ -197,7 +197,7 @@ function MockInterviewPageContent({
           userID={userID}
           onLogout={onLogout}
           onNavigate={onNavigate}
-          activeNav="interview"
+          activeNav="student/interview"
         />
 
         {/* Main Content */}
@@ -338,7 +338,7 @@ function MockInterviewPageContent({
         userID={userID}
         onLogout={onLogout}
         onNavigate={onNavigate}
-        activeNav="interview"
+        activeNav="student/interview"
       />
 
       {/* Main Content */}
@@ -477,11 +477,7 @@ export default function MockInterviewPage() {
   }
 
   function handleNavigate(route: string) {
-    if (route === "dashboard") {
-      navigate("/");
-    } else {
-      navigate(`/${route}`);
-    }
+    navigate(`/${route}`);
   }
 
   return (

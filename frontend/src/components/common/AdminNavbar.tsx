@@ -75,8 +75,8 @@ export const AdminNavbar = ({
         <NavItem
           icon={<LayoutGrid className="w-5 h-5" />}
           label="Dashboard"
-          active={activeNav === "dashboard"}
-          onClick={() => handleNavClick("dashboard")}
+          active={activeNav === "admin/dashboard"}
+          onClick={() => handleNavClick("admin/dashboard")}
         />
         <NavItem
           icon={<Briefcase className="w-5 h-5" />}
@@ -105,8 +105,8 @@ export const AdminNavbar = ({
         <NavItem
           icon={<Settings className="w-5 h-5" />}
           label="Settings"
-          active={activeNav === "settings"}
-          onClick={() => handleNavClick("settings")}
+          active={activeNav === "admin/settings"}
+          onClick={() => handleNavClick("admin/settings")}
         />
       </nav>
 

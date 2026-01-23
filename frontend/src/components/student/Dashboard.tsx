@@ -28,7 +28,7 @@ export const Dashboard = ({ email, fullName, displayName, onLogout, onNavigate }
           userID={userID}
           onLogout={onLogout}
           onNavigate={onNavigate}
-          activeNav="dashboard"
+          activeNav="student/dashboard"
         />
       </div>
 
@@ -49,7 +49,7 @@ export const Dashboard = ({ email, fullName, displayName, onLogout, onNavigate }
                   setMobileOpen(false);
                   onNavigate(r);
                 }}
-                activeNav="dashboard"
+                activeNav="student/dashboard"
               />
             </div>
             <button
@@ -134,7 +134,7 @@ export const Dashboard = ({ email, fullName, displayName, onLogout, onNavigate }
                     Recent Job Listings
                   </h2>
                   <button
-                    onClick={() => onNavigate && onNavigate("jobs")}
+                    onClick={() => onNavigate && onNavigate("student/jobs")}
                     className="text-[#00B4D8] hover:text-[#0096C7] font-medium flex items-center gap-1 text-xs sm:text-sm md:text-base whitespace-nowrap"
                   >
                     View All <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -168,7 +168,7 @@ export const Dashboard = ({ email, fullName, displayName, onLogout, onNavigate }
                   </p>
                 </div>
                 <button
-                  onClick={() => onNavigate && onNavigate("interview")}
+                  onClick={() => onNavigate && onNavigate("student/interview")}
                   className="w-full bg-white text-[#0096C7] py-1.5 sm:py-2 md:py-2.5 rounded-lg font-semibold text-xs sm:text-sm md:text-base hover:bg-blue-50 transition-colors"
                 >
                   Start Mock Interview
@@ -178,7 +178,7 @@ export const Dashboard = ({ email, fullName, displayName, onLogout, onNavigate }
               {/* Upcoming Events */}
               <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 shadow-sm border border-gray-100 flex-1 overflow-y-auto">
                 <button
-                  onClick={() => onNavigate && onNavigate("events")}
+                  onClick={() => onNavigate && onNavigate("student/events")}
                   className="w-full flex items-center justify-between mb-2 sm:mb-3 md:mb-4 hover:opacity-70 transition-opacity"
                 >
                   <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">

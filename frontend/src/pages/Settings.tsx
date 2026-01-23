@@ -21,11 +21,7 @@ export default function SettingsPage() {
   }
 
   function handleNavigate(route: string) {
-    if (route === "dashboard") {
-      navigate("/admin");
-    } else {
-      navigate(`/${route}`);
-    }
+    navigate(`/${route}`);
   }
 
   function handleSaveChanges() {
@@ -42,7 +38,7 @@ export default function SettingsPage() {
           userID={userID}
           onLogout={handleLogout}
           onNavigate={handleNavigate}
-          activeNav="settings"
+          activeNav="admin/settings"
         />
       </div>
 
@@ -63,7 +59,7 @@ export default function SettingsPage() {
                   setMobileOpen(false);
                   handleNavigate(r);
                 }}
-                activeNav="settings"
+                activeNav="admin/settings"
               />
             </div>
             <button

@@ -50,7 +50,7 @@ function ResumesPageContent({ email, onLogout, onNavigate }: ResumesPageContentP
         userID={userID}
         onLogout={onLogout}
         onNavigate={onNavigate}
-        activeNav="resumes"
+        activeNav="student/resumes"
       />
 
       {/* Main Content */}
@@ -172,11 +172,7 @@ export default function ResumesPage() {
   }
 
   function handleNavigate(route: string) {
-    if (route === "dashboard") {
-      navigate("/");
-    } else {
-      navigate(`/${route}`);
-    }
+    navigate(`/${route}`);
   }
 
   return (

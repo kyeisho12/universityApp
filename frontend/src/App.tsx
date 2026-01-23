@@ -36,8 +36,9 @@ export default function App() {
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <main className="mx-auto">
         <Routes>
+          <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
           <Route
-            path="/"
+            path="/student/dashboard"
             element={
               <RequireAuth>
                 <RequireProfile>
@@ -56,11 +57,12 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/admin" element={<RequireAuth>
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/admin/dashboard" element={<RequireAuth>
                 <AdminPage />
               </RequireAuth>} />
           <Route
-            path="/jobs"
+            path="/student/jobs"
             element={
               <RequireAuth>
                 <RequireProfile>
@@ -70,7 +72,7 @@ export default function App() {
             }
           />
           <Route
-            path="/resumes"
+            path="/student/resumes"
             element={
               <RequireAuth>
                 <RequireProfile>
@@ -80,7 +82,7 @@ export default function App() {
             }
           />
           <Route
-            path="/events"
+            path="/student/events"
             element={
               <RequireAuth>
                 <RequireProfile>
@@ -90,7 +92,7 @@ export default function App() {
             }
           />
           <Route
-            path="/interview"
+            path="/student/interview"
             element={
               <RequireAuth>
                 <RequireProfile>
@@ -132,12 +134,10 @@ export default function App() {
             }
           />
           <Route
-            path="/settings"
+            path="/admin/settings"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <Settings />
-                </RequireProfile>
+                <Settings />
               </RequireAuth>
             }
           />

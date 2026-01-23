@@ -90,12 +90,7 @@ const EmployerPartners = () => {
   }
 
   function handleNavigate(route: string) {
-    // Handle special case for dashboard which maps to admin path
-    if (route === 'dashboard') {
-      navigate('/admin')
-    } else {
-      navigate(`/${route}`)
-    }
+    navigate(`/${route}`);
   }
 
   return (

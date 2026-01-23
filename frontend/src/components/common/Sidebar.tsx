@@ -68,33 +68,33 @@ export const Sidebar = ({
         <NavItem
           icon={<LayoutGrid className="w-5 h-5" />}
           label="Dashboard"
-          active={activeNav === "dashboard"}
-          onClick={() => handleNavClick("dashboard")}
+          active={activeNav === "student/dashboard"}
+          onClick={() => handleNavClick("student/dashboard")}
         />
         <NavItem
           icon={<Briefcase className="w-5 h-5" />}
           label="Job & Internships"
-          active={activeNav === "jobs"}
-          onClick={() => handleNavClick("jobs")}
+          active={activeNav === "student/jobs"}
+          onClick={() => handleNavClick("student/jobs")}
         />
         <NavItem
           icon={<FileText className="w-5 h-5" />}
           label="My Résumés"
-          active={activeNav === "resumes"}
-          onClick={() => handleNavClick("resumes")}
+          active={activeNav === "student/resumes"}
+          onClick={() => handleNavClick("student/resumes")}
         />
         <NavItem
           icon={<Calendar className="w-5 h-5" />}
           label="Career Events"
-          active={activeNav === "events"}
-          onClick={() => handleNavClick("events")}
+          active={activeNav === "student/events"}
+          onClick={() => handleNavClick("student/events")}
         />
         <NavItem
           icon={<Zap className="w-5 h-5" />}
           label="Mock Interview"
           badge="AI"
-          active={activeNav === "interview"}
-          onClick={() => handleNavClick("interview")}
+          active={activeNav === "student/interview"}
+          onClick={() => handleNavClick("student/interview")}
         />
       </nav>
 

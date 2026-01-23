@@ -36,11 +36,7 @@ export default function AdminMockInterview() {
   }
 
   function handleNavigate(route: string) {
-    if (route === "dashboard") {
-      navigate("/admin");
-    } else {
-      navigate(`/${route}`);
-    }
+    navigate(`/${route}`);
   }
 
   return (
