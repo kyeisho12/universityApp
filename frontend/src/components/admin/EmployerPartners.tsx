@@ -155,13 +155,15 @@ const EmployerPartners = () => {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
               
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search students, employers, reports..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                />
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search students, employers, reports..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
               </div>
             </div>
 
@@ -174,12 +176,12 @@ const EmployerPartners = () => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
-          <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+          <div className="p-8">
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Employer Partners</h1>
-                <p className="text-gray-600 mt-1">Manage verified employer profiles and job postings</p>
+                <h1 className="text-4xl font-bold text-gray-900">Employer Partners</h1>
+                <p className="text-gray-500 mt-1">Manage verified employer profiles and job postings</p>
               </div>
               <button
                 onClick={() => setShowAddModal(true)}
@@ -215,19 +217,19 @@ const EmployerPartners = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                 <div className="text-3xl font-bold text-gray-900">{stats.verified}</div>
-                <div className="text-gray-600 text-sm mt-1">Total Partners</div>
+                <div className="text-sm text-gray-600 mt-1">Total Partners</div>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                 <div className="text-3xl font-bold text-gray-900">{stats.activeListings}</div>
-                <div className="text-gray-600 text-sm mt-1">Active Listings</div>
+                <div className="text-sm text-gray-600 mt-1">Active Listings</div>
               </div>
             </div>
 
             {/* Companies Table */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
