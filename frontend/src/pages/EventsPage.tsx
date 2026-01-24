@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -12,6 +12,8 @@ import {
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 
+const API_BASE_URL = "http://localhost:3001/api";
+
 type NavigateHandler = (route: string) => void;
 
 interface CareerEventsPageContentProps {
@@ -21,102 +23,82 @@ interface CareerEventsPageContentProps {
 }
 
 interface Event {
-  id: number;
-  type: string;
+  id: string;
+  event_type: string;
   title: string;
   description: string;
   date: string;
   time: string;
   location: string;
-  registered: number;
-  isRegistered: boolean;
+  registered?: number;
+  isRegistered?: boolean;
 }
 
 function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPageContentProps) {
   const userName = email.split("@")[0];
   const userID = "2024-00001";
   const [activeFilter, setActiveFilter] = useState("all");
-  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set([1]));
+  const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const events: Event[] = [
-    {
-      id: 1,
-      type: "Job Fair",
-      title: "TSU Virtual Job Fair 2024",
-      description:
-        "Connect with over 50 partner companies looking for talented graduates. Bring your résumé and prepare for on-the-spot interviews.",
-      date: "Sunday, December 15, 2024",
-      time: "9:00 AM - 5:00 PM",
-      location: "TSU Main Campus, Gymnasium",
-      registered: 245,
-      isRegistered: true,
-    },
-    {
-      id: 2,
-      type: "Workshop",
-      title: "Resume Writing Workshop",
-      description:
-        "Learn how to create an impactful résumé that stands out to employers. Includes hands-on exercises and personal feedback.",
-      date: "Wednesday, December 18, 2024",
-      time: "2:00 PM - 4:00 PM",
-      location: "CCS Building, Room 301",
-      registered: 32,
-      isRegistered: false,
-    },
-    {
-      id: 3,
-      type: "Seminar",
-      title: "Interview Skills Seminar",
-      description:
-        "Master the art of interviewing with tips from industry professionals. Covers common questions, body language, and follow-up strategies.",
-      date: "Friday, December 20, 2024",
-      time: "10:00 AM - 12:00 PM",
-      location: "Business Building, Auditorium",
-      registered: 87,
-      isRegistered: false,
-    },
-    {
-      id: 4,
-      type: "Webinar",
-      title: "Tech Industry Insights Webinar",
-      description:
-        "Join industry leaders as they discuss current trends and opportunities in the tech sector. Q&A session included.",
-      date: "Thursday, December 21, 2024",
-      time: "3:00 PM - 4:30 PM",
-      location: "Online",
-      registered: 156,
-      isRegistered: true,
-    },
-    {
-      id: 5,
-      type: "Workshop",
-      title: "LinkedIn Profile Optimization",
-      description:
-        "Build a professional LinkedIn profile that attracts recruiters. Learn best practices for keywords, endorsements, and networking.",
-      date: "Monday, December 23, 2024",
-      time: "11:00 AM - 1:00 PM",
-      location: "IT Center, Room 205",
-      registered: 64,
-      isRegistered: false,
-    },
-    {
-      id: 6,
-      type: "Announcement",
-      title: "Career Fair Registration Now Open",
-      description:
-        "Early bird registration for the upcoming career fair is now available. Register early to get priority booth access and special perks.",
-      date: "Available Now",
-      time: "Registration Deadline: December 10, 2024",
-      location: "Online Registration",
-      registered: 0,
-      isRegistered: false,
-    },
-  ];
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  async function fetchEvents() {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log("Fetching events from:", `${API_BASE_URL}/events`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`${API_BASE_URL}/events`, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      console.log("Response status:", response.status);
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch events`);
+      const data = await response.json();
+      console.log("Events data received:", data);
+      
+      // Transform API response to component format
+      const transformedEvents = (data.data || []).map((event: any) => ({
+        id: event.id,
+        event_type: event.event_type,
+        type: event.event_type, // Keep both for compatibility
+        title: event.title,
+        description: event.description,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        registered: 0, // Will be updated with real data when available
+        isRegistered: false,
+      }));
+      
+      console.log("Transformed events:", transformedEvents);
+      setEvents(transformedEvents);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError(err instanceof Error ? err.message : "Error fetching events");
+      setEvents([]); // Show empty state instead of stuck loading
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filteredEvents =
     activeFilter === "all"
       ? events
-      : events.filter((e) => e.type.toLowerCase() === activeFilter.toLowerCase());
+      : events.filter((e) => e.event_type.toLowerCase() === activeFilter.toLowerCase());
 
   const toggleRegistration = (eventId: number) => {
     const newSet = new Set(registeredEvents);
@@ -167,7 +149,7 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
 
           {/* Filter Tabs */}
           <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
-            {filterOptions.map((filter) => (
+            {["all", "job fair", "workshop", "seminar", "webinar", "announcement"].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
@@ -182,17 +164,48 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
             ))}
           </div>
 
+          {/* Error State */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-500">Loading events...</p>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && events.length === 0 && (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-500">No events found</p>
+            </div>
+          )}
+
           {/* Events Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
-            {filteredEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                isRegistered={registeredEvents.has(event.id)}
-                onToggleRegistration={() => toggleRegistration(event.id)}
-              />
-            ))}
-          </div>
+          {!loading && events.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
+              {filteredEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  isRegistered={registeredEvents.has(event.id)}
+                  onToggleRegistration={() => {
+                    const newSet = new Set(registeredEvents);
+                    if (newSet.has(event.id)) {
+                      newSet.delete(event.id);
+                    } else {
+                      newSet.add(event.id);
+                    }
+                    setRegisteredEvents(newSet);
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -231,10 +244,10 @@ function EventCard({
       <div className="flex items-start justify-between mb-4">
         <span
           className={`inline-block text-xs font-semibold px-3 py-1.5 rounded-full ${getTypeBadgeColor(
-            event.type
+            event.event_type
           )}`}
         >
-          {event.type}
+          {event.event_type}
         </span>
         {isRegistered && (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-600">
@@ -264,7 +277,7 @@ function EventCard({
           <MapPin className="w-4 h-4 text-gray-400" />
           {event.location}
         </div>
-        {event.registered > 0 && (
+        {event.registered && event.registered > 0 && (
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-gray-400" />
             {event.registered} registered
