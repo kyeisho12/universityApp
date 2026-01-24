@@ -16,8 +16,13 @@ export default function SettingsPage() {
   const userID = "2024-00001";
 
   async function handleLogout() {
-    await signOut();
-    navigate("/login");
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      navigate("/login");
+    }
   }
 
   function handleNavigate(route: string) {

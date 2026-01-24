@@ -36,8 +36,14 @@ export default function StudentDashboardPage() {
   }, [user?.id])
 
   async function handleLogout() {
-    await signOut()
-    navigate('/login')
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Still navigate to login even if logout fails
+    } finally {
+      navigate('/login')
+    }
   }
 
   const emailPrefix = user?.email?.split('@')[0] || ''

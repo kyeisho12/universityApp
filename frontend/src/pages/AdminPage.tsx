@@ -22,8 +22,13 @@ export default function AdminPage() {
   const navigate = useNavigate()
 
   async function handleLogout() {
-    await signOut()
-    navigate('/login')
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      navigate('/login')
+    }
   }
 
   function handleNavigate(route: string) {

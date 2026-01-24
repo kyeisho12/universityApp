@@ -31,8 +31,27 @@ export async function signIn(email, password) {
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut()
-  if (error) throw error
+  try {
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    if (error) throw error
+  } catch (error) {
+    // If signOut fails due to missing session, clear local storage manually
+    // This handles browser-specific storage issues
+    console.warn('SignOut error, clearing auth data:', error)
+    
+    // Clear all auth-related data from localStorage
+    const keys = Object.keys(localStorage)
+    keys.forEach(key => {
+      if (key.includes('supabase') || key.includes('auth')) {
+        localStorage.removeItem(key)
+      }
+    })
+    
+    // If it was still an actual error (not just missing session), throw it
+    if (error?.message && !error.message.includes('Auth session missing')) {
+      throw error
+    }
+  }
 }
 
 export async function getSession() {

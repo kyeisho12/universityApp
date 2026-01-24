@@ -11,5 +11,32 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    // Use a custom storage adapter that handles browser-specific issues
+    storage: {
+      getItem: (key) => {
+        try {
+          return localStorage.getItem(key)
+        } catch (error) {
+          console.warn('localStorage getItem failed:', error)
+          return null
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value)
+        } catch (error) {
+          console.warn('localStorage setItem failed:', error)
+          // Fallback to in-memory storage if localStorage fails
+        }
+      },
+      removeItem: (key) => {
+        try {
+          localStorage.removeItem(key)
+        } catch (error) {
+          console.warn('localStorage removeItem failed:', error)
+        }
+      },
+    },
   },
 })
+
