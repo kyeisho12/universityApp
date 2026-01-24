@@ -51,12 +51,12 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
     try {
       setLoading(true);
       setError(null);
-      console.log("Fetching events from:", `${API_BASE_URL}/events`);
+      console.log("Fetching events from:", `${API_BASE_URL}/events/`);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const response = await fetch(`${API_BASE_URL}/events`, {
+      const response = await fetch(`${API_BASE_URL}/events/`, {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',

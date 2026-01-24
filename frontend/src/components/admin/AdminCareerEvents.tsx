@@ -52,7 +52,7 @@ export default function AdminCareerEvents() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/events`);
+      const response = await fetch(`${API_BASE_URL}/events/`);
       if (!response.ok) throw new Error("Failed to fetch events");
       const data = await response.json();
       setEvents(data.data || []);
@@ -154,7 +154,7 @@ export default function AdminCareerEvents() {
         if (!response.ok) throw new Error("Failed to update event");
       } else {
         // Create new event
-        const response = await fetch(`${API_BASE_URL}/events`, {
+        const response = await fetch(`${API_BASE_URL}/events/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),

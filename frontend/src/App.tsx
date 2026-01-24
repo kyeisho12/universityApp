@@ -24,7 +24,7 @@ function TestEventsPage() {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    fetch('http://localhost:3001/api/events')
+    fetch('http://localhost:3001/api/events/')
       .then(r => r.json())
       .then(d => {
         setEvents(d.data || [])
@@ -69,7 +69,7 @@ function TestAdminEventsPage() {
   })
 
   const fetchEvents = () => {
-    fetch('http://localhost:3001/api/events')
+    fetch('http://localhost:3001/api/events/')
       .then(r => r.json())
       .then(d => {
         setEvents(d.data || [])
@@ -84,7 +84,7 @@ function TestAdminEventsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    fetch('http://localhost:3001/api/events', {
+    fetch('http://localhost:3001/api/events/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
