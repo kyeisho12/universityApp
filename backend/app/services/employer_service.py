@@ -1,16 +1,23 @@
-from supabase import create_client
 import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
 
 
 class EmployerService:
     """Service for handling employer/partner operations"""
 
     def __init__(self):
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
-        self.client = create_client(url, key)
+        self.url = os.getenv("SUPABASE_URL")
+        self.key = os.getenv("SUPABASE_KEY")
+        self.headers = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": "application/json"
+        }
 
     def create_employer(self, employer_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -55,13 +62,16 @@ class EmployerService:
                 "job_listings_count": 0,
             }
 
-            # Insert into Supabase
-            response = self.client.table("employers").insert(data).execute()
+            # Insert into Supabase using REST API
+            endpoint = f"{self.url}/rest/v1/employers"
+            response = requests.post(endpoint, json=data, headers=self.headers)
+            response.raise_for_status()
             
-            if response.data:
+            result_data = response.json()
+            if isinstance(result_data, list) and result_data:
                 return {
                     "success": True,
-                    "data": response.data[0],
+                    "data": result_data[0],
                     "status_code": 201
                 }
             else:
@@ -86,11 +96,14 @@ class EmployerService:
             List of all employers
         """
         try:
-            # Always fetch all employers since we removed the verified feature
-            response = self.client.table("employers").select("*").execute()
+            # Use Supabase REST API directly
+            endpoint = f"{self.url}/rest/v1/employers?select=*"
+            response = requests.get(endpoint, headers=self.headers)
+            response.raise_for_status()
             
-            data = response.data if response.data else []
+            data = response.json() if response.text else []
             print(f"[DEBUG] Fetched {len(data)} employers from Supabase")
+            logger.info(f"[DEBUG] Fetched {len(data)} employers from Supabase")
             
             return {
                 "success": True,
@@ -102,6 +115,7 @@ class EmployerService:
         except Exception as e:
             error_msg = str(e)
             print(f"[DEBUG] Error fetching employers: {error_msg}")
+            logger.error(f"[DEBUG] Error fetching employers: {error_msg}", exc_info=True)
             return {
                 "success": False,
                 "error": error_msg,
@@ -119,12 +133,15 @@ class EmployerService:
             Employer data or error response
         """
         try:
-            response = self.client.table("employers").select("*").eq("id", employer_id).execute()
+            endpoint = f"{self.url}/rest/v1/employers?id=eq.{employer_id}&select=*"
+            response = requests.get(endpoint, headers=self.headers)
+            response.raise_for_status()
             
-            if response.data:
+            data = response.json() if response.text else []
+            if data:
                 return {
                     "success": True,
-                    "data": response.data[0],
+                    "data": data[0],
                     "status_code": 200
                 }
             else:
@@ -166,12 +183,15 @@ class EmployerService:
                     "status_code": 400
                 }
 
-            response = self.client.table("employers").update(data).eq("id", employer_id).execute()
+            endpoint = f"{self.url}/rest/v1/employers?id=eq.{employer_id}"
+            response = requests.patch(endpoint, json=data, headers=self.headers)
+            response.raise_for_status()
             
-            if response.data:
+            result_data = response.json()
+            if isinstance(result_data, list) and result_data:
                 return {
                     "success": True,
-                    "data": response.data[0],
+                    "data": result_data[0],
                     "status_code": 200
                 }
             else:
@@ -199,7 +219,9 @@ class EmployerService:
             Success status or error response
         """
         try:
-            response = self.client.table("employers").delete().eq("id", employer_id).execute()
+            endpoint = f"{self.url}/rest/v1/employers?id=eq.{employer_id}"
+            response = requests.delete(endpoint, headers=self.headers)
+            response.raise_for_status()
             
             return {
                 "success": True,
@@ -227,9 +249,11 @@ class EmployerService:
         """
         try:
             # Get all employers first
-            response = self.client.table("employers").select("*").execute()
+            endpoint = f"{self.url}/rest/v1/employers?select=*"
+            response = requests.get(endpoint, headers=self.headers)
+            response.raise_for_status()
             
-            employers = response.data if response.data else []
+            employers = response.json() if response.text else []
             
             if not include_unverified:
                 employers = [e for e in employers if e.get("verified")]
@@ -276,9 +300,11 @@ class EmployerService:
             Statistics about employers
         """
         try:
-            response = self.client.table("employers").select("*").execute()
+            endpoint = f"{self.url}/rest/v1/employers?select=*"
+            response = requests.get(endpoint, headers=self.headers)
+            response.raise_for_status()
             
-            employers = response.data if response.data else []
+            employers = response.json() if response.text else []
             
             stats = {
                 "total_partners": len(employers),

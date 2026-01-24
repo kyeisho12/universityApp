@@ -3,7 +3,15 @@ from app.services.employer_service import EmployerService
 from functools import wraps
 
 employers_bp = Blueprint("employers", __name__)
-employer_service = EmployerService()
+_employer_service = None
+
+
+def get_employer_service():
+    """Lazy load employer service on first use"""
+    global _employer_service
+    if _employer_service is None:
+        _employer_service = EmployerService()
+    return _employer_service
 
 
 def require_admin(f):
@@ -25,7 +33,7 @@ def get_employers():
     """
     try:
         include_unverified = request.args.get("include_unverified", "false").lower() == "true"
-        result = employer_service.get_all_employers(include_unverified=include_unverified)
+        result = get_employer_service().get_all_employers(include_unverified=include_unverified)
         
         return jsonify(result), result.get("status_code", 200)
     
@@ -40,7 +48,7 @@ def get_employers():
 def get_employer(employer_id):
     """Get a specific employer by ID"""
     try:
-        result = employer_service.get_employer_by_id(employer_id)
+        result = get_employer_service().get_employer_by_id(employer_id)
         return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
@@ -56,7 +64,7 @@ def create_employer():
     """Create a new employer"""
     try:
         data = request.get_json(silent=True) or {}
-        result = employer_service.create_employer(data)
+        result = get_employer_service().create_employer(data)
         
         return jsonify(result), result.get("status_code", 200)
     
@@ -73,7 +81,7 @@ def update_employer(employer_id):
     """Update an existing employer"""
     try:
         data = request.get_json(silent=True) or {}
-        result = employer_service.update_employer(employer_id, data)
+        result = get_employer_service().update_employer(employer_id, data)
         
         return jsonify(result), result.get("status_code", 200)
     
@@ -89,7 +97,7 @@ def update_employer(employer_id):
 def delete_employer(employer_id):
     """Delete an employer"""
     try:
-        result = employer_service.delete_employer(employer_id)
+        result = get_employer_service().delete_employer(employer_id)
         return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
@@ -118,7 +126,7 @@ def search_employers():
             }), 400
         
         include_unverified = request.args.get("include_unverified", "false").lower() == "true"
-        result = employer_service.search_employers(query, include_unverified=include_unverified)
+        result = get_employer_service().search_employers(query, include_unverified=include_unverified)
         
         return jsonify(result), result.get("status_code", 200)
     
@@ -134,7 +142,7 @@ def search_employers():
 def verify_employer(employer_id):
     """Verify an employer (admin only)"""
     try:
-        result = employer_service.verify_employer(employer_id)
+        result = get_employer_service().verify_employer(employer_id)
         return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
@@ -148,7 +156,7 @@ def verify_employer(employer_id):
 def get_stats():
     """Get employer statistics"""
     try:
-        result = employer_service.get_stats()
+        result = get_employer_service().get_stats()
         return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
