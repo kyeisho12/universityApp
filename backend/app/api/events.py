@@ -42,20 +42,6 @@ def get_events():
         }), 500
 
 
-@events_bp.route("/<event_id>", methods=["GET"])
-def get_event(event_id):
-    """Get a specific event by ID"""
-    try:
-        result = get_event_service().get_event_by_id(event_id)
-        return jsonify(result), result.get("status_code", 200)
-    
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
 @events_bp.route("/", methods=["POST"])
 @require_admin
 def create_event():
@@ -65,6 +51,58 @@ def create_event():
         result = get_event_service().create_event(data)
         
         return jsonify(result), result.get("status_code", 201)
+    
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+# Registration routes must come BEFORE generic /<event_id> routes
+@events_bp.route("/<event_id>/register", methods=["POST"])
+def register_for_event(event_id):
+    """Register a student for an event"""
+    try:
+        data = request.get_json(silent=True) or {}
+        student_id = data.get("student_id", "anonymous")
+        
+        result = get_event_service().register_for_event(event_id, student_id)
+        
+        return jsonify(result), result.get("status_code", 200)
+    
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@events_bp.route("/<event_id>/unregister", methods=["POST"])
+def unregister_from_event(event_id):
+    """Unregister a student from an event"""
+    try:
+        data = request.get_json(silent=True) or {}
+        student_id = data.get("student_id", "anonymous")
+        
+        result = get_event_service().unregister_from_event(event_id, student_id)
+        
+        return jsonify(result), result.get("status_code", 200)
+    
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+# Generic event routes
+@events_bp.route("/<event_id>", methods=["GET"])
+def get_event(event_id):
+    """Get a specific event by ID"""
+    try:
+        result = get_event_service().get_event_by_id(event_id)
+        return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
         return jsonify({

@@ -80,7 +80,7 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
         date: event.date,
         time: event.time,
         location: event.location,
-        registered: 0, // Will be updated with real data when available
+        registered: event.registered || 0,
         isRegistered: false,
       }));
       
@@ -92,6 +92,60 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
       setEvents([]); // Show empty state instead of stuck loading
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRegister(eventId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/events/${eventId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: userID })
+      });
+      
+      if (!response.ok) throw new Error('Failed to register');
+      const data = await response.json();
+      
+      // Update events with new registered count
+      setEvents(events.map(e => 
+        e.id === eventId 
+          ? { ...e, registered: data.data.registered }
+          : e
+      ));
+      
+      // Mark as registered
+      setRegisteredEvents(new Set([...registeredEvents, eventId]));
+    } catch (err) {
+      console.error('Registration error:', err);
+      alert('Failed to register for event');
+    }
+  }
+
+  async function handleUnregister(eventId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/events/${eventId}/unregister`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: userID })
+      });
+      
+      if (!response.ok) throw new Error('Failed to unregister');
+      const data = await response.json();
+      
+      // Update events with new registered count
+      setEvents(events.map(e => 
+        e.id === eventId 
+          ? { ...e, registered: data.data.registered }
+          : e
+      ));
+      
+      // Mark as unregistered
+      const newSet = new Set(registeredEvents);
+      newSet.delete(eventId);
+      setRegisteredEvents(newSet);
+    } catch (err) {
+      console.error('Unregistration error:', err);
+      alert('Failed to unregister from event');
     }
   }
 
@@ -193,15 +247,8 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
                   key={event.id}
                   event={event}
                   isRegistered={registeredEvents.has(event.id)}
-                  onToggleRegistration={() => {
-                    const newSet = new Set(registeredEvents);
-                    if (newSet.has(event.id)) {
-                      newSet.delete(event.id);
-                    } else {
-                      newSet.add(event.id);
-                    }
-                    setRegisteredEvents(newSet);
-                  }}
+                  onRegister={() => handleRegister(event.id)}
+                  onUnregister={() => handleUnregister(event.id)}
                 />
               ))}
             </div>
@@ -215,11 +262,13 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
 function EventCard({
   event,
   isRegistered,
-  onToggleRegistration,
+  onRegister,
+  onUnregister,
 }: {
   event: Event;
   isRegistered: boolean;
-  onToggleRegistration: () => void;
+  onRegister: () => void;
+  onUnregister: () => void;
 }) {
   const getTypeBadgeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -287,7 +336,7 @@ function EventCard({
 
       {/* Action Button */}
       <button
-        onClick={onToggleRegistration}
+        onClick={isRegistered ? onUnregister : onRegister}
         className={`w-full py-2.5 rounded-lg font-semibold transition-colors ${
           isRegistered
             ? "bg-gray-100 text-gray-700 hover:bg-gray-200"

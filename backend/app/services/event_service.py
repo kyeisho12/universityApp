@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 # Temporary in-memory storage for career events while debugging PostgREST schema cache issue
 _events_db: Dict[str, Dict[str, Any]] = {}
+# In-memory storage for event registrations: {event_id: [student_ids]}
+_registrations_db: Dict[str, List[str]] = {}
 
 
 class EventService:
@@ -85,11 +87,13 @@ class EventService:
 
             # Store in memory
             _events_db[event_id] = data
+            # Initialize empty registrations for this event
+            _registrations_db[event_id] = []
             logger.info(f"Created event {event_id} in memory storage")
             
             return {
                 "success": True,
-                "data": data,
+                "data": self._add_registration_count(data),
                 "status_code": 201
             }
 
@@ -110,7 +114,7 @@ class EventService:
             event_type: Optional filter by event type
         
         Returns:
-            List of all events
+            List of all events with registration counts
         """
         try:
             # Get all events from memory storage
@@ -119,6 +123,9 @@ class EventService:
             # Filter by event_type if provided
             if event_type:
                 all_events = [e for e in all_events if e.get("event_type") == event_type]
+            
+            # Add registration count to each event
+            all_events = [self._add_registration_count(e) for e in all_events]
             
             # Sort by date descending
             all_events.sort(key=lambda x: x.get("date", ""), reverse=True)
@@ -149,13 +156,14 @@ class EventService:
             event_id: UUID of the event
         
         Returns:
-            Event data or error response
+            Event data with registration count or error response
         """
         try:
             if event_id in _events_db:
+                event = self._add_registration_count(_events_db[event_id])
                 return {
                     "success": True,
-                    "data": _events_db[event_id],
+                    "data": event,
                     "status_code": 200
                 }
             else:
@@ -215,7 +223,7 @@ class EventService:
             
             return {
                 "success": True,
-                "data": event,
+                "data": self._add_registration_count(event),
                 "status_code": 200
             }
 
@@ -241,6 +249,9 @@ class EventService:
         try:
             if event_id in _events_db:
                 del _events_db[event_id]
+                # Also delete registrations for this event
+                if event_id in _registrations_db:
+                    del _registrations_db[event_id]
                 logger.info(f"Deleted event {event_id} from memory storage")
                 return {
                     "success": True,
@@ -262,3 +273,106 @@ class EventService:
                 "error": error_msg,
                 "status_code": 500
             }
+
+    def register_for_event(self, event_id: str, student_id: str) -> Dict[str, Any]:
+        """
+        Register a student for an event
+        
+        Args:
+            event_id: UUID of the event
+            student_id: ID of the student registering
+        
+        Returns:
+            Updated event data or error response
+        """
+        try:
+            if event_id not in _events_db:
+                return {
+                    "success": False,
+                    "error": "Event not found",
+                    "status_code": 404
+                }
+            
+            # Initialize registrations list if needed
+            if event_id not in _registrations_db:
+                _registrations_db[event_id] = []
+            
+            # Add student if not already registered
+            if student_id not in _registrations_db[event_id]:
+                _registrations_db[event_id].append(student_id)
+                logger.info(f"Student {student_id} registered for event {event_id}")
+            
+            event = self._add_registration_count(_events_db[event_id])
+            return {
+                "success": True,
+                "data": event,
+                "status_code": 200
+            }
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Error registering for event: {error_msg}", exc_info=True)
+            return {
+                "success": False,
+                "error": error_msg,
+                "status_code": 500
+            }
+
+    def unregister_from_event(self, event_id: str, student_id: str) -> Dict[str, Any]:
+        """
+        Unregister a student from an event
+        
+        Args:
+            event_id: UUID of the event
+            student_id: ID of the student unregistering
+        
+        Returns:
+            Updated event data or error response
+        """
+        try:
+            if event_id not in _events_db:
+                return {
+                    "success": False,
+                    "error": "Event not found",
+                    "status_code": 404
+                }
+            
+            # Initialize registrations list if needed
+            if event_id not in _registrations_db:
+                _registrations_db[event_id] = []
+            
+            # Remove student if registered
+            if student_id in _registrations_db[event_id]:
+                _registrations_db[event_id].remove(student_id)
+                logger.info(f"Student {student_id} unregistered from event {event_id}")
+            
+            event = self._add_registration_count(_events_db[event_id])
+            return {
+                "success": True,
+                "data": event,
+                "status_code": 200
+            }
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Error unregistering from event: {error_msg}", exc_info=True)
+            return {
+                "success": False,
+                "error": error_msg,
+                "status_code": 500
+            }
+
+    def _add_registration_count(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Helper method to add registration count to event data
+        
+        Args:
+            event: Event dictionary
+        
+        Returns:
+            Event dictionary with registered count
+        """
+        event_copy = event.copy()
+        event_id = event_copy.get("id")
+        event_copy["registered"] = len(_registrations_db.get(event_id, []))
+        return event_copy

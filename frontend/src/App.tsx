@@ -22,6 +22,7 @@ import Settings from './pages/Settings'
 function TestEventsPage() {
   const [events, setEvents] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [registered, setRegistered] = React.useState<Set<string>>(new Set())
 
   React.useEffect(() => {
     fetch('http://localhost:3001/api/events/')
@@ -36,6 +37,38 @@ function TestEventsPage() {
       })
   }, [])
 
+  const handleRegister = async (eventId: string) => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/events/${eventId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: 'test-student' })
+      })
+      const data = await res.json()
+      setEvents(events.map(e => e.id === eventId ? data.data : e))
+      setRegistered(new Set([...registered, eventId]))
+    } catch (e) {
+      console.error('Error:', e)
+    }
+  }
+
+  const handleUnregister = async (eventId: string) => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/events/${eventId}/unregister`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: 'test-student' })
+      })
+      const data = await res.json()
+      setEvents(events.map(e => e.id === eventId ? data.data : e))
+      const newSet = new Set(registered)
+      newSet.delete(eventId)
+      setRegistered(newSet)
+    } catch (e) {
+      console.error('Error:', e)
+    }
+  }
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">Career Events (Student View)</h1>
@@ -48,6 +81,13 @@ function TestEventsPage() {
             <p>{e.description}</p>
             <p className="text-sm text-gray-600">{e.date} at {e.time}</p>
             <p className="text-sm text-gray-600">{e.location}</p>
+            <p className="text-sm text-gray-600">Registered: {e.registered || 0}</p>
+            <button
+              onClick={() => registered.has(e.id) ? handleUnregister(e.id) : handleRegister(e.id)}
+              className={`mt-2 px-4 py-2 rounded ${registered.has(e.id) ? 'bg-gray-300' : 'bg-blue-600 text-white'}`}
+            >
+              {registered.has(e.id) ? 'Cancel' : 'Register'}
+            </button>
           </div>
         ))}
       </div>
