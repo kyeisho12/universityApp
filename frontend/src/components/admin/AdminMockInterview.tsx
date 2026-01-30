@@ -15,20 +15,20 @@ export default function AdminMockInterview() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
   const userName = user?.email?.split("@")[0] || "";
-  const userID = "2024-00001";
+  const userID = user?.id ?? "";
 
   const stats = [
-    { label: "Total Interviews", value: "1,234" },
-    { label: "Avg Score (1-5)", value: "3.9" },
-    { label: "Completion Rate", value: "89%" },
+    { label: "Total Interviews", value: null },
+    { label: "Avg Score (1-5)", value: null },
+    { label: "Completion Rate", value: null },
   ];
 
-  const recentInterviews = [
-    { student: "Juan Dela Cruz", date: "2025-01-22", questions: 5, score: 4.2 },
-    { student: "Maria Santos", date: "2025-01-22", questions: 5, score: 3.8 },
-    { student: "Pedro Reyes", date: "2025-01-21", questions: 5, score: 4.5 },
-    { student: "Ana Garcia", date: "2025-01-21", questions: 5, score: 3.2 },
-  ];
+  const recentInterviews: Array<{
+    student: string;
+    date: string;
+    questions: number;
+    score: number;
+  }> = [];
 
   async function handleLogout() {
     try {
@@ -130,7 +130,9 @@ export default function AdminMockInterview() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {stats.map((item) => (
                 <div key={item.label} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="text-3xl font-semibold text-gray-900 mb-1">{item.value}</div>
+                  <div className="text-3xl font-semibold text-gray-900 mb-1">
+                    {item.value ?? "—"}
+                  </div>
                   <div className="text-sm text-gray-600">{item.label}</div>
                 </div>
               ))}
@@ -151,20 +153,28 @@ export default function AdminMockInterview() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {recentInterviews.map((interview) => (
-                      <tr key={interview.student} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium text-gray-900">{interview.student}</td>
-                        <td className="px-4 py-3 text-gray-600">{interview.date}</td>
-                        <td className="px-4 py-3 text-gray-600">{interview.questions}</td>
-                        <td className="px-4 py-3 font-semibold text-green-600">{interview.score}/5</td>
-                        <td className="px-4 py-3">
-                          <button className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                            <Eye className="w-4 h-4" />
-                            <span>View</span>
-                          </button>
+                    {recentInterviews.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={5}>
+                          No interview data yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentInterviews.map((interview) => (
+                        <tr key={interview.student} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">{interview.student}</td>
+                          <td className="px-4 py-3 text-gray-600">{interview.date}</td>
+                          <td className="px-4 py-3 text-gray-600">{interview.questions}</td>
+                          <td className="px-4 py-3 font-semibold text-green-600">{interview.score}/5</td>
+                          <td className="px-4 py-3">
+                            <button className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

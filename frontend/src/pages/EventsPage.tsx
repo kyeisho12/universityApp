@@ -16,6 +16,7 @@ type NavigateHandler = (route: string) => void;
 
 interface CareerEventsPageContentProps {
   email: string;
+  userId: string;
   onLogout: () => Promise<void> | void;
   onNavigate: NavigateHandler;
 }
@@ -32,86 +33,13 @@ interface Event {
   isRegistered: boolean;
 }
 
-function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPageContentProps) {
+function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: CareerEventsPageContentProps) {
   const userName = email.split("@")[0];
-  const userID = "2024-00001";
+  const userID = userId;
   const [activeFilter, setActiveFilter] = useState("all");
-  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set([1]));
+  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set());
 
-  const events: Event[] = [
-    {
-      id: 1,
-      type: "Job Fair",
-      title: "TSU Virtual Job Fair 2024",
-      description:
-        "Connect with over 50 partner companies looking for talented graduates. Bring your résumé and prepare for on-the-spot interviews.",
-      date: "Sunday, December 15, 2024",
-      time: "9:00 AM - 5:00 PM",
-      location: "TSU Main Campus, Gymnasium",
-      registered: 245,
-      isRegistered: true,
-    },
-    {
-      id: 2,
-      type: "Workshop",
-      title: "Resume Writing Workshop",
-      description:
-        "Learn how to create an impactful résumé that stands out to employers. Includes hands-on exercises and personal feedback.",
-      date: "Wednesday, December 18, 2024",
-      time: "2:00 PM - 4:00 PM",
-      location: "CCS Building, Room 301",
-      registered: 32,
-      isRegistered: false,
-    },
-    {
-      id: 3,
-      type: "Seminar",
-      title: "Interview Skills Seminar",
-      description:
-        "Master the art of interviewing with tips from industry professionals. Covers common questions, body language, and follow-up strategies.",
-      date: "Friday, December 20, 2024",
-      time: "10:00 AM - 12:00 PM",
-      location: "Business Building, Auditorium",
-      registered: 87,
-      isRegistered: false,
-    },
-    {
-      id: 4,
-      type: "Webinar",
-      title: "Tech Industry Insights Webinar",
-      description:
-        "Join industry leaders as they discuss current trends and opportunities in the tech sector. Q&A session included.",
-      date: "Thursday, December 21, 2024",
-      time: "3:00 PM - 4:30 PM",
-      location: "Online",
-      registered: 156,
-      isRegistered: true,
-    },
-    {
-      id: 5,
-      type: "Workshop",
-      title: "LinkedIn Profile Optimization",
-      description:
-        "Build a professional LinkedIn profile that attracts recruiters. Learn best practices for keywords, endorsements, and networking.",
-      date: "Monday, December 23, 2024",
-      time: "11:00 AM - 1:00 PM",
-      location: "IT Center, Room 205",
-      registered: 64,
-      isRegistered: false,
-    },
-    {
-      id: 6,
-      type: "Announcement",
-      title: "Career Fair Registration Now Open",
-      description:
-        "Early bird registration for the upcoming career fair is now available. Register early to get priority booth access and special perks.",
-      date: "Available Now",
-      time: "Registration Deadline: December 10, 2024",
-      location: "Online Registration",
-      registered: 0,
-      isRegistered: false,
-    },
-  ];
+  const events: Event[] = [];
 
   const filteredEvents =
     activeFilter === "all"
@@ -184,14 +112,20 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
 
           {/* Events Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
-            {filteredEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                isRegistered={registeredEvents.has(event.id)}
-                onToggleRegistration={() => toggleRegistration(event.id)}
-              />
-            ))}
+            {filteredEvents.length === 0 ? (
+              <div className="col-span-full bg-white rounded-2xl p-8 border border-dashed border-gray-200 text-center text-gray-500">
+                No events available yet.
+              </div>
+            ) : (
+              filteredEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  isRegistered={registeredEvents.has(event.id)}
+                  onToggleRegistration={() => toggleRegistration(event.id)}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -308,6 +242,7 @@ export default function EventsPage() {
   return (
     <CareerEventsPageContent
       email={user?.email || ""}
+      userId={user?.id ?? ""}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
     />

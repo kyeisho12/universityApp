@@ -18,42 +18,42 @@ System features
 Sprint 1
 | Task ID | Task Description                           | Status      |
 | ------- | ------------------------------------------ | ----------- |
-| S1-01   | Design system architecture                 | Not done    |
+| S1-01   | Design system architecture                 | Done        |
 | S1-02   | Implement student and admin authentication | In progress |
-| S1-03   | Create student profile management          | In progress |
+| S1-03   | Create student profile management          | Not done    |
 | S1-04   | Admin account verification                 | In progress |
-| S1-05   | Initial UI design (client & admin side)    | Not done    |
+| S1-05   | Initial UI design (client & admin side)    | In progress |
 
 
 Sprint 2
-| Task ID | Task Description                   |
-| ------- | ---------------------------------- |
-| S2-01   | Job & internship listings (F1)     |
-| S2-02   | Employer/company profiles (F4)     |
-| S2-03   | Résumé upload & download (F2)      |
-| S2-04   | Career events & announcements (F3) |
-| S2-05   | Event registration tracking        |
+| Task ID | Task Description                   | Status      |
+| ------- | ---------------------------------- | ----------- |
+| S2-01   | Job & internship listings (F1)     | Not done    |
+| S2-02   | Employer/company profiles (F4)     | In progress |
+| S2-03   | Résumé upload & download (F2)      | Not done    |
+| S2-04   | Career events & announcements (F3) | Not done    |
+| S2-05   | Event registration tracking        | Not done    |
 
 Sprint 3
-| Task ID | Task Description                        |
-| ------- | --------------------------------------- |
-| S3-01   | Video interview interface               |
-| S3-02   | Whisper AI speech-to-text integration   |
-| S3-03   | RoBERTa response evaluation             |
-| S3-04   | Zero-Shot Learning for unseen questions |
-| S3-05   | STAR method handling (no ideal answers) |
-| S3-06   | Phi-3 adaptive follow-up questions      |
+| Task ID | Task Description                        | Status      |
+| ------- | --------------------------------------- | ----------- |
+| S3-01   | Video interview interface               | Not done    |
+| S3-02   | Whisper AI speech-to-text integration   | In progress |
+| S3-03   | RoBERTa response evaluation             | In progress |
+| S3-04   | Zero-Shot Learning for unseen questions | In progress |
+| S3-05   | STAR method handling (no ideal answers) | In progress |
+| S3-06   | Phi-3 adaptive follow-up questions      | In progress |
 
 
 Sprint 4
-| Task ID | Task Description                  |
-| ------- | --------------------------------- |
-| S4-01   | Functional testing (ISO 25010)    |
-| S4-02   | Functional suitability evaluation |
-| S4-03   | Confusion matrix accuracy testing |
-| S4-04   | Admin analytics & reporting       |
-| S4-05   | UI improvements and bug fixing    |
-| S4-06   | Final documentation               |
+| Task ID | Task Description                  | Status      |
+| ------- | --------------------------------- | ----------- |
+| S4-01   | Functional testing (ISO 25010)    | In progress |
+| S4-02   | Functional suitability evaluation | Not done    |
+| S4-03   | Confusion matrix accuracy testing | Not done    |
+| S4-04   | Admin analytics & reporting       | Not done    |
+| S4-05   | UI improvements and bug fixing    | Not done    |
+| S4-06   | Final documentation               | In progress |
 
 
 
