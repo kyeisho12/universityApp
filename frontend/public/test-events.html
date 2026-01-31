@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Career Events Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { margin-bottom: 20px; color: #333; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    button { padding: 10px 20px; cursor: pointer; background: #0066cc; color: white; border: none; border-radius: 4px; }
+    button.active { background: #004499; }
+    .content { display: none; }
+    .content.active { display: block; }
+    .event { background: white; padding: 16px; margin-bottom: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .event h3 { margin-bottom: 8px; color: #333; }
+    .event p { margin: 4px 0; font-size: 14px; color: #666; }
+    .form { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    .form input, .form select, .form textarea { display: block; width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .form button { width: 100%; }
+    .loading { padding: 20px; text-align: center; color: #666; }
+    .error { color: #cc0000; padding: 12px; background: #ffe0e0; border-radius: 4px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Career Events Management</h1>
+    
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="student">Student View</button>
+      <button class="tab-btn" data-tab="admin">Admin View</button>
+    </div>
+
+    <div id="student" class="content active">
+      <h2>Career Events (Student)</h2>
+      <div id="student-events"></div>
+    </div>
+
+    <div id="admin" class="content">
+      <h2>Manage Events (Admin)</h2>
+      <button onclick="toggleForm()" style="margin-bottom: 16px;">➕ Add New Event</button>
+      <div id="admin-form" class="form" style="display: none;">
+        <input type="text" id="title" placeholder="Event Title" />
+        <textarea id="description" placeholder="Event Description"></textarea>
+        <select id="event_type">
+          <option>Job Fair</option>
+          <option>Workshop</option>
+          <option>Seminar</option>
+          <option>Webinar</option>
+        </select>
+        <input type="date" id="date" />
+        <input type="time" id="time" />
+        <input type="text" id="location" placeholder="Location" />
+        <button onclick="createEvent()">Create Event</button>
+      </div>
+      <div id="admin-events"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api/events';
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        document.getElementById(e.target.dataset.tab).classList.add('active');
+        loadEvents();
+      });
+    });
+
+    function toggleForm() {
+      const form = document.getElementById('admin-form');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function loadEvents() {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        const events = data.data || [];
+        
+        const studentHtml = events.map(e => `
+          <div class="event">
+            <span style="display: inline-block; background: #e0e7ff; color: #4f46e5; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 8px;">${e.event_type}</span>
+            <h3>${e.title}</h3>
+            <p>${e.description}</p>
+            <p><strong>📅</strong> ${e.date} at ${e.time}</p>
+            <p><strong>📍</strong> ${e.location}</p>
+            <button style="margin-top: 8px;">Register Now</button>
+          </div>
+        `).join('');
+        document.getElementById('student-events').innerHTML = studentHtml || '<p class="loading">No events available</p>';
+
+        const adminHtml = events.map(e => `
+          <div class="event">
+            <span style="display: inline-block; background: #e0e7ff; color: #4f46e5; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 8px;">${e.event_type}</span>
+            <h3>${e.title}</h3>
+            <p>${e.description}</p>
+            <p><strong>📅</strong> ${e.date} at ${e.time}</p>
+            <p><strong>📍</strong> ${e.location}</p>
+            <button onclick="editEvent('${e.id}')" style="margin-top: 8px; background: #10b981;">Edit</button>
+            <button onclick="deleteEvent('${e.id}')" style="margin-top: 8px; background: #ef4444;">Delete</button>
+          </div>
+        `).join('');
+        document.getElementById('admin-events').innerHTML = adminHtml || '<p class="loading">No events yet</p>';
+      } catch (e) {
+        const error = `<p class="error">❌ Error: ${e.message}</p>`;
+        document.getElementById('student-events').innerHTML = error;
+        document.getElementById('admin-events').innerHTML = error;
+      }
+    }
+
+    async function createEvent() {
+      const data = {
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        event_type: document.getElementById('event_type').value,
+        date: document.getElementById('date').value,
+        time: document.getElementById('time').value,
+        location: document.getElementById('location').value
+      };
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error('Failed to create event');
+        
+        // Clear form
+        document.getElementById('admin-form').reset();
+        toggleForm();
+        loadEvents();
+      } catch (e) {
+        alert('Error creating event: ' + e.message);
+      }
+    }
+
+    async function deleteEvent(id) {
+      if (!confirm('Delete this event?')) return;
+      try {
+        const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete');
+        loadEvents();
+      } catch (e) {
+        alert('Error deleting event: ' + e.message);
+      }
+    }
+
+    function editEvent(id) {
+      alert('Edit feature coming soon for event: ' + id);
+    }
+
+    // Load on page load
+    loadEvents();
+  </script>
+</body>
+</html>

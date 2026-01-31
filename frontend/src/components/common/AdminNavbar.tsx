@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   User,
+  Calendar,
 } from "lucide-react";
 
 export const AdminNavbar = ({
@@ -89,6 +90,12 @@ export const AdminNavbar = ({
           label="Student Analytics"
           active={activeNav === "admin/student_analytics"}
           onClick={() => handleNavClick("admin/student_analytics")}
+        />
+        <NavItem
+          icon={<Calendar className="w-5 h-5" />}
+          label="Career Events"
+          active={activeNav === "admin/career_events"}
+          onClick={() => handleNavClick("admin/career_events")}
         />
         <NavItem
           icon={<MessageSquare className="w-5 h-5" />}

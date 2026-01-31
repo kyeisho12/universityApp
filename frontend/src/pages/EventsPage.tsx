@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -12,6 +12,8 @@ import {
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 
+const API_BASE_URL = "http://localhost:3001/api";
+
 type NavigateHandler = (route: string) => void;
 
 interface CareerEventsPageContentProps {
@@ -22,39 +24,144 @@ interface CareerEventsPageContentProps {
 }
 
 interface Event {
-  id: number;
-  type: string;
+  id: string;
+  event_type: string;
   title: string;
   description: string;
   date: string;
   time: string;
   location: string;
-  registered: number;
-  isRegistered: boolean;
+  registered?: number;
+  isRegistered?: boolean;
 }
 
 function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: CareerEventsPageContentProps) {
   const userName = email.split("@")[0];
   const userID = userId;
   const [activeFilter, setActiveFilter] = useState("all");
-  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set());
+  const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const events: Event[] = [];
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  async function fetchEvents() {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log("Fetching events from:", `${API_BASE_URL}/events/`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`${API_BASE_URL}/events/?student_id=${userID}`, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      console.log("Response status:", response.status);
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch events`);
+      const data = await response.json();
+      console.log("Events data received:", data);
+      
+      // Transform API response to component format
+      const transformedEvents = (data.data || []).map((event: any) => ({
+        id: event.id,
+        event_type: event.event_type,
+        type: event.event_type, // Keep both for compatibility
+        title: event.title,
+        description: event.description,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        registered: event.registered || 0,
+        isRegistered: event.isRegistered || false,
+      }));
+      
+      // Track which events this student is registered for
+      const registered = new Set(
+        transformedEvents
+          .filter(e => e.isRegistered)
+          .map(e => e.id)
+      );
+      setRegisteredEvents(registered);
+      
+      console.log("Transformed events:", transformedEvents);
+      setEvents(transformedEvents);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError(err instanceof Error ? err.message : "Error fetching events");
+      setEvents([]); // Show empty state instead of stuck loading
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister(eventId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/events/${eventId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: userID })
+      });
+      
+      if (!response.ok) throw new Error('Failed to register');
+      const data = await response.json();
+      
+      // Update events with new registered count and isRegistered flag
+      setEvents(events.map(e => 
+        e.id === eventId 
+          ? { ...e, registered: data.data.registered, isRegistered: data.data.isRegistered }
+          : e
+      ));
+      
+      // Mark as registered
+      setRegisteredEvents(new Set([...registeredEvents, eventId]));
+    } catch (err) {
+      console.error('Registration error:', err);
+      alert('Failed to register for event');
+    }
+  }
+
+  async function handleUnregister(eventId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/events/${eventId}/unregister`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: userID })
+      });
+      
+      if (!response.ok) throw new Error('Failed to unregister');
+      const data = await response.json();
+      
+      // Update events with new registered count and isRegistered flag
+      setEvents(events.map(e => 
+        e.id === eventId 
+          ? { ...e, registered: data.data.registered, isRegistered: data.data.isRegistered }
+          : e
+      ));
+      
+      // Mark as unregistered
+      const newSet = new Set(registeredEvents);
+      newSet.delete(eventId);
+      setRegisteredEvents(newSet);
+    } catch (err) {
+      console.error('Unregistration error:', err);
+      alert('Failed to unregister from event');
+    }
+  }
 
   const filteredEvents =
     activeFilter === "all"
       ? events
-      : events.filter((e) => e.type.toLowerCase() === activeFilter.toLowerCase());
-
-  const toggleRegistration = (eventId: number) => {
-    const newSet = new Set(registeredEvents);
-    if (newSet.has(eventId)) {
-      newSet.delete(eventId);
-    } else {
-      newSet.add(eventId);
-    }
-    setRegisteredEvents(newSet);
-  };
+      : events.filter((e) => e.event_type.toLowerCase() === activeFilter.toLowerCase());
 
   const filterOptions = ["all", "job fair", "workshop", "seminar", "webinar", "announcement"];
 
@@ -95,7 +202,7 @@ function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: Career
 
           {/* Filter Tabs */}
           <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
-            {filterOptions.map((filter) => (
+            {["all", "job fair", "workshop", "seminar", "webinar", "announcement"].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
@@ -110,23 +217,41 @@ function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: Career
             ))}
           </div>
 
+          {/* Error State */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-500">Loading events...</p>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && events.length === 0 && (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-500">No events found</p>
+            </div>
+          )}
+
           {/* Events Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
-            {filteredEvents.length === 0 ? (
-              <div className="col-span-full bg-white rounded-2xl p-8 border border-dashed border-gray-200 text-center text-gray-500">
-                No events available yet.
-              </div>
-            ) : (
-              filteredEvents.map((event) => (
+          {!loading && events.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
+              {filteredEvents.map((event) => (
                 <EventCard
                   key={event.id}
                   event={event}
                   isRegistered={registeredEvents.has(event.id)}
-                  onToggleRegistration={() => toggleRegistration(event.id)}
+                  onRegister={() => handleRegister(event.id)}
+                  onUnregister={() => handleUnregister(event.id)}
                 />
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -136,11 +261,13 @@ function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: Career
 function EventCard({
   event,
   isRegistered,
-  onToggleRegistration,
+  onRegister,
+  onUnregister,
 }: {
   event: Event;
   isRegistered: boolean;
-  onToggleRegistration: () => void;
+  onRegister: () => void;
+  onUnregister: () => void;
 }) {
   const getTypeBadgeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -165,10 +292,10 @@ function EventCard({
       <div className="flex items-start justify-between mb-4">
         <span
           className={`inline-block text-xs font-semibold px-3 py-1.5 rounded-full ${getTypeBadgeColor(
-            event.type
+            event.event_type
           )}`}
         >
-          {event.type}
+          {event.event_type}
         </span>
         {isRegistered && (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-600">
@@ -198,7 +325,7 @@ function EventCard({
           <MapPin className="w-4 h-4 text-gray-400" />
           {event.location}
         </div>
-        {event.registered > 0 && (
+        {event.registered && event.registered > 0 && (
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-gray-400" />
             {event.registered} registered
@@ -208,7 +335,7 @@ function EventCard({
 
       {/* Action Button */}
       <button
-        onClick={onToggleRegistration}
+        onClick={isRegistered ? onUnregister : onRegister}
         className={`w-full py-2.5 rounded-lg font-semibold transition-colors ${
           isRegistered
             ? "bg-gray-100 text-gray-700 hover:bg-gray-200"

@@ -2,23 +2,53 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { AdminNavbar } from '../common/AdminNavbar'
-import { X, Search, Plus, Bell, Menu, Edit, ExternalLink, Trash2, Building2, Globe } from 'lucide-react'
+import { X, Search, Plus, Bell, Menu, Edit, ExternalLink, Trash2, Building2, Globe, Briefcase, MapPin, Calendar } from 'lucide-react'
 import EmployerService, { Employer } from '../../services/employerService'
+
+interface JobListing {
+  id: string;
+  title: string;
+  company: string;
+  company_id: string;
+  location: string;
+  type: string;
+  category: string;
+  salary_range?: string;
+  deadline: string;
+  description: string;
+  requirements: string[];
+  status: 'active' | 'closed';
+  created_at: string;
+}
 
 const EmployerPartners = () => {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = React.useState<'companies' | 'jobs'>('companies');
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
   const [searchQuery, setSearchQuery] = React.useState<string>('');
   const [industryFilter, setIndustryFilter] = React.useState<string>('all');
   const [showAddModal, setShowAddModal] = React.useState<boolean>(false);
+  const [showAddJobModal, setShowAddJobModal] = React.useState<boolean>(false);
   const [formData, setFormData] = React.useState({
     name: '',
     website: '',
     industry: '',
     contact_email: '',
   });
+  const [jobFormData, setJobFormData] = React.useState({
+    title: '',
+    company_id: '',
+    location: '',
+    type: 'Full-time',
+    category: 'Information Technology',
+    salary_range: '',
+    deadline: '',
+    description: '',
+    requirements: '',
+  });
   const [companies, setCompanies] = React.useState<Employer[]>([]);
+  const [jobs, setJobs] = React.useState<JobListing[]>([]);
   const [stats, setStats] = React.useState({ total: 0, verified: 0, activeListings: 0, pending: 0 });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -29,6 +59,7 @@ const EmployerPartners = () => {
   // Fetch employers on component mount
   React.useEffect(() => {
     loadEmployers();
+    loadJobs();
   }, []);
 
   const loadEmployers = async () => {
@@ -55,6 +86,27 @@ const EmployerPartners = () => {
     }
   };
 
+  const loadJobs = async () => {
+    // Mock data for now - you'll replace this with actual API call
+    setJobs([
+      {
+        id: '1',
+        title: 'Software Developer Intern',
+        company: 'Accenture Philippines',
+        company_id: 'acc-1',
+        location: 'Tarlac City',
+        type: 'Internship',
+        category: 'Information Technology',
+        salary_range: '₱15,000 - ₱20,000/month',
+        deadline: '2024-01-15',
+        description: 'Describe the role, responsibilities, and what makes it a great opportunity...',
+        requirements: ['JavaScript/TypeScript', 'React or Vue.js', 'Git version control'],
+        status: 'active',
+        created_at: '2024-01-01'
+      }
+    ]);
+  };
+
   const handleAddCompany = async () => {
     if (!formData.name || !formData.industry || !formData.contact_email) {
       setError('Please fill in all required fields');
@@ -78,6 +130,59 @@ const EmployerPartners = () => {
       setFormData({ name: '', website: '', industry: '', contact_email: '' });
     } catch (err) {
       setError('Failed to add company');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddJob = async () => {
+    if (!jobFormData.title || !jobFormData.company_id || !jobFormData.location || !jobFormData.deadline) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const company = companies.find(c => c.id === jobFormData.company_id);
+      const requirementsArray = jobFormData.requirements
+        .split('\n')
+        .map(r => r.trim())
+        .filter(r => r.length > 0);
+
+      const newJob: JobListing = {
+        id: Date.now().toString(),
+        title: jobFormData.title,
+        company: company?.name || '',
+        company_id: jobFormData.company_id,
+        location: jobFormData.location,
+        type: jobFormData.type,
+        category: jobFormData.category,
+        salary_range: jobFormData.salary_range,
+        deadline: jobFormData.deadline,
+        description: jobFormData.description,
+        requirements: requirementsArray,
+        status: 'active',
+        created_at: new Date().toISOString()
+      };
+
+      setJobs([...jobs, newJob]);
+      
+      // Close modal and reset form
+      setShowAddJobModal(false);
+      setJobFormData({
+        title: '',
+        company_id: '',
+        location: '',
+        type: 'Full-time',
+        category: 'Information Technology',
+        salary_range: '',
+        deadline: '',
+        description: '',
+        requirements: '',
+      });
+    } catch (err) {
+      setError('Failed to add job');
       console.error(err);
     } finally {
       setLoading(false);
@@ -184,11 +289,11 @@ const EmployerPartners = () => {
                 <p className="text-gray-500 mt-1">Manage verified employer profiles and job postings</p>
               </div>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => activeTab === 'companies' ? setShowAddModal(true) : setShowAddJobModal(true)}
                 className="bg-[#1e293b] hover:bg-[#2d3a4f] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
               >
                 <Plus className="w-5 h-5" />
-                Add Company
+                {activeTab === 'companies' ? 'Add Company' : 'Add Job'}
               </button>
             </div>
 
@@ -228,7 +333,34 @@ const EmployerPartners = () => {
               </div>
             </div>
 
+            {/* Tabs */}
+            <div className="bg-white rounded-t-lg border-b border-gray-200 mb-0">
+              <div className="flex gap-1 px-2 pt-2">
+                <button
+                  onClick={() => setActiveTab('companies')}
+                  className={`px-6 py-3 text-sm font-medium rounded-t-lg transition-colors ${
+                    activeTab === 'companies'
+                      ? 'bg-white text-cyan-600 border-b-2 border-cyan-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Companies ({companies.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('jobs')}
+                  className={`px-6 py-3 text-sm font-medium rounded-t-lg transition-colors ${
+                    activeTab === 'jobs'
+                      ? 'bg-white text-cyan-600 border-b-2 border-cyan-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Job Listings ({jobs.length})
+                </button>
+              </div>
+            </div>
+
             {/* Companies Table */}
+            {activeTab === 'companies' && (
             <div className="bg-white rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -330,6 +462,124 @@ const EmployerPartners = () => {
                 </table>
               </div>
             </div>
+            )}
+
+            {/* Job Listings Table */}
+            {activeTab === 'jobs' && (
+            <div className="bg-white rounded-b-lg overflow-hidden">
+              {/* Search Bar */}
+              <div className="p-4 border-b border-gray-200">
+                <div className="relative max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search jobs..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Job Title
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Company
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Deadline
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {jobs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12">
+                          <div className="text-center">
+                            <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500 text-sm">No job listings yet</p>
+                            <p className="text-gray-400 text-xs mt-1">Add jobs to get started</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      jobs.map((job) => (
+                        <tr key={job.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-gray-900">{job.title}</div>
+                            <div className="text-sm text-gray-500">{job.category}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-700">{job.company}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {job.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <MapPin className="w-4 h-4" />
+                              <span className="text-sm">{job.location}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <Calendar className="w-4 h-4" />
+                              <span className="text-sm">{new Date(job.deadline).toLocaleDateString()}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              job.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {job.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4 text-gray-600" />
+                              </button>
+                              <button
+                                className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
           </div>
         </main>
       </div>
@@ -426,6 +676,185 @@ const EmployerPartners = () => {
                 className="px-4 py-2 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
               >
                 {loading ? 'Adding...' : 'Add Company'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Job Modal */}
+      {showAddJobModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="text-xl font-bold text-gray-900">Add Job Listing</h2>
+              <button
+                onClick={() => setShowAddJobModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Job Title - Full Width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Job Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Software Developer Intern"
+                  value={jobFormData.title}
+                  onChange={(e) => setJobFormData({ ...jobFormData, title: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Company and Location - 2 Columns */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Company
+                  </label>
+                  <select
+                    value={jobFormData.company_id}
+                    onChange={(e) => setJobFormData({ ...jobFormData, company_id: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                  >
+                    <option value="">Select a company</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Tarlac City"
+                    value={jobFormData.location}
+                    onChange={(e) => setJobFormData({ ...jobFormData, location: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Job Type and Category - 2 Columns */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Job Type
+                  </label>
+                  <select
+                    value={jobFormData.type}
+                    onChange={(e) => setJobFormData({ ...jobFormData, type: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                  >
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Internship">Internship</option>
+                    <option value="Contract">Contract</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={jobFormData.category}
+                    onChange={(e) => setJobFormData({ ...jobFormData, category: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                  >
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Data Science">Data Science</option>
+                    <option value="Software Engineering">Software Engineering</option>
+                    <option value="Business Analytics">Business Analytics</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Salary Range and Deadline - 2 Columns */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Salary Range
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., ₱15,000 - ₱20,000/month"
+                    value={jobFormData.salary_range}
+                    onChange={(e) => setJobFormData({ ...jobFormData, salary_range: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Application Deadline
+                  </label>
+                  <input
+                    type="date"
+                    value={jobFormData.deadline}
+                    onChange={(e) => setJobFormData({ ...jobFormData, deadline: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Job Description - Full Width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Job Description
+                </label>
+                <textarea
+                  placeholder="Describe the role, responsibilities, and what makes it a great opportunity..."
+                  rows={4}
+                  value={jobFormData.description}
+                  onChange={(e) => setJobFormData({ ...jobFormData, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              {/* Requirements - Full Width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Requirements (one per line)
+                </label>
+                <textarea
+                  placeholder="JavaScript/TypeScript React or Vue.js Git version control"
+                  rows={4}
+                  value={jobFormData.requirements}
+                  onChange={(e) => setJobFormData({ ...jobFormData, requirements: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 sticky bottom-0 bg-white">
+              <button
+                onClick={() => setShowAddJobModal(false)}
+                className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddJob}
+                disabled={loading}
+                className="px-6 py-2.5 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                {loading ? 'Adding...' : 'Add Job'}
               </button>
             </div>
           </div>
