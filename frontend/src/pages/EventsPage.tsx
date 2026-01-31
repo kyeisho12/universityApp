@@ -56,7 +56,7 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const response = await fetch(`${API_BASE_URL}/events/`, {
+      const response = await fetch(`${API_BASE_URL}/events/?student_id=${userID}`, {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
@@ -81,8 +81,16 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
         time: event.time,
         location: event.location,
         registered: event.registered || 0,
-        isRegistered: false,
+        isRegistered: event.isRegistered || false,
       }));
+      
+      // Track which events this student is registered for
+      const registered = new Set(
+        transformedEvents
+          .filter(e => e.isRegistered)
+          .map(e => e.id)
+      );
+      setRegisteredEvents(registered);
       
       console.log("Transformed events:", transformedEvents);
       setEvents(transformedEvents);
@@ -106,10 +114,10 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
       if (!response.ok) throw new Error('Failed to register');
       const data = await response.json();
       
-      // Update events with new registered count
+      // Update events with new registered count and isRegistered flag
       setEvents(events.map(e => 
         e.id === eventId 
-          ? { ...e, registered: data.data.registered }
+          ? { ...e, registered: data.data.registered, isRegistered: data.data.isRegistered }
           : e
       ));
       
@@ -132,10 +140,10 @@ function CareerEventsPageContent({ email, onLogout, onNavigate }: CareerEventsPa
       if (!response.ok) throw new Error('Failed to unregister');
       const data = await response.json();
       
-      // Update events with new registered count
+      // Update events with new registered count and isRegistered flag
       setEvents(events.map(e => 
         e.id === eventId 
-          ? { ...e, registered: data.data.registered }
+          ? { ...e, registered: data.data.registered, isRegistered: data.data.isRegistered }
           : e
       ));
       

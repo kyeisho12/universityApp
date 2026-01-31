@@ -29,10 +29,19 @@ def get_events():
     Get all career events
     Query params:
         - event_type: filter by event type (Job Fair, Workshop, Seminar, Webinar, Announcement)
+        - student_id: student ID to check registration status
     """
     try:
         event_type = request.args.get("event_type", None)
+        student_id = request.args.get("student_id", None)
         result = get_event_service().get_all_events(event_type=event_type)
+        
+        # Add isRegistered flag for each event if student_id provided
+        if student_id and result.get("success") and "data" in result:
+            for event in result["data"]:
+                registered_students = event.get("registered_students", [])
+                event["isRegistered"] = student_id in registered_students
+        
         return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
@@ -69,6 +78,11 @@ def register_for_event(event_id):
         
         result = get_event_service().register_for_event(event_id, student_id)
         
+        # Add isRegistered flag
+        if result.get("success") and "data" in result:
+            registered_students = result["data"].get("registered_students", [])
+            result["data"]["isRegistered"] = student_id in registered_students
+        
         return jsonify(result), result.get("status_code", 200)
     
     except Exception as e:
@@ -86,6 +100,11 @@ def unregister_from_event(event_id):
         student_id = data.get("student_id", "anonymous")
         
         result = get_event_service().unregister_from_event(event_id, student_id)
+        
+        # Add isRegistered flag
+        if result.get("success") and "data" in result:
+            registered_students = result["data"].get("registered_students", [])
+            result["data"]["isRegistered"] = student_id in registered_students
         
         return jsonify(result), result.get("status_code", 200)
     

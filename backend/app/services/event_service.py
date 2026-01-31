@@ -7,11 +7,49 @@ import requests
 import json
 
 logger = logging.getLogger(__name__)
+logger.info("Initializing event_service module")
 
 # Temporary in-memory storage for career events while debugging PostgREST schema cache issue
 _events_db: Dict[str, Dict[str, Any]] = {}
 # In-memory storage for event registrations: {event_id: [student_ids]}
 _registrations_db: Dict[str, List[str]] = {}
+
+# File path for persistent registration storage
+import sys
+_backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REGISTRATIONS_FILE = os.path.join(_backend_dir, "data", "registrations.json")
+print(f"[INIT] REGISTRATIONS_FILE = {REGISTRATIONS_FILE}", flush=True)
+
+def _ensure_registrations_file():
+    """Ensure registrations file exists"""
+    os.makedirs(os.path.dirname(REGISTRATIONS_FILE), exist_ok=True)
+    if not os.path.exists(REGISTRATIONS_FILE):
+        with open(REGISTRATIONS_FILE, 'w') as f:
+            json.dump({}, f)
+
+def _load_registrations():
+    """Load registrations from file"""
+    try:
+        _ensure_registrations_file()
+        with open(REGISTRATIONS_FILE, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error loading registrations: {e}")
+        return {}
+
+def _save_registrations(registrations: Dict[str, List[str]]):
+    """Save registrations to file"""
+    try:
+        print(f"[SAVE] Attempting to save to {REGISTRATIONS_FILE}", flush=True)
+        _ensure_registrations_file()
+        print(f"[SAVE] File ensured", flush=True)
+        with open(REGISTRATIONS_FILE, 'w') as f:
+            json.dump(registrations, f, indent=2)
+        print(f"[SAVE] Wrote {len(registrations)} events", flush=True)
+        logger.info(f"Saved registrations for {len(registrations)} events to {REGISTRATIONS_FILE}")
+    except Exception as e:
+        print(f"[SAVE] ERROR: {e}", flush=True)
+        logger.error(f"Error saving registrations to {REGISTRATIONS_FILE}: {e}")
 
 
 class EventService:
@@ -23,11 +61,19 @@ class EventService:
     """
 
     def __init__(self):
+        print(f"[INIT] REGISTRATIONS_FILE = {REGISTRATIONS_FILE}", flush=True)
         self.supabase_url = os.getenv("SUPABASE_URL")
         self.supabase_key = os.getenv("SUPABASE_KEY")
         self.use_mock_data = True  # Temporarily use in-memory storage
         
+        # Load persistent registrations from file
+        global _registrations_db
+        print(f"[INIT] Loading registrations from {REGISTRATIONS_FILE}...", flush=True)
+        _registrations_db = _load_registrations()
+        print(f"[INIT] Loaded {len(_registrations_db)} events from file", flush=True)
+        
         logger.info(f"EventService __init__: SUPABASE_URL={self.supabase_url}, has_key={bool(self.supabase_key)}")
+        logger.info(f"Loaded {len(_registrations_db)} events with registrations from file")
         
         if self.supabase_url and self.supabase_key:
             # Use direct REST API endpoint for career_events table
@@ -42,7 +88,25 @@ class EventService:
             self.api_url = None
             self.headers = None
         
-        logger.info("EventService initialized with in-memory storage (PostgREST cache workaround)")
+        logger.info("EventService initialized with persistent file storage for registrations")
+
+    def _fetch_event_from_supabase(self, event_id: str) -> Optional[Dict[str, Any]]:
+        if not self.api_url or not self.headers:
+            return None
+
+        try:
+            url = f"{self.api_url}/career_events"
+            params = {
+                "id": f"eq.{event_id}",
+                "limit": "1"
+            }
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            return data[0] if data else None
+        except Exception as e:
+            logger.error(f"Error fetching event {event_id} from Supabase: {e}", exc_info=True)
+            return None
 
     def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -117,20 +181,32 @@ class EventService:
             List of all events with registration counts
         """
         try:
-            # Get all events from memory storage
-            all_events = list(_events_db.values())
-            
-            # Filter by event_type if provided
-            if event_type:
-                all_events = [e for e in all_events if e.get("event_type") == event_type]
+            # Fetch from Supabase via REST API
+            if self.api_url and self.headers:
+                url = f"{self.api_url}/career_events"
+                params = {}
+                if event_type:
+                    params["event_type"] = f"eq.{event_type}"
+                
+                response = requests.get(url, headers=self.headers, params=params, timeout=10)
+                response.raise_for_status()
+                all_events = response.json()
+                
+                logger.info(f"Fetched {len(all_events)} career events from Supabase")
+            else:
+                # Fallback to memory storage if Supabase not configured
+                all_events = list(_events_db.values())
+                
+                if event_type:
+                    all_events = [e for e in all_events if e.get("event_type") == event_type]
+                
+                logger.info(f"Fetched {len(all_events)} career events from memory storage")
             
             # Add registration count to each event
             all_events = [self._add_registration_count(e) for e in all_events]
             
             # Sort by date descending
             all_events.sort(key=lambda x: x.get("date", ""), reverse=True)
-            
-            logger.info(f"Fetched {len(all_events)} career events from memory storage")
             
             return {
                 "success": True,
@@ -159,19 +235,23 @@ class EventService:
             Event data with registration count or error response
         """
         try:
-            if event_id in _events_db:
-                event = self._add_registration_count(_events_db[event_id])
-                return {
-                    "success": True,
-                    "data": event,
-                    "status_code": 200
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": "Event not found",
-                    "status_code": 404
-                }
+            event = self._fetch_event_from_supabase(event_id)
+            if not event:
+                if event_id in _events_db:
+                    event = _events_db[event_id]
+                else:
+                    return {
+                        "success": False,
+                        "error": "Event not found",
+                        "status_code": 404
+                    }
+
+            event = self._add_registration_count(event)
+            return {
+                "success": True,
+                "data": event,
+                "status_code": 200
+            }
 
         except Exception as e:
             error_msg = str(e)
@@ -252,6 +332,7 @@ class EventService:
                 # Also delete registrations for this event
                 if event_id in _registrations_db:
                     del _registrations_db[event_id]
+                    _save_registrations(_registrations_db)  # Persist deletion
                 logger.info(f"Deleted event {event_id} from memory storage")
                 return {
                     "success": True,
@@ -286,23 +367,32 @@ class EventService:
             Updated event data or error response
         """
         try:
-            if event_id not in _events_db:
-                return {
-                    "success": False,
-                    "error": "Event not found",
-                    "status_code": 404
-                }
+            event = self._fetch_event_from_supabase(event_id)
+            if not event:
+                if event_id in _events_db:
+                    event = _events_db[event_id]
+                else:
+                    return {
+                        "success": False,
+                        "error": "Event not found",
+                        "status_code": 404
+                    }
             
             # Initialize registrations list if needed
             if event_id not in _registrations_db:
                 _registrations_db[event_id] = []
             
             # Add student if not already registered
+            print(f"[REG] Checking if {student_id} in {_registrations_db[event_id]}", flush=True)
             if student_id not in _registrations_db[event_id]:
+                print(f"[REG] Adding student", flush=True)
                 _registrations_db[event_id].append(student_id)
+                _save_registrations(_registrations_db)  # Persist to file
                 logger.info(f"Student {student_id} registered for event {event_id}")
+            else:
+                print(f"[REG] Student already registered, skipping save", flush=True)
             
-            event = self._add_registration_count(_events_db[event_id])
+            event = self._add_registration_count(event)
             return {
                 "success": True,
                 "data": event,
@@ -330,12 +420,16 @@ class EventService:
             Updated event data or error response
         """
         try:
-            if event_id not in _events_db:
-                return {
-                    "success": False,
-                    "error": "Event not found",
-                    "status_code": 404
-                }
+            event = self._fetch_event_from_supabase(event_id)
+            if not event:
+                if event_id in _events_db:
+                    event = _events_db[event_id]
+                else:
+                    return {
+                        "success": False,
+                        "error": "Event not found",
+                        "status_code": 404
+                    }
             
             # Initialize registrations list if needed
             if event_id not in _registrations_db:
@@ -344,9 +438,10 @@ class EventService:
             # Remove student if registered
             if student_id in _registrations_db[event_id]:
                 _registrations_db[event_id].remove(student_id)
+                _save_registrations(_registrations_db)  # Persist to file
                 logger.info(f"Student {student_id} unregistered from event {event_id}")
             
-            event = self._add_registration_count(_events_db[event_id])
+            event = self._add_registration_count(event)
             return {
                 "success": True,
                 "data": event,
@@ -370,9 +465,11 @@ class EventService:
             event: Event dictionary
         
         Returns:
-            Event dictionary with registered count
+            Event dictionary with registered count and list of registered students
         """
         event_copy = event.copy()
         event_id = event_copy.get("id")
-        event_copy["registered"] = len(_registrations_db.get(event_id, []))
+        registered_students = _registrations_db.get(event_id, [])
+        event_copy["registered"] = len(registered_students)
+        event_copy["registered_students"] = registered_students  # Include list of registered students
         return event_copy

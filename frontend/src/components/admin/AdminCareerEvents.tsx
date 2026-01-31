@@ -66,9 +66,9 @@ export default function AdminCareerEvents() {
 
   const stats = [
     { label: "Total Events", value: events.length.toString() },
+    { label: "Active Events", value: events.filter((e) => new Date(e.date) >= new Date(new Date().toISOString().split('T')[0])).length.toString() },
+    { label: "Total Registrations", value: events.reduce((sum, e) => sum + (e.registered || 0), 0).toString() },
     { label: "Job Fairs", value: events.filter((e) => e.event_type === "Job Fair").length.toString() },
-    { label: "Workshops/Seminars", value: events.filter((e) => e.event_type === "Workshop" || e.event_type === "Seminar").length.toString() },
-    { label: "Announcements", value: events.filter((e) => e.event_type === "Announcement").length.toString() },
   ];
 
   async function handleLogout() {
@@ -323,6 +323,7 @@ export default function AdminCareerEvents() {
                         <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Type</th>
                         <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Date & Time</th>
                         <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Location</th>
+                        <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Registrations</th>
                         <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Actions</th>
                       </tr>
                     </thead>
@@ -363,6 +364,12 @@ export default function AdminCareerEvents() {
                             ) : (
                               <span className="text-gray-400 text-sm">—</span>
                             )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Users className="w-4 h-4 text-blue-500" />
+                              <span className="font-medium text-gray-900">{event.registered || 0}</span>
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
