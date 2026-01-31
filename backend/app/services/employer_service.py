@@ -64,10 +64,12 @@ class EmployerService:
 
             # Insert into Supabase using REST API
             endpoint = f"{self.url}/rest/v1/employers"
-            response = requests.post(endpoint, json=data, headers=self.headers)
+            # Add Prefer header to get the created record back
+            headers_with_prefer = {**self.headers, "Prefer": "return=representation"}
+            response = requests.post(endpoint, json=data, headers=headers_with_prefer)
             response.raise_for_status()
             
-            result_data = response.json()
+            result_data = response.json() if response.text else []
             if isinstance(result_data, list) and result_data:
                 return {
                     "success": True,
@@ -77,7 +79,7 @@ class EmployerService:
             else:
                 return {
                     "success": False,
-                    "error": "Failed to create employer",
+                    "error": "Failed to create employer - no data returned",
                     "status_code": 500
                 }
 
@@ -184,10 +186,12 @@ class EmployerService:
                 }
 
             endpoint = f"{self.url}/rest/v1/employers?id=eq.{employer_id}"
-            response = requests.patch(endpoint, json=data, headers=self.headers)
+            # Add Prefer header to get the updated record back
+            headers_with_prefer = {**self.headers, "Prefer": "return=representation"}
+            response = requests.patch(endpoint, json=data, headers=headers_with_prefer)
             response.raise_for_status()
             
-            result_data = response.json()
+            result_data = response.json() if response.text else []
             if isinstance(result_data, list) and result_data:
                 return {
                     "success": True,
@@ -197,7 +201,7 @@ class EmployerService:
             else:
                 return {
                     "success": False,
-                    "error": "Failed to update employer",
+                    "error": "Failed to update employer - no data returned",
                     "status_code": 500
                 }
 

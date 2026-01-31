@@ -29,7 +29,10 @@ const EmployerPartners = () => {
   const [searchQuery, setSearchQuery] = React.useState<string>('');
   const [industryFilter, setIndustryFilter] = React.useState<string>('all');
   const [showAddModal, setShowAddModal] = React.useState<boolean>(false);
+  const [showEditModal, setShowEditModal] = React.useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState<boolean>(false);
   const [showAddJobModal, setShowAddJobModal] = React.useState<boolean>(false);
+  const [selectedCompany, setSelectedCompany] = React.useState<Employer | null>(null);
   const [formData, setFormData] = React.useState({
     name: '',
     website: '',
@@ -134,6 +137,73 @@ const EmployerPartners = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditCompany = async () => {
+    if (!selectedCompany || !formData.name || !formData.industry || !formData.contact_email) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await EmployerService.update(selectedCompany.id!, {
+        name: formData.name,
+        website: formData.website,
+        industry: formData.industry,
+        contact_email: formData.contact_email,
+      });
+      
+      // Reload employers
+      await loadEmployers();
+      
+      // Close modal and reset form
+      setShowEditModal(false);
+      setSelectedCompany(null);
+      setFormData({ name: '', website: '', industry: '', contact_email: '' });
+    } catch (err) {
+      setError('Failed to update company');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!selectedCompany) return;
+
+    try {
+      setLoading(true);
+      await EmployerService.delete(selectedCompany.id!);
+      
+      // Reload employers
+      await loadEmployers();
+      
+      // Close modal and reset
+      setShowDeleteConfirm(false);
+      setSelectedCompany(null);
+    } catch (err) {
+      setError('Failed to delete company');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditModal = (company: Employer) => {
+    setSelectedCompany(company);
+    setFormData({
+      name: company.name,
+      website: company.website || '',
+      industry: company.industry,
+      contact_email: company.contact_email,
+    });
+    setShowEditModal(true);
+  };
+
+  const openDeleteConfirm = (company: Employer) => {
+    setSelectedCompany(company);
+    setShowDeleteConfirm(true);
   };
 
   const handleAddJob = async () => {
@@ -436,18 +506,21 @@ const EmployerPartners = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => openEditModal(company)}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Edit"
                               >
                                 <Edit className="w-4 h-4 text-gray-600" />
                               </button>
                               <button
+                                onClick={() => company.website && window.open(company.website.startsWith('http') ? company.website : `https://${company.website}`, '_blank')}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="View Details"
                               >
                                 <ExternalLink className="w-4 h-4 text-gray-600" />
                               </button>
                               <button
+                                onClick={() => openDeleteConfirm(company)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
                               >
@@ -583,6 +656,160 @@ const EmployerPartners = () => {
           </div>
         </main>
       </div>
+
+      {/* Edit Company Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Edit Company</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedCompany(null);
+                  setFormData({ name: '', website: '', industry: '', contact_email: '' });
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter company name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Website
+                </label>
+                <input
+                  type="url"
+                  placeholder="e.g., example.com"
+                  value={formData.website}
+                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Industry
+                </label>
+                <select
+                  value={formData.industry}
+                  onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                >
+                  <option value="">Select an industry</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="IT Services">IT Services</option>
+                  <option value="Data Analytics">Data Analytics</option>
+                  <option value="Cloud Computing">Cloud Computing</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="Retail">Retail</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g., hr@company.com"
+                  value={formData.contact_email}
+                  onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedCompany(null);
+                  setFormData({ name: '', website: '', industry: '', contact_email: '' });
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditCompany}
+                disabled={loading}
+                className="px-4 py-2 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && selectedCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Delete Company</h2>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedCompany(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-700">
+                Are you sure you want to delete <strong>{selectedCompany.name}</strong>? This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedCompany(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCompany}
+                disabled={loading}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Company Modal */}
       {showAddModal && (

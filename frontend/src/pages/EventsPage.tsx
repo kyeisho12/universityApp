@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
-
-const API_BASE_URL = "http://localhost:3001/api";
+import { 
+  getEventsForStudent, 
+  registerForEvent, 
+  unregisterFromEvent,
+  EventWithRegistration 
+} from "../services/careerEventService";
 
 type NavigateHandler = (route: string) => void;
 
@@ -52,53 +56,22 @@ function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: Career
     try {
       setLoading(true);
       setError(null);
-      console.log("Fetching events from:", `${API_BASE_URL}/events/`);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
-      const response = await fetch(`${API_BASE_URL}/events/?student_id=${userID}`, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
-      clearTimeout(timeoutId);
-      
-      console.log("Response status:", response.status);
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch events`);
-      const data = await response.json();
-      console.log("Events data received:", data);
-      
-      // Transform API response to component format
-      const transformedEvents = (data.data || []).map((event: any) => ({
-        id: event.id,
-        event_type: event.event_type,
-        type: event.event_type, // Keep both for compatibility
-        title: event.title,
-        description: event.description,
-        date: event.date,
-        time: event.time,
-        location: event.location,
-        registered: event.registered || 0,
-        isRegistered: event.isRegistered || false,
-      }));
+      const eventsData = await getEventsForStudent(userID)
       
       // Track which events this student is registered for
       const registered = new Set(
-        transformedEvents
+        eventsData
           .filter(e => e.isRegistered)
           .map(e => e.id)
       );
       setRegisteredEvents(registered);
       
-      console.log("Transformed events:", transformedEvents);
-      setEvents(transformedEvents);
+      setEvents(eventsData);
     } catch (err) {
       console.error("Error fetching events:", err);
       setError(err instanceof Error ? err.message : "Error fetching events");
-      setEvents([]); // Show empty state instead of stuck loading
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -106,55 +79,39 @@ function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: Career
 
   async function handleRegister(eventId: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${eventId}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: userID })
-      });
+      await registerForEvent(eventId, userID)
       
-      if (!response.ok) throw new Error('Failed to register');
-      const data = await response.json();
-      
-      // Update events with new registered count and isRegistered flag
+      // Update local state
       setEvents(events.map(e => 
         e.id === eventId 
-          ? { ...e, registered: data.data.registered, isRegistered: data.data.isRegistered }
+          ? { ...e, registered: (e.registered || 0) + 1, isRegistered: true }
           : e
       ));
       
-      // Mark as registered
       setRegisteredEvents(new Set([...registeredEvents, eventId]));
     } catch (err) {
       console.error('Registration error:', err);
-      alert('Failed to register for event');
+      alert(err instanceof Error ? err.message : 'Failed to register for event');
     }
   }
 
   async function handleUnregister(eventId: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${eventId}/unregister`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: userID })
-      });
+      await unregisterFromEvent(eventId, userID)
       
-      if (!response.ok) throw new Error('Failed to unregister');
-      const data = await response.json();
-      
-      // Update events with new registered count and isRegistered flag
+      // Update local state
       setEvents(events.map(e => 
         e.id === eventId 
-          ? { ...e, registered: data.data.registered, isRegistered: data.data.isRegistered }
+          ? { ...e, registered: Math.max((e.registered || 1) - 1, 0), isRegistered: false }
           : e
       ));
       
-      // Mark as unregistered
       const newSet = new Set(registeredEvents);
       newSet.delete(eventId);
       setRegisteredEvents(newSet);
     } catch (err) {
       console.error('Unregistration error:', err);
-      alert('Failed to unregister from event');
+      alert(err instanceof Error ? err.message : 'Failed to unregister from event');
     }
   }
 

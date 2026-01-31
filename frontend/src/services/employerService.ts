@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:5000/api/employers/";
+import { supabase } from '../lib/supabaseClient'
 
 export interface Employer {
   id?: string;
@@ -29,15 +29,17 @@ class EmployerService {
    */
   static async getAll(includeUnverified = false): Promise<Employer[]> {
     try {
-      const url = `${API_BASE_URL}?include_unverified=${includeUnverified}`;
-      const response = await fetch(url);
+      let query = supabase.from('employers').select('*').order('created_at', { ascending: false })
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch employers: ${response.statusText}`);
+      // Filter to only verified employers unless explicitly requested
+      if (!includeUnverified) {
+        query = query.eq('verified', true)
       }
       
-      const data = await response.json();
-      return data.data || [];
+      const { data, error } = await query
+      
+      if (error) throw error
+      return data || []
     } catch (error) {
       console.error("Error fetching employers:", error);
       throw error;
@@ -49,14 +51,16 @@ class EmployerService {
    */
   static async getById(employerId: string): Promise<Employer> {
     try {
-      const response = await fetch(`${API_BASE_URL}/${employerId}`);
+      const { data, error } = await supabase
+        .from('employers')
+        .select('*')
+        .eq('id', employerId)
+        .single()
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch employer: ${response.statusText}`);
-      }
+      if (error) throw error
+      if (!data) throw new Error('Employer not found')
       
-      const data = await response.json();
-      return data.data;
+      return data
     } catch (error) {
       console.error("Error fetching employer:", error);
       throw error;
@@ -68,21 +72,27 @@ class EmployerService {
    */
   static async create(employer: Employer): Promise<Employer> {
     try {
-      const response = await fetch(API_BASE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(employer),
-      });
+      const { data, error } = await supabase
+        .from('employers')
+        .insert({
+          name: employer.name,
+          website: employer.website || null,
+          industry: employer.industry,
+          contact_email: employer.contact_email,
+          phone: employer.phone || null,
+          address: employer.address || null,
+          description: employer.description || null,
+          logo_url: employer.logo_url || null,
+          verified: false, // New employers start as unverified
+          job_listings_count: 0
+        })
+        .select()
+        .single()
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to create employer: ${response.statusText}`);
-      }
+      if (error) throw error
+      if (!data) throw new Error('Failed to create employer')
       
-      const data = await response.json();
-      return data.data;
+      return data
     } catch (error) {
       console.error("Error creating employer:", error);
       throw error;
@@ -94,21 +104,17 @@ class EmployerService {
    */
   static async update(employerId: string, updates: Partial<Employer>): Promise<Employer> {
     try {
-      const response = await fetch(`${API_BASE_URL}/${employerId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
+      const { data, error } = await supabase
+        .from('employers')
+        .update(updates)
+        .eq('id', employerId)
+        .select()
+        .single()
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to update employer: ${response.statusText}`);
-      }
+      if (error) throw error
+      if (!data) throw new Error('Failed to update employer')
       
-      const data = await response.json();
-      return data.data;
+      return data
     } catch (error) {
       console.error("Error updating employer:", error);
       throw error;
@@ -120,14 +126,12 @@ class EmployerService {
    */
   static async delete(employerId: string): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/${employerId}`, {
-        method: "DELETE",
-      });
+      const { error } = await supabase
+        .from('employers')
+        .delete()
+        .eq('id', employerId)
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to delete employer: ${response.statusText}`);
-      }
+      if (error) throw error
     } catch (error) {
       console.error("Error deleting employer:", error);
       throw error;
@@ -139,15 +143,19 @@ class EmployerService {
    */
   static async search(query: string, includeUnverified = false): Promise<Employer[]> {
     try {
-      const url = `${API_BASE_URL}/search?q=${encodeURIComponent(query)}&include_unverified=${includeUnverified}`;
-      const response = await fetch(url);
+      let supabaseQuery = supabase
+        .from('employers')
+        .select('*')
+        .or(`name.ilike.%${query}%,industry.ilike.%${query}%`)
       
-      if (!response.ok) {
-        throw new Error(`Failed to search employers: ${response.statusText}`);
+      if (!includeUnverified) {
+        supabaseQuery = supabaseQuery.eq('verified', true)
       }
       
-      const data = await response.json();
-      return data.data || [];
+      const { data, error } = await supabaseQuery
+      
+      if (error) throw error
+      return data || []
     } catch (error) {
       console.error("Error searching employers:", error);
       throw error;
@@ -159,20 +167,7 @@ class EmployerService {
    */
   static async verify(employerId: string): Promise<Employer> {
     try {
-      const response = await fetch(`${API_BASE_URL}/${employerId}/verify`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to verify employer: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data.data;
+      return await this.update(employerId, { verified: true })
     } catch (error) {
       console.error("Error verifying employer:", error);
       throw error;
@@ -184,14 +179,21 @@ class EmployerService {
    */
   static async getStats(): Promise<EmployerStats> {
     try {
-      const response = await fetch(`${API_BASE_URL}/stats`);
+      const { data, error } = await supabase
+        .from('employers')
+        .select('verified, job_listings_count')
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch employer stats: ${response.statusText}`);
+      if (error) throw error
+      
+      const employers = data || []
+      const stats: EmployerStats = {
+        total_partners: employers.length,
+        verified: employers.filter(e => e.verified).length,
+        pending: employers.filter(e => !e.verified).length,
+        active_listings: employers.reduce((sum, e) => sum + (e.job_listings_count || 0), 0)
       }
       
-      const data = await response.json();
-      return data.data;
+      return stats
     } catch (error) {
       console.error("Error fetching employer stats:", error);
       throw error;
