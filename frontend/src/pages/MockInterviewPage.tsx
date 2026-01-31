@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabaseClient";
 
 type NavigateHandler = (route: string) => void;
 
@@ -28,11 +29,12 @@ interface Question {
 
 function MockInterviewPageContent({
   email,
+  studentId,
   onLogout,
   onNavigate,
-}: MockInterviewPageContentProps) {
+}: MockInterviewPageContentProps & { studentId?: string }) {
   const userName = email.split("@")[0];
-  const userID = "2024-00001";
+  const userID = studentId || "2024-00001";
   const [hasStarted, setHasStarted] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -470,6 +472,27 @@ function MetricCard({
 export default function MockInterviewPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [studentId, setStudentId] = React.useState<string>('2024-00001');
+
+  React.useEffect(() => {
+    const fetchStudentId = async () => {
+      if (!user?.id) return;
+      try {
+        const { data, error: err } = await supabase
+          .from('profiles')
+          .select('student_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (err) throw err;
+        setStudentId(data?.student_id || '2024-00001');
+      } catch (err) {
+        console.error('Failed to fetch student_id:', err);
+      }
+    };
+
+    fetchStudentId();
+  }, [user?.id]);
 
   async function handleLogout() {
     try {
@@ -488,6 +511,7 @@ export default function MockInterviewPage() {
   return (
     <MockInterviewPageContent
       email={user?.email || ""}
+      studentId={studentId}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
     />

@@ -2,23 +2,13 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { AdminNavbar } from '../common/AdminNavbar'
-import { X, Search, Plus, Bell, Menu, Edit, ExternalLink, Trash2, Building2, Globe, Briefcase, MapPin, Calendar } from 'lucide-react'
+import { X, Search, Plus, Bell, Menu, Edit, ExternalLink, Trash2, Building2, Globe, Briefcase, MapPin, Calendar, AlertCircle } from 'lucide-react'
 import EmployerService, { Employer } from '../../services/employerService'
+import { getAllJobs, createJob, updateJob, deleteJob, type Job } from '../../services/jobService'
 
-interface JobListing {
-  id: string;
-  title: string;
-  company: string;
-  company_id: string;
-  location: string;
-  type: string;
-  category: string;
-  salary_range?: string;
-  deadline: string;
-  description: string;
-  requirements: string[];
-  status: 'active' | 'closed';
-  created_at: string;
+interface JobListing extends Job {
+  employer_name?: string;
+  employer_website?: string;
 }
 
 const EmployerPartners = () => {
@@ -32,7 +22,10 @@ const EmployerPartners = () => {
   const [showEditModal, setShowEditModal] = React.useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState<boolean>(false);
   const [showAddJobModal, setShowAddJobModal] = React.useState<boolean>(false);
+  const [showEditJobModal, setShowEditJobModal] = React.useState<boolean>(false);
+  const [showDeleteJobConfirm, setShowDeleteJobConfirm] = React.useState<boolean>(false);
   const [selectedCompany, setSelectedCompany] = React.useState<Employer | null>(null);
+  const [selectedJob, setSelectedJob] = React.useState<JobListing | null>(null);
   const [formData, setFormData] = React.useState({
     name: '',
     website: '',
@@ -41,9 +34,9 @@ const EmployerPartners = () => {
   });
   const [jobFormData, setJobFormData] = React.useState({
     title: '',
-    company_id: '',
+    employer_id: '',
     location: '',
-    type: 'Full-time',
+    job_type: 'Full-time',
     category: 'Information Technology',
     salary_range: '',
     deadline: '',
@@ -61,8 +54,19 @@ const EmployerPartners = () => {
 
   // Fetch employers on component mount
   React.useEffect(() => {
-    loadEmployers();
-    loadJobs();
+    const init = async () => {
+      try {
+        await loadEmployers();
+      } catch (e) {
+        console.error('Failed to load employers:', e);
+      }
+      try {
+        await loadJobs();
+      } catch (e) {
+        console.error('Failed to load jobs:', e);
+      }
+    };
+    init();
   }, []);
 
   const loadEmployers = async () => {
@@ -90,24 +94,28 @@ const EmployerPartners = () => {
   };
 
   const loadJobs = async () => {
-    // Mock data for now - you'll replace this with actual API call
-    setJobs([
-      {
-        id: '1',
-        title: 'Software Developer Intern',
-        company: 'Accenture Philippines',
-        company_id: 'acc-1',
-        location: 'Tarlac City',
-        type: 'Internship',
-        category: 'Information Technology',
-        salary_range: '₱15,000 - ₱20,000/month',
-        deadline: '2024-01-15',
-        description: 'Describe the role, responsibilities, and what makes it a great opportunity...',
-        requirements: ['JavaScript/TypeScript', 'React or Vue.js', 'Git version control'],
-        status: 'active',
-        created_at: '2024-01-01'
+    try {
+      setLoading(true);
+      const data = await getAllJobs(true);
+      if (data && Array.isArray(data)) {
+        setJobs(data as JobListing[]);
+        
+        // Count active jobs and update stats
+        const activeCount = data.filter((job) => job.status === 'active').length;
+        setStats((prevStats) => ({
+          ...prevStats,
+          activeListings: activeCount,
+        }));
+      } else {
+        setJobs([]);
       }
-    ]);
+    } catch (err) {
+      console.error('Error loading jobs:', err);
+      setError('Failed to load jobs');
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddCompany = async () => {
@@ -207,56 +215,145 @@ const EmployerPartners = () => {
   };
 
   const handleAddJob = async () => {
-    if (!jobFormData.title || !jobFormData.company_id || !jobFormData.location || !jobFormData.deadline) {
+    if (!jobFormData.title || !jobFormData.employer_id || !jobFormData.location || !jobFormData.deadline) {
       setError('Please fill in all required fields');
       return;
     }
 
     try {
       setLoading(true);
-      const company = companies.find(c => c.id === jobFormData.company_id);
       const requirementsArray = jobFormData.requirements
         .split('\n')
         .map(r => r.trim())
         .filter(r => r.length > 0);
 
-      const newJob: JobListing = {
-        id: Date.now().toString(),
+      await createJob({
+        employer_id: jobFormData.employer_id,
         title: jobFormData.title,
-        company: company?.name || '',
-        company_id: jobFormData.company_id,
-        location: jobFormData.location,
-        type: jobFormData.type,
-        category: jobFormData.category,
-        salary_range: jobFormData.salary_range,
-        deadline: jobFormData.deadline,
         description: jobFormData.description,
         requirements: requirementsArray,
-        status: 'active',
-        created_at: new Date().toISOString()
-      };
+        category: jobFormData.category,
+        job_type: jobFormData.job_type,
+        location: jobFormData.location,
+        salary_range: jobFormData.salary_range,
+        deadline: jobFormData.deadline,
+      });
 
-      setJobs([...jobs, newJob]);
+      // Reload jobs
+      await loadJobs();
       
       // Close modal and reset form
       setShowAddJobModal(false);
       setJobFormData({
         title: '',
-        company_id: '',
+        employer_id: '',
         location: '',
-        type: 'Full-time',
+        job_type: 'Full-time',
         category: 'Information Technology',
         salary_range: '',
         deadline: '',
         description: '',
         requirements: '',
       });
+      setError(null);
     } catch (err) {
       setError('Failed to add job');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateJob = async () => {
+    if (!selectedJob || !jobFormData.title || !jobFormData.employer_id) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const requirementsArray = jobFormData.requirements
+        .split('\n')
+        .map(r => r.trim())
+        .filter(r => r.length > 0);
+
+      await updateJob(selectedJob.id!, {
+        title: jobFormData.title,
+        description: jobFormData.description,
+        requirements: requirementsArray,
+        category: jobFormData.category,
+        job_type: jobFormData.job_type,
+        location: jobFormData.location,
+        salary_range: jobFormData.salary_range,
+        deadline: jobFormData.deadline,
+      });
+
+      // Reload jobs
+      await loadJobs();
+      
+      // Close modal and reset
+      setShowEditJobModal(false);
+      setSelectedJob(null);
+      setJobFormData({
+        title: '',
+        employer_id: '',
+        location: '',
+        job_type: 'Full-time',
+        category: 'Information Technology',
+        salary_range: '',
+        deadline: '',
+        description: '',
+        requirements: '',
+      });
+      setError(null);
+    } catch (err) {
+      setError('Failed to update job');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!selectedJob) return;
+
+    try {
+      setLoading(true);
+      await deleteJob(selectedJob.id!);
+      
+      // Reload jobs
+      await loadJobs();
+      
+      // Close modal and reset
+      setShowDeleteJobConfirm(false);
+      setSelectedJob(null);
+    } catch (err) {
+      setError('Failed to delete job');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditJobModal = (job: JobListing) => {
+    setSelectedJob(job);
+    setJobFormData({
+      title: job.title,
+      employer_id: job.employer_id,
+      location: job.location,
+      job_type: job.job_type,
+      category: job.category,
+      salary_range: job.salary_range || '',
+      deadline: job.deadline,
+      description: job.description || '',
+      requirements: job.requirements?.join('\n') || '',
+    });
+    setShowEditJobModal(true);
+  };
+
+  const openDeleteJobConfirm = (job: JobListing) => {
+    setSelectedJob(job);
+    setShowDeleteJobConfirm(true);
   };
 
   async function handleLogout() {
@@ -600,12 +697,12 @@ const EmployerPartners = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <Building2 className="w-4 h-4 text-gray-400" />
-                              <span className="text-gray-700">{job.company}</span>
+                              <span className="text-gray-700">{job.employer_name}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {job.type}
+                              {job.job_type}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -632,12 +729,14 @@ const EmployerPartners = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => openEditJobModal(job)}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Edit"
                               >
                                 <Edit className="w-4 h-4 text-gray-600" />
                               </button>
                               <button
+                                onClick={() => openDeleteJobConfirm(job)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
                               >
@@ -947,8 +1046,8 @@ const EmployerPartners = () => {
                     Company
                   </label>
                   <select
-                    value={jobFormData.company_id}
-                    onChange={(e) => setJobFormData({ ...jobFormData, company_id: e.target.value })}
+                    value={jobFormData.employer_id}
+                    onChange={(e) => setJobFormData({ ...jobFormData, employer_id: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="">Select a company</option>
@@ -981,8 +1080,8 @@ const EmployerPartners = () => {
                     Job Type
                   </label>
                   <select
-                    value={jobFormData.type}
-                    onChange={(e) => setJobFormData({ ...jobFormData, type: e.target.value })}
+                    value={jobFormData.job_type}
+                    onChange={(e) => setJobFormData({ ...jobFormData, job_type: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Full-time">Full-time</option>
@@ -1083,6 +1182,216 @@ const EmployerPartners = () => {
               >
                 {loading ? 'Adding...' : 'Add Job'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Job Modal */}
+      {showEditJobModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="text-xl font-bold text-gray-900">Edit Job Listing</h2>
+              <button
+                onClick={() => setShowEditJobModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Modal Body - Same as Add Job */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Job Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Software Developer Intern"
+                  value={jobFormData.title}
+                  onChange={(e) => setJobFormData({ ...jobFormData, title: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Company
+                  </label>
+                  <select
+                    value={jobFormData.employer_id}
+                    onChange={(e) => setJobFormData({ ...jobFormData, employer_id: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                  >
+                    <option value="">Select a company</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Tarlac City"
+                    value={jobFormData.location}
+                    onChange={(e) => setJobFormData({ ...jobFormData, location: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Job Type
+                  </label>
+                  <select
+                    value={jobFormData.job_type}
+                    onChange={(e) => setJobFormData({ ...jobFormData, job_type: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                  >
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Internship">Internship</option>
+                    <option value="Contract">Contract</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={jobFormData.category}
+                    onChange={(e) => setJobFormData({ ...jobFormData, category: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                  >
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Data Science">Data Science</option>
+                    <option value="Software Engineering">Software Engineering</option>
+                    <option value="Business Analytics">Business Analytics</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Salary Range
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 20,000 - 40,000"
+                    value={jobFormData.salary_range}
+                    onChange={(e) => setJobFormData({ ...jobFormData, salary_range: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Deadline
+                  </label>
+                  <input
+                    type="date"
+                    value={jobFormData.deadline}
+                    onChange={(e) => setJobFormData({ ...jobFormData, deadline: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Description
+                </label>
+                <textarea
+                  placeholder="Job description..."
+                  rows={3}
+                  value={jobFormData.description}
+                  onChange={(e) => setJobFormData({ ...jobFormData, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Requirements (one per line)
+                </label>
+                <textarea
+                  placeholder="Enter each requirement on a new line..."
+                  rows={4}
+                  value={jobFormData.requirements}
+                  onChange={(e) => setJobFormData({ ...jobFormData, requirements: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 sticky bottom-0 bg-white">
+              <button
+                onClick={() => setShowEditJobModal(false)}
+                className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateJob}
+                disabled={loading}
+                className="px-6 py-2.5 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+              >
+                {loading ? 'Updating...' : 'Update Job'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Job Confirmation Modal */}
+      {showDeleteJobConfirm && selectedJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Delete Job?</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Are you sure you want to delete "{selectedJob.title}"? This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteJobConfirm(false)}
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteJob}
+                  disabled={loading}
+                  className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+                >
+                  {loading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

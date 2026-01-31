@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabaseClient";
 import { 
   getEventsForStudent, 
   registerForEvent, 
@@ -39,9 +40,9 @@ interface Event {
   isRegistered?: boolean;
 }
 
-function CareerEventsPageContent({ email, userId, onLogout, onNavigate }: CareerEventsPageContentProps) {
+function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigate }: CareerEventsPageContentProps & { studentId?: string }) {
   const userName = email.split("@")[0];
-  const userID = userId;
+  const userID = studentId || userId || "2024-00001";
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<Event[]>([]);
@@ -308,6 +309,27 @@ function EventCard({
 export default function EventsPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [studentId, setStudentId] = React.useState<string>('2024-00001');
+
+  React.useEffect(() => {
+    const fetchStudentId = async () => {
+      if (!user?.id) return;
+      try {
+        const { data, error: err } = await supabase
+          .from('profiles')
+          .select('student_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (err) throw err;
+        setStudentId(data?.student_id || '2024-00001');
+      } catch (err) {
+        console.error('Failed to fetch student_id:', err);
+      }
+    };
+
+    fetchStudentId();
+  }, [user?.id]);
 
   async function handleLogout() {
     try {
@@ -327,6 +349,7 @@ export default function EventsPage() {
     <CareerEventsPageContent
       email={user?.email || ""}
       userId={user?.id ?? ""}
+      studentId={studentId}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
     />

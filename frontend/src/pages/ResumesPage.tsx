@@ -4,6 +4,7 @@ import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Re
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudent } from "../context/StudentContext";
+import { supabase } from "../lib/supabaseClient";
 import {
   ALLOWED_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
@@ -24,7 +25,8 @@ interface ResumesPageContentProps {
   onNavigate: NavigateHandler;
 }
 
-function ResumesPageContent({ userId, userName, onLogout, onNavigate }: ResumesPageContentProps) {
+function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate }: ResumesPageContentProps & { studentId?: string }) {
+  const userID = studentId || "2024-00001";
   const [resumes, setResumes] = useState<ResumeWithUrl[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -293,9 +295,30 @@ export default function ResumesPage() {
   const { user, signOut } = useAuth();
   const { profile } = useStudent();
   const navigate = useNavigate();
+  const [studentId, setStudentId] = React.useState<string>('2024-00001');
 
   const userId = user?.id || "";
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
+
+  React.useEffect(() => {
+    const fetchStudentId = async () => {
+      if (!user?.id) return;
+      try {
+        const { data, error: err } = await supabase
+          .from('profiles')
+          .select('student_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (err) throw err;
+        setStudentId(data?.student_id || '2024-00001');
+      } catch (err) {
+        console.error('Failed to fetch student_id:', err);
+      }
+    };
+
+    fetchStudentId();
+  }, [user?.id]);
 
   async function handleLogout() {
     try {
@@ -315,6 +338,7 @@ export default function ResumesPage() {
     <ResumesPageContent
       userId={userId}
       userName={displayName}
+      studentId={studentId}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
     />

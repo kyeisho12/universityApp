@@ -8,6 +8,7 @@ export default function StudentDashboardPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [fullName, setFullName] = React.useState<string>(user?.user_metadata?.full_name || '')
+  const [studentId, setStudentId] = React.useState<string>('2024-00001')
   const [isNameLoading, setIsNameLoading] = React.useState<boolean>(false)
 
   React.useEffect(() => {
@@ -17,7 +18,7 @@ export default function StudentDashboardPage() {
       setIsNameLoading(true)
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, student_id')
         .eq('id', user.id)
         .single()
       if (!active) return
@@ -27,6 +28,7 @@ export default function StudentDashboardPage() {
         return
       }
       setFullName(data?.full_name || '')
+      setStudentId(data?.student_id || '2024-00001')
       setIsNameLoading(false)
     }
     loadProfile()
@@ -58,6 +60,7 @@ export default function StudentDashboardPage() {
       email={user?.email || ''} 
       fullName={fullName}
       displayName={displayName}
+      studentId={studentId}
       onLogout={handleLogout} 
       onNavigate={handleNavigate}
     />

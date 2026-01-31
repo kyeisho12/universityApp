@@ -13,15 +13,68 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { getAllJobs, type JobWithEmployer } from "../services/jobService";
+import { supabase } from "../lib/supabaseClient";
 
 function JobsPageContent({ email, onLogout, onNavigate }) {
-  const userName = email.split("@")[0];
-  const userID = "2024-00001";
-  const [selectedJob, setSelectedJob] = useState(null);
+  const { user } = useAuth();
+  const [userData, setUserData] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [saved, setSaved] = useState(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [jobs, setJobs] = useState<JobWithEmployer[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("All");
+  const [filterCategory, setFilterCategory] = useState("All Types");
 
-  const jobs = [];
+  // Fetch user profile data
+  React.useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      try {
+        const { data, error: err } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        
+        if (err) throw err;
+        setUserData(data);
+      } catch (err) {
+        console.error("Failed to fetch user profile:", err);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user?.id]);
+
+  // Get display name and ID from user data or fall back to email
+  const userName = userData?.full_name || email?.split("@")[0] || "User";
+  const userID = userData?.student_id || "2024-00001";
+
+  // Load jobs from Supabase
+  React.useEffect(() => {
+    const loadJobs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getAllJobs(false); // false = only active jobs for students
+        setJobs(data || []);
+        if (data && data.length > 0) {
+          setSelectedJob(data[0].id || null);
+        }
+      } catch (err) {
+        console.error("Failed to load jobs:", err);
+        setError("Failed to load job listings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadJobs();
+  }, []);
 
   const toggleSave = (jobId) => {
     const newSaved = new Set(saved);
@@ -33,7 +86,23 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     setSaved(newSaved);
   };
 
-  const currentJob = selectedJob ? jobs.find((j) => j.id === selectedJob) : jobs[0];
+  // Filter jobs based on search and filters
+  const filteredJobs = jobs.filter((job) => {
+    const matchesSearch =
+      searchTerm === "" ||
+      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      job.employer_name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesType = filterType === "All" || job.job_type === filterType;
+    const matchesCategory =
+      filterCategory === "All Types" || job.category === filterCategory;
+
+    return matchesSearch && matchesType && matchesCategory;
+  });
+
+  const currentJob = selectedJob
+    ? filteredJobs.find((j) => j.id === selectedJob)
+    : filteredJobs[0];
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
@@ -123,20 +192,34 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   <input
                     type="text"
                     placeholder="Search by job title or company..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none placeholder-gray-500 text-sm"
                   />
                   <div className="flex gap-2">
-                    <select className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm">
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm"
+                    >
                       <option>All</option>
                       <option>Internship</option>
                       <option>Full-time</option>
                       <option>Part-time</option>
+                      <option>Contract</option>
                     </select>
-                    <select className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm">
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm"
+                    >
                       <option>All Types</option>
-                      <option>IT</option>
-                      <option>Business</option>
-                      <option>Analytics</option>
+                      <option>Information Technology</option>
+                      <option>Data Science</option>
+                      <option>Software Engineering</option>
+                      <option>Business Analytics</option>
+                      <option>Finance</option>
+                      <option>Marketing</option>
                     </select>
                     <button className="px-3 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50">
                       <Filter className="w-5 h-5 text-gray-600" />
@@ -145,77 +228,95 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 </div>
 
                 <p className="text-sm text-gray-500 mb-4">
-                  Showing {jobs.length} of {jobs.length} opportunities
+                  Showing {filteredJobs.length} of {jobs.length} opportunities
                 </p>
 
                 {/* Jobs List */}
-                <div className="space-y-3 flex-1 overflow-y-auto flex items-center justify-center">
-                  {jobs.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Bookmark className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 font-medium mb-2">No job listings available</p>
-                      <p className="text-gray-400 text-sm">Check back soon for new opportunities</p>
+                <div className="flex-1 overflow-y-auto">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B4D8] mx-auto"></div>
+                        <p className="text-gray-500 mt-4">Loading jobs...</p>
+                      </div>
+                    </div>
+                  ) : error ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center py-12">
+                        <p className="text-red-500 font-medium mb-2">{error}</p>
+                        <p className="text-gray-400 text-sm">Try refreshing the page</p>
+                      </div>
+                    </div>
+                  ) : filteredJobs.length === 0 ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center py-12">
+                        <Bookmark className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500 font-medium mb-2">No job listings available</p>
+                        <p className="text-gray-400 text-sm">Check back soon for new opportunities</p>
+                      </div>
                     </div>
                   ) : (
-                    jobs.map((job) => (
-                      <button
-                        key={job.id}
-                        onClick={() => setSelectedJob(job.id)}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          selectedJob === job.id
-                            ? "border-[#1B2744] bg-gray-50"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <svg
-                              className="w-5 h-5 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                              />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">
-                              {job.title}
-                            </h4>
-                            <p className="text-xs text-gray-500">{job.company}</p>
-                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                              <MapPin className="w-3 h-3" />
-                              {job.location}
-                              <Clock className="w-3 h-3 ml-2" />
-                              {job.timeAgo}
+                    <div className="space-y-3">
+                      {filteredJobs.map((job) => (
+                        <button
+                          key={job.id}
+                          onClick={() => setSelectedJob(job.id || null)}
+                          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                            selectedJob === job.id
+                              ? "border-[#1B2744] bg-gray-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="w-5 h-5 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                                />
+                              </svg>
                             </div>
-                            <span className="inline-block text-xs font-medium text-[#00B4D8] mt-2">
-                              {job.type}
-                            </span>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                                {job.title}
+                              </h4>
+                              <p className="text-xs text-gray-500">{job.employer_name}</p>
+                              <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                <MapPin className="w-3 h-3" />
+                                {job.location}
+                                <Clock className="w-3 h-3 ml-2" />
+                                {new Date(job.created_at || "").toLocaleDateString()}
+                              </div>
+                              <span className="inline-block text-xs font-medium text-[#00B4D8] mt-2">
+                                {job.job_type}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSave(job.id);
+                              }}
+                              className="flex-shrink-0"
+                            >
+                              <Bookmark
+                                className={`w-5 h-5 ${
+                                  saved.has(job.id)
+                                    ? "fill-gray-400 text-gray-400"
+                                    : "text-gray-400"
+                                }`}
+                              />
+                            </button>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSave(job.id);
-                            }}
-                            className="flex-shrink-0"
-                          >
-                            <Bookmark
-                              className={`w-5 h-5 ${
-                                saved.has(job.id)
-                                  ? "fill-gray-400 text-gray-400"
-                                  : "text-gray-400"
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </button>
-                    ))
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -247,10 +348,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                         <h2 className="text-3xl font-bold text-gray-900 mb-1">
                           {currentJob.title}
                         </h2>
-                        <p className="text-gray-600 mb-2">{currentJob.company}</p>
+                        <p className="text-gray-600 mb-2">{currentJob.employer_name}</p>
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <span className="inline-block text-sm font-medium text-[#00B4D8] bg-blue-50 px-3 py-1 rounded-full">
-                            {currentJob.type}
+                            {currentJob.job_type}
                           </span>
                           <div className="flex items-center gap-1">
                             <MapPin className="w-4 h-4" />
@@ -280,7 +381,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                       Salary Range
                     </h3>
                     <p className="text-2xl font-bold text-gray-900">
-                      {currentJob.salary}
+                      {currentJob.salary_range || "Not specified"}
                     </p>
                   </div>
 
@@ -314,7 +415,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     <h3 className="font-semibold text-gray-900">
                       Application Deadline
                     </h3>
-                    <p className="text-gray-600 font-medium">{currentJob.deadline}</p>
+                    <p className="text-gray-600 font-medium">
+                      {new Date(currentJob.deadline).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
               ) : (
