@@ -174,7 +174,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         {/* Content Area */}
         <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden flex flex-col">
           {/* Page Header */}
-          <div className="mb-4 sm:mb-6 md:mb-8 flex-shrink-0">
+          <div className="mb-4 sm:mb-6 flex-shrink-0">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Job & Internship Listings
             </h1>
@@ -183,56 +183,64 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
-            {/* Jobs List */}
-            <div className="lg:col-span-1 flex flex-col overflow-hidden">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
-                {/* Search and Filters */}
-                <div className="space-y-4 mb-6">
+          {/* Search and Filters - Now at top level */}
+          <div className="mb-6 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="flex-1 max-w-xl">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search by job title or company..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none placeholder-gray-500 text-sm"
+                    className="w-full pl-10 pr-4 py-3 bg-white rounded-lg border-2 border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none placeholder-gray-500 text-sm"
                   />
-                  <div className="flex gap-2">
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm"
-                    >
-                      <option>All</option>
-                      <option>Internship</option>
-                      <option>Full-time</option>
-                      <option>Part-time</option>
-                      <option>Contract</option>
-                    </select>
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm"
-                    >
-                      <option>All Types</option>
-                      <option>Information Technology</option>
-                      <option>Data Science</option>
-                      <option>Software Engineering</option>
-                      <option>Business Analytics</option>
-                      <option>Finance</option>
-                      <option>Marketing</option>
-                    </select>
-                    <button className="px-3 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <Filter className="w-5 h-5 text-gray-600" />
-                    </button>
-                  </div>
                 </div>
+              </div>
+              <div className="flex gap-3">
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
+                >
+                  <option>All</option>
+                  <option>Internship</option>
+                  <option>Full-time</option>
+                  <option>Part-time</option>
+                  <option>Contract</option>
+                </select>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
+                >
+                  <option>All Types</option>
+                  <option>Information Technology</option>
+                  <option>Data Science</option>
+                  <option>Software Engineering</option>
+                  <option>Business Analytics</option>
+                  <option>Finance</option>
+                  <option>Marketing</option>
+                </select>
+                <button className="px-4 py-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50">
+                  <Filter className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
+          </div>
 
-                <p className="text-sm text-gray-500 mb-4">
-                  Showing {filteredJobs.length} of {jobs.length} opportunities
-                </p>
+          {/* Showing count */}
+          <p className="text-sm text-gray-500 mb-4 flex-shrink-0">
+            Showing {filteredJobs.length} of {jobs.length} opportunities
+          </p>
 
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
+            {/* Jobs List */}
+            <div className="lg:col-span-1 flex flex-col overflow-hidden">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col h-full">
                 {/* Jobs List */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto py-1 px-0.5">
                   {loading ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center py-12">
@@ -256,7 +264,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 px-0.5">
                       {filteredJobs.map((job) => (
                         <button
                           key={job.id}
@@ -267,10 +275,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                               <svg
-                                className="w-5 h-5 text-gray-400"
+                                className="w-6 h-6 text-gray-400"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -294,7 +302,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                                 <Clock className="w-3 h-3 ml-2" />
                                 {new Date(job.created_at || "").toLocaleDateString()}
                               </div>
-                              <span className="inline-block text-xs font-medium text-[#00B4D8] mt-2">
+                              <span className="inline-block text-xs font-medium text-[#00B4D8] bg-[#E0F7FA] px-2 py-1 rounded mt-2">
                                 {job.job_type}
                               </span>
                             </div>
@@ -331,7 +339,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     <div className="flex items-start gap-4">
                       <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
                         <svg
-                          className="w-8 h-8 text-gray-400"
+                          className="w-8 h-8 text-gray-600"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -345,15 +353,15 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                         </svg>
                       </div>
                       <div>
-                        <h2 className="text-3xl font-bold text-gray-900 mb-1">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-1">
                           {currentJob.title}
                         </h2>
-                        <p className="text-gray-600 mb-2">{currentJob.employer_name}</p>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span className="inline-block text-sm font-medium text-[#00B4D8] bg-blue-50 px-3 py-1 rounded-full">
+                        <p className="text-base text-gray-500 mb-3">{currentJob.employer_name}</p>
+                        <div className="flex items-center gap-3">
+                          <span className="inline-block text-xs font-medium text-[#00B4D8] bg-[#E0F7FA] px-2.5 py-1 rounded">
                             {currentJob.job_type}
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 text-sm text-gray-500">
                             <MapPin className="w-4 h-4" />
                             {currentJob.location}
                           </div>
@@ -366,56 +374,61 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3 mb-8">
-                    <button className="flex-1 bg-[#1B2744] text-white py-3.5 rounded-xl font-semibold hover:bg-[#131d33] transition-colors flex items-center justify-center gap-2">
-                      Apply Now <ArrowRight className="w-5 h-5" />
+                  <div className="flex gap-4 mb-8">
+                    <button className="flex-1 bg-[#2C3E5C] text-white py-3 rounded-lg font-medium hover:bg-[#1B2744] transition-colors flex items-center justify-center gap-2 text-base">
+                      Apply Now <ArrowRight className="w-4 h-4" />
                     </button>
-                    <button className="px-6 py-3.5 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSave(currentJob.id);
+                      }}
+                      className="px-8 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors text-base whitespace-nowrap">
                       Save for Later
                     </button>
                   </div>
 
                   {/* Salary */}
-                  <div className="mb-8 pb-8 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                  <div className="mb-8">
+                    <h3 className="text-base font-bold text-gray-900 mb-2">
                       Salary Range
                     </h3>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {currentJob.salary_range || "Not specified"}
+                    <p className="text-2xl font-bold text-[#1B2744]">
+                      {currentJob.salary_range || "Not specified"}/month
                     </p>
                   </div>
 
                   {/* Job Description */}
                   <div className="mb-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">
                       Job Description
                     </h3>
-                    <p className="text-gray-600 leading-relaxed">
+                    <p className="text-base text-gray-500 leading-relaxed">
                       {currentJob.description}
                     </p>
                   </div>
 
                   {/* Requirements */}
                   <div className="mb-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">
                       Requirements
                     </h3>
                     <ul className="space-y-3">
                       {currentJob.requirements.map((req, idx) => (
                         <li key={idx} className="flex items-start gap-3">
-                          <span className="w-2 h-2 bg-[#00B4D8] rounded-full mt-2 flex-shrink-0" />
-                          <span className="text-gray-600">{req}</span>
+                          <span className="w-1.5 h-1.5 bg-[#00B4D8] rounded-full mt-2 flex-shrink-0" />
+                          <span className="text-base text-gray-500">{req}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Application Deadline */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <h3 className="font-semibold text-gray-900">
+                  <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+                    <h3 className="text-base font-normal text-gray-600">
                       Application Deadline
                     </h3>
-                    <p className="text-gray-600 font-medium">
+                    <p className="text-base text-gray-900 font-medium">
                       {new Date(currentJob.deadline).toLocaleDateString()}
                     </p>
                   </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, RefreshCw, Eye } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudent } from "../context/StudentContext";
@@ -105,6 +105,15 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     const url = resume.signed_url || (await getDownloadUrl(resume.file_path));
     if (!url) {
       setErrorMessage("Unable to generate download link right now.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleViewDetails = async (resume: ResumeWithUrl) => {
+    const url = resume.signed_url || (await getDownloadUrl(resume.file_path));
+    if (!url) {
+      setErrorMessage("Unable to view document right now.");
       return;
     }
     window.open(url, "_blank", "noopener,noreferrer");
@@ -237,6 +246,14 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                      <button
+                        onClick={() => handleViewDetails(resume)}
+                        className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Details
+                      </button>
                       <button
                         onClick={() => handleDownload(resume)}
                         className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
