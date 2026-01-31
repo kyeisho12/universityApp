@@ -15,8 +15,13 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:3001/api";
+import { 
+  getAllEvents, 
+  createEvent, 
+  updateEvent, 
+  deleteEvent,
+  CareerEvent 
+} from "../../services/careerEventService";
 
 export default function AdminCareerEvents() {
   const { user, signOut } = useAuth();
@@ -52,10 +57,8 @@ export default function AdminCareerEvents() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/events/`);
-      if (!response.ok) throw new Error("Failed to fetch events");
-      const data = await response.json();
-      setEvents(data.data || []);
+      const data = await getAllEvents();
+      setEvents(data);
     } catch (err) {
       console.error("Error fetching events:", err);
       setError(err instanceof Error ? err.message : "Error fetching events");
@@ -146,20 +149,24 @@ export default function AdminCareerEvents() {
 
       if (showEditModal && selectedEvent) {
         // Update event
-        const response = await fetch(`${API_BASE_URL}/events/${selectedEvent.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+        await updateEvent(selectedEvent.id, {
+          title: formData.title,
+          description: formData.description,
+          event_type: formData.event_type,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
         });
-        if (!response.ok) throw new Error("Failed to update event");
       } else {
         // Create new event
-        const response = await fetch(`${API_BASE_URL}/events/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+        await createEvent({
+          title: formData.title,
+          description: formData.description,
+          event_type: formData.event_type,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
         });
-        if (!response.ok) throw new Error("Failed to create event");
       }
 
       // Refresh events list
@@ -176,10 +183,7 @@ export default function AdminCareerEvents() {
     if (!confirm("Are you sure you want to delete this event?")) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete event");
+      await deleteEvent(eventId);
 
       // Refresh events list
       await fetchEvents();
