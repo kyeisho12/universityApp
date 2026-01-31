@@ -35,9 +35,9 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar (hidden on small screens) */}
-      <div className="hidden md:block">
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar (fixed position) */}
+      <div className="fixed inset-y-0 left-0 w-72 z-40 hidden md:block">
         <AdminNavbar
           userName={userName}
           userID={userID}
@@ -79,7 +79,7 @@ export default function AdminSettings() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="md:ml-72 flex flex-col h-screen">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center justify-between px-6 py-4">
