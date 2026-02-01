@@ -142,7 +142,7 @@ export default function ManageStudents() {
           </div>
         </div>
       
-        <main className="flex-1 overflow-auto p-8">
+        <main className="flex-1 overflow-auto p-8 space-y-8">
           <div className="flex items-center justify-between">
             <div> 
               <h1 className="text-4xl font-bold text-gray-900">Manage Students</h1> 
