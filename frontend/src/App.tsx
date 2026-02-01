@@ -11,6 +11,8 @@ import ResumesPage from './pages/ResumesPage'
 import EventsPage from './pages/EventsPage'
 import MockInterviewPage from './pages/MockInterviewPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
+import ApplicationsPage from './pages/ApplicationsPage'
+import MyApplicationsPage from './pages/MyApplicationsPage'
 import EmployerPartners from './components/admin/EmployerPartners'
 import StudentAnalytics from './components/admin/StudentAnalytics'
 import AdminMockInterview from './components/admin/AdminMockInterview'
@@ -294,6 +296,16 @@ export default function App() {
             }
           />
           <Route
+            path="/student/applications"
+            element={
+              <RequireStudent>
+                <RequireProfile>
+                  <MyApplicationsPage />
+                </RequireProfile>
+              </RequireStudent>
+            }
+          />
+          <Route
             path="/student/resumes"
             element={
               <RequireStudent>
@@ -352,6 +364,14 @@ export default function App() {
             element={
               <RequireAdmin>
                 <AdminMockInterview />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/applications"
+            element={
+              <RequireAdmin>
+                <ApplicationsPage />
               </RequireAdmin>
             }
           />

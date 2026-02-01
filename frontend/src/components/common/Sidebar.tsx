@@ -7,6 +7,7 @@ import {
   Zap,
   LogOut,
   User,
+  ClipboardList,
 } from "lucide-react";
 
 export const Sidebar = ({
@@ -76,6 +77,12 @@ export const Sidebar = ({
           label="Job & Internships"
           active={activeNav === "student/jobs"}
           onClick={() => handleNavClick("student/jobs")}
+        />
+        <NavItem
+          icon={<ClipboardList className="w-5 h-5" />}
+          label="My Applications"
+          active={activeNav === "student/applications"}
+          onClick={() => handleNavClick("student/applications")}
         />
         <NavItem
           icon={<FileText className="w-5 h-5" />}

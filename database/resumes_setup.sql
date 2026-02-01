@@ -43,6 +43,7 @@ begin
 end
 $$;
 
+drop trigger if exists set_resumes_updated_at on public.resumes;
 create trigger set_resumes_updated_at
 before update on public.resumes
 for each row execute function public.handle_updated_at();

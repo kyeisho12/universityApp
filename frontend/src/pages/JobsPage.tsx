@@ -10,17 +10,19 @@ import {
   ArrowRight,
   LayoutGrid,
   X,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { getAllJobs, type JobWithEmployer } from "../services/jobService";
+import { submitJobApplication, checkIfApplied } from "../services/applicationService";
 import { supabase } from "../lib/supabaseClient";
 
 function JobsPageContent({ email, onLogout, onNavigate }) {
   const { user } = useAuth();
   const [userData, setUserData] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
-  const [saved, setSaved] = useState(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [jobs, setJobs] = useState<JobWithEmployer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,12 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All Types");
+  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [userResumes, setUserResumes] = useState<any[]>([]);
+  const [selectedResume, setSelectedResume] = useState<string | null>(null);
+  const [showApplyModal, setShowApplyModal] = useState(false);
 
   // Fetch user profile data
   React.useEffect(() => {
@@ -62,6 +70,19 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         setError(null);
         const data = await getAllJobs(false); // false = only active jobs for students
         setJobs(data || []);
+        
+        // Check which jobs the student has applied to
+        if (user?.id && data) {
+          const appliedSet = new Set<string>();
+          for (const job of data) {
+            const { hasApplied } = await checkIfApplied(user.id, job.id);
+            if (hasApplied) {
+              appliedSet.add(job.id);
+            }
+          }
+          setAppliedJobs(appliedSet);
+        }
+        
         if (data && data.length > 0) {
           setSelectedJob(data[0].id || null);
         }
@@ -74,16 +95,71 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     };
 
     loadJobs();
-  }, []);
+  }, [user?.id]);
 
-  const toggleSave = (jobId) => {
-    const newSaved = new Set(saved);
-    if (newSaved.has(jobId)) {
-      newSaved.delete(jobId);
-    } else {
-      newSaved.add(jobId);
+  // Load user resumes
+  React.useEffect(() => {
+    const loadResumes = async () => {
+      if (!user?.id) return;
+      try {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (!error && data) {
+          setUserResumes(data);
+          if (data.length > 0) {
+            setSelectedResume(data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load resumes:', err);
+      }
+    };
+
+    loadResumes();
+  }, [user?.id]);
+
+  // Handle job application
+  const handleApplyNow = async () => {
+    if (!user?.id || !currentJob) return;
+
+    setApplyingJobId(currentJob.id);
+    setApplyMessage(null);
+
+    try {
+      const result = await submitJobApplication(
+        user.id,
+        currentJob.id,
+        currentJob.employer_id,
+        undefined,
+        selectedResume || undefined
+      );
+
+      if (result.success) {
+        setAppliedJobs(new Set(appliedJobs).add(currentJob.id));
+        setShowApplyModal(false);
+        setApplyMessage({
+          type: 'success',
+          text: 'Application submitted successfully!'
+        });
+        setTimeout(() => setApplyMessage(null), 3000);
+      } else {
+        setApplyMessage({
+          type: 'error',
+          text: result.error || 'Failed to submit application'
+        });
+      }
+    } catch (err) {
+      setApplyMessage({
+        type: 'error',
+        text: 'An error occurred while submitting your application'
+      });
+    } finally {
+      setApplyingJobId(null);
     }
-    setSaved(newSaved);
   };
 
   // Filter jobs based on search and filters
@@ -306,21 +382,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                                 {job.job_type}
                               </span>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSave(job.id);
-                              }}
-                              className="flex-shrink-0"
-                            >
-                              <Bookmark
-                                className={`w-5 h-5 ${
-                                  saved.has(job.id)
-                                    ? "fill-gray-400 text-gray-400"
-                                    : "text-gray-400"
-                                }`}
-                              />
-                            </button>
                           </div>
                         </button>
                       ))}
@@ -368,25 +429,41 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                         </div>
                       </div>
                     </div>
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <Bookmark className="w-6 h-6" />
-                    </button>
                   </div>
 
                   {/* Action Buttons */}
                   <div className="flex gap-4 mb-8">
-                    <button className="flex-1 bg-[#2C3E5C] text-white py-3 rounded-lg font-medium hover:bg-[#1B2744] transition-colors flex items-center justify-center gap-2 text-base">
-                      Apply Now <ArrowRight className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSave(currentJob.id);
-                      }}
-                      className="px-8 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors text-base whitespace-nowrap">
-                      Save for Later
-                    </button>
+                    {appliedJobs.has(currentJob.id) ? (
+                      <button disabled className="flex-1 bg-green-100 text-green-700 py-3 rounded-lg font-medium flex items-center justify-center gap-2 text-base cursor-not-allowed">
+                        <CheckCircle className="w-5 h-5" /> Applied
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => setShowApplyModal(true)}
+                        className="flex-1 bg-[#2C3E5C] text-white py-3 rounded-lg font-medium hover:bg-[#1B2744] transition-colors flex items-center justify-center gap-2 text-base"
+                      >
+                        Apply Now <ArrowRight className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
+
+                  {/* Application Message */}
+                  {applyMessage && (
+                    <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+                      applyMessage.type === 'success'
+                        ? 'bg-green-50 border border-green-200'
+                        : 'bg-red-50 border border-red-200'
+                    }`}>
+                      {applyMessage.type === 'success' ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      )}
+                      <p className={applyMessage.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                        {applyMessage.text}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Salary */}
                   <div className="mb-8">
@@ -446,6 +523,89 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
           </div>
         </div>
       </div>
+
+      {/* Application Modal */}
+      {showApplyModal && currentJob && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Apply for {currentJob.title}</h3>
+              <button
+                onClick={() => setShowApplyModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Select Resume to Attach
+                </label>
+                {userResumes.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500 mb-2">No resumes uploaded yet</p>
+                    <button
+                      onClick={() => {
+                        setShowApplyModal(false);
+                        onNavigate('student/resumes');
+                      }}
+                      className="text-[#00B4D8] hover:underline text-sm"
+                    >
+                      Upload a resume first
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {userResumes.map((resume) => (
+                      <button
+                        key={resume.id}
+                        onClick={() => setSelectedResume(resume.id)}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${ 
+                          selectedResume === resume.id
+                            ? 'border-[#00B4D8] bg-[#E0F7FA]'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{resume.file_name}</p>
+                        <p className="text-xs text-gray-500">
+                          Uploaded {new Date(resume.created_at).toLocaleDateString()}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {userResumes.length > 0 && (
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setShowApplyModal(false)}
+                    className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleApplyNow}
+                    disabled={applyingJobId === currentJob.id || !selectedResume}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {applyingJobId === currentJob.id ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Submitting...
+                      </div>
+                    ) : (
+                      'Submit Application'
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

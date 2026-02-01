@@ -12,11 +12,182 @@ import {
   Menu,
 } from "lucide-react";
 import { AdminNavbar } from "../common/AdminNavbar";
+import { supabase } from "../../lib/supabaseClient";
+
+interface DashboardMetrics {
+  totalStudents: number;
+  totalEmployers: number;
+  totalInterviews: number;
+  activeEvents: number;
+}
+
+interface Activity {
+  type: string;
+  text: string;
+  time_ago: string;
+  timestamp: string;
+}
 
 export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
   const userName = email.split("@")[0];
   const userID = "2024-00001";
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
+  const [loading, setLoading] = React.useState<boolean>(true);
+  
+  const [metrics, setMetrics] = React.useState<DashboardMetrics>({
+    totalStudents: 0,
+    totalEmployers: 0,
+    totalInterviews: 0,
+    activeEvents: 0,
+  });
+  
+  const [activities, setActivities] = React.useState<Activity[]>([]);
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch students count
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'student');
+
+      // Fetch employers count
+      const { data: employersData, error: employersError } = await supabase
+        .from('employers')
+        .select('id');
+
+      // Fetch completed interviews
+      const { data: interviewsData, error: interviewsError } = await supabase
+        .from('interviews')
+        .select('id')
+        .eq('status', 'completed');
+
+      // Fetch active events (future events)
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('career_events')
+        .select('id, title, event_type, start_date, end_date')
+        .gte('end_date', new Date().toISOString())
+        .order('start_date', { ascending: true });
+
+      // Fetch recent activity data
+      const recentActivities: Activity[] = [];
+
+      // Recent interviews
+      const { data: recentInterviews } = await supabase
+        .from('interviews')
+        .select('user_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      if (recentInterviews) {
+        recentInterviews.forEach((interview) => {
+          const created = new Date(interview.created_at);
+          const now = new Date();
+          const diffMs = now.getTime() - created.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          
+          let timeAgo = 'Just now';
+          if (diffMins < 60) {
+            timeAgo = `${diffMins}m ago`;
+          } else if (diffMins < 1440) {
+            timeAgo = `${Math.floor(diffMins / 60)}h ago`;
+          }
+
+          recentActivities.push({
+            type: 'interview',
+            text: `Student ${interview.user_id?.substring(0, 8) || 'Unknown'} completed mock interview`,
+            time_ago: timeAgo,
+            timestamp: interview.created_at,
+          });
+        });
+      }
+
+      // Recent student registrations
+      const { data: recentStudents } = await supabase
+        .from('profiles')
+        .select('full_name, created_at')
+        .eq('role', 'student')
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      if (recentStudents) {
+        recentStudents.forEach((student) => {
+          const created = new Date(student.created_at);
+          const now = new Date();
+          const diffMs = now.getTime() - created.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          
+          let timeAgo = 'Just now';
+          if (diffMins < 60) {
+            timeAgo = `${diffMins}m ago`;
+          } else if (diffMins < 1440) {
+            timeAgo = `${Math.floor(diffMins / 60)}h ago`;
+          }
+
+          recentActivities.push({
+            type: 'registration',
+            text: `New student registration: ${student.full_name || 'Unknown'}`,
+            time_ago: timeAgo,
+            timestamp: student.created_at,
+          });
+        });
+      }
+
+      // Recent job postings
+      const { data: recentJobs } = await supabase
+        .from('jobs')
+        .select('title, employer_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      if (recentJobs) {
+        recentJobs.forEach((job) => {
+          const created = new Date(job.created_at);
+          const now = new Date();
+          const diffMs = now.getTime() - created.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          
+          let timeAgo = 'Just now';
+          if (diffMins < 60) {
+            timeAgo = `${diffMins}m ago`;
+          } else if (diffMins < 1440) {
+            timeAgo = `${Math.floor(diffMins / 60)}h ago`;
+          }
+
+          recentActivities.push({
+            type: 'job',
+            text: `New job posted: ${job.title}`,
+            time_ago: timeAgo,
+            timestamp: job.created_at,
+          });
+        });
+      }
+
+      // Sort activities by timestamp
+      recentActivities.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      setMetrics({
+        totalStudents: studentsData?.length || 0,
+        totalEmployers: employersData?.length || 0,
+        totalInterviews: interviewsData?.length || 0,
+        activeEvents: eventsData?.length || 0,
+      });
+
+      setActivities(recentActivities.slice(0, 4));
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -102,22 +273,22 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
               icon={<Users className="w-5 h-5 text-gray-600" />}
-              number="2,847"
+              number={loading ? "..." : metrics.totalStudents.toLocaleString()}
               label="Total Students"
             />
             <StatCard
               icon={<Building2 className="w-5 h-5 text-gray-600" />}
-              number="156"
+              number={loading ? "..." : metrics.totalEmployers.toLocaleString()}
               label="Partner Companies"
             />
             <StatCard
               icon={<MessageSquare className="w-5 h-5 text-gray-600" />}
-              number="1,234"
+              number={loading ? "..." : metrics.totalInterviews.toLocaleString()}
               label="Interviews Completed"
             />
             <StatCard
               icon={<CalendarDays className="w-5 h-5 text-gray-600" />}
-              number="8"
+              number={loading ? "..." : metrics.activeEvents.toLocaleString()}
               label="Active Events"
             />
           </div>
@@ -129,22 +300,25 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
               <div className="bg-white rounded-lg p-6 h-full flex flex-col">
                 <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Activity</h3>
                 <div className="space-y-4 flex-1">
-                  <ActivityItem
-                    text="John Doe completed mock interview"
-                    time="5 min ago"
-                  />
-                  <ActivityItem
-                    text="New student registration: Maria Santos"
-                    time="15 min ago"
-                  />
-                  <ActivityItem
-                    text="Accenture posted 3 new job listings"
-                    time="1 hour ago"
-                  />
-                  <ActivityItem
-                    text="Career Fair 2025 registration opened"
-                    time="2 hours ago"
-                  />
+                  {loading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="bg-gray-100 rounded p-3 animate-pulse h-12"></div>
+                      ))}
+                    </div>
+                  ) : activities.length > 0 ? (
+                    activities.map((activity, index) => (
+                      <ActivityItem
+                        key={index}
+                        text={activity.text}
+                        time={activity.time_ago}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm">No recent activity</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

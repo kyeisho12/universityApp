@@ -7,6 +7,7 @@ import JobManagement from '../components/admin/JobManagement'
 import EventManagement from '../components/admin/EventManagement'
 import InterviewManagement from '../components/admin/InterviewManagement'
 import ReportsAnalytics from '../components/admin/ReportsAnalytics'
+import { ApplicationManagement } from '../components/admin/ApplicationManagement'
 
 interface Stats {
   totalUsers: number
@@ -15,7 +16,7 @@ interface Stats {
   recruiters: number
 }
 
-type TabKey = 'users' | 'jobs' | 'events' | 'interviews' | 'reports'
+type TabKey = 'users' | 'jobs' | 'events' | 'interviews' | 'reports' | 'applications'
 
 const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('users')
@@ -65,6 +66,8 @@ const AdminDashboardPage = () => {
         return <EventManagement />
       case 'interviews':
         return <InterviewManagement />
+      case 'applications':
+        return <ApplicationManagement />
       case 'reports':
         return <ReportsAnalytics />
       default:
@@ -142,6 +145,7 @@ const AdminDashboardPage = () => {
         {[
           { key: 'users', label: '👥 Users' },
           { key: 'jobs', label: '💼 Jobs' },
+          { key: 'applications', label: '📋 Applications' },
           { key: 'events', label: '📅 Events' },
           { key: 'interviews', label: '🎤 Interviews' },
           { key: 'reports', label: '📊 Reports' },

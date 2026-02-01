@@ -9,6 +9,7 @@ import {
   LogOut,
   User,
   Calendar,
+  FileText,
 } from "lucide-react";
 
 export const AdminNavbar = ({
@@ -102,6 +103,12 @@ export const AdminNavbar = ({
           label="Mock Interviews"
           active={activeNav === "admin/mock_interview"}
           onClick={() => handleNavClick("admin/mock_interview")}
+        />
+        <NavItem
+          icon={<FileText className="w-5 h-5" />}
+          label="Job Applications"
+          active={activeNav === "admin/applications"}
+          onClick={() => handleNavClick("admin/applications")}
         />
         <NavItem
           icon={<Users className="w-5 h-5" />}
