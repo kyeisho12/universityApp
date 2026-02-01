@@ -1,4 +1,5 @@
 import React from 'react'
+import * as XLSX from 'xlsx'
 
 const ReportsAnalytics = () => {
   const metrics = [
@@ -6,6 +7,13 @@ const ReportsAnalytics = () => {
     { label: 'Applications', value: '—', hint: 'Submissions and interview pass-through' },
     { label: 'Placements', value: '—', hint: 'Offers, starts, and acceptance rates' },
   ]
+
+  const handleExport = () => {
+    const worksheet = XLSX.utils.json_to_sheet(metrics)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Reports')
+    XLSX.writeFile(workbook, 'reports_analytics.xlsx')
+  }
 
   return (
     <div className="space-y-4">

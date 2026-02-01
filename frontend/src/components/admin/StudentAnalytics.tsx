@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
+import * as XLSX from 'xlsx';
 import {
     X,
     Search,
@@ -44,6 +45,29 @@ export default function StudentAnalytics() {
     function handleNavigate(route: string) {
         navigate(`/${route}`);
     }
+
+    const handleExport = () => {
+        const statsData = stats.map(stat => ({
+            Label: stat.label,
+            Value: stat.value
+        }));
+        const departmentData = departmentPerformance.map(dept => ({
+            Department: dept.dept,
+            Students: dept.students,
+            Interviews: dept.interviews,
+            'Avg Score': dept.score,
+            Engagement: dept.engagement
+        }));
+
+        const workbook = XLSX.utils.book_new();
+        const statsSheet = XLSX.utils.json_to_sheet(statsData);
+        const departmentSheet = XLSX.utils.json_to_sheet(departmentData);
+
+        XLSX.utils.book_append_sheet(workbook, statsSheet, 'Stats');
+        XLSX.utils.book_append_sheet(workbook, departmentSheet, 'Department Performance');
+
+        XLSX.writeFile(workbook, 'student_analytics.xlsx');
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 flex">
@@ -127,7 +151,7 @@ export default function StudentAnalytics() {
                                 <p className="text-gray-500 mt-1">Student engagement and interview statistics</p>
                             </div>
                             <div className="flex items-center gap-3">
-                                <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#23325a]">
+                                <button onClick={handleExport} className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#23325a]">
                                     <Download className="w-4 h-4" />
                                     Export
                                 </button>
