@@ -53,12 +53,23 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
     fetchEvents();
   }, []);
 
+  async function getSupabaseUserId(): Promise<string | null> {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) return null;
+      return data?.user?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
   async function fetchEvents() {
     try {
       setLoading(true);
       setError(null);
-      
-      const eventsData = await getEventsForStudent(userID)
+
+      const supabaseUserId = await getSupabaseUserId();
+      const eventsData = await getEventsForStudent(supabaseUserId || userID)
       
       // Track which events this student is registered for
       const registered = new Set(
@@ -80,7 +91,13 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
 
   async function handleRegister(eventId: string) {
     try {
-      await registerForEvent(eventId, userID)
+      const supabaseUserId = await getSupabaseUserId();
+      if (!supabaseUserId) {
+        alert('Please sign in to register for events');
+        return;
+      }
+
+      await registerForEvent(eventId, supabaseUserId)
       
       // Update local state
       setEvents(events.map(e => 
@@ -98,7 +115,13 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
 
   async function handleUnregister(eventId: string) {
     try {
-      await unregisterFromEvent(eventId, userID)
+      const supabaseUserId = await getSupabaseUserId();
+      if (!supabaseUserId) {
+        alert('Please sign in to manage your registrations');
+        return;
+      }
+
+      await unregisterFromEvent(eventId, supabaseUserId)
       
       // Update local state
       setEvents(events.map(e => 

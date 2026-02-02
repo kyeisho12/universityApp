@@ -25,23 +25,48 @@ export interface EventWithRegistration extends CareerEvent {
 }
 
 /**
- * Get all career events
+ * Get all career events with registration counts
  */
-export async function getAllEvents(): Promise<CareerEvent[]> {
+export async function getAllEvents(): Promise<EventWithRegistration[]> {
   const { data, error } = await supabase
     .from('career_events')
     .select('*')
     .order('date', { ascending: true })
   
   if (error) throw error
-  return data || []
+  if (!data) return []
+  
+  // Get registration counts for all events
+  const { data: regCounts, error: countError } = await supabase
+    .from('event_registrations')
+    .select('event_id')
+  
+  // Count registrations per event
+  const countMap = new Map<string, number>()
+  if (!countError && regCounts) {
+    regCounts.forEach(reg => {
+      countMap.set(reg.event_id, (countMap.get(reg.event_id) || 0) + 1)
+    })
+  }
+  
+  // Merge counts with events
+  return data.map(event => ({
+    ...event,
+    registered: countMap.get(event.id) || 0
+  }))
 }
 
 /**
- * Get events with registration status for a specific student
+ * Get events with registration status for a specific student (requires authentication)
  */
-export async function getEventsForStudent(studentId: string): Promise<EventWithRegistration[]> {
+export async function getEventsForStudent(studentId?: string): Promise<EventWithRegistration[]> {
   try {
+    // Get current authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    // Use authenticated user's ID if available, fall back to passed studentId
+    const effectiveStudentId = user?.id || studentId
+    
     // Get all events
     const { data: events, error: eventsError } = await supabase
       .from('career_events')
@@ -51,28 +76,35 @@ export async function getEventsForStudent(studentId: string): Promise<EventWithR
     if (eventsError) throw eventsError
     if (!events) return []
     
-    // Get all registrations for this student
-    const { data: registrations, error: regError } = await supabase
-      .from('event_registrations')
-      .select('event_id')
-      .eq('student_id', studentId)
-    
-    if (regError) throw regError
-    
-    const registeredEventIds = new Set((registrations || []).map(r => r.event_id))
+    // Get all registrations for this student (only if authenticated)
+    let registeredEventIds = new Set<string>()
+    if (effectiveStudentId && user) {
+      const { data: registrations, error: regError } = await supabase
+        .from('event_registrations')
+        .select('event_id')
+        .eq('student_id', effectiveStudentId)
+      
+      if (regError) {
+        console.warn('Failed to fetch student registrations:', regError)
+      } else {
+        registeredEventIds = new Set((registrations || []).map(r => r.event_id))
+      }
+    }
     
     // Get registration counts for each event
     const { data: regCounts, error: countError } = await supabase
       .from('event_registrations')
       .select('event_id')
     
-    if (countError) throw countError
-    
     // Count registrations per event
     const countMap = new Map<string, number>()
-    regCounts?.forEach(reg => {
-      countMap.set(reg.event_id, (countMap.get(reg.event_id) || 0) + 1)
-    })
+    if (countError) {
+      console.warn('Failed to fetch registration counts:', countError)
+    } else {
+      regCounts?.forEach(reg => {
+        countMap.set(reg.event_id, (countMap.get(reg.event_id) || 0) + 1)
+      })
+    }
     
     // Combine data
     return events.map(event => ({
@@ -146,14 +178,22 @@ export async function deleteEvent(eventId: string): Promise<void> {
 }
 
 /**
- * Register a student for an event
+ * Register a student for an event (requires authentication)
  */
 export async function registerForEvent(eventId: string, studentId: string): Promise<void> {
+  // Get current user
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    throw new Error('You must be logged in to register for events')
+  }
+  
+  // Use auth.uid() for registration (stored as student_id for backward compatibility)
   const { error } = await supabase
     .from('event_registrations')
     .insert({
       event_id: eventId,
-      student_id: studentId
+      student_id: user.id // Use Supabase auth UID
     })
   
   if (error) {
@@ -166,14 +206,21 @@ export async function registerForEvent(eventId: string, studentId: string): Prom
 }
 
 /**
- * Unregister a student from an event
+ * Unregister from an event (requires authentication)
  */
 export async function unregisterFromEvent(eventId: string, studentId: string): Promise<void> {
+  // Get current user
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    throw new Error('You must be logged in to unregister from events')
+  }
+  
   const { error } = await supabase
     .from('event_registrations')
     .delete()
     .eq('event_id', eventId)
-    .eq('student_id', studentId)
+    .eq('student_id', user.id) // Use authenticated user ID
   
   if (error) throw error
 }
