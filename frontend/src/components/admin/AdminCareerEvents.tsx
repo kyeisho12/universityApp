@@ -20,6 +20,7 @@ import {
   createEvent, 
   updateEvent, 
   deleteEvent,
+  getEventRegistrations,
   CareerEvent 
 } from "../../services/careerEventService";
 
@@ -30,7 +31,10 @@ export default function AdminCareerEvents() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
+  const [showRegistrationsModal, setShowRegistrationsModal] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<any>(null);
+  const [registrations, setRegistrations] = React.useState<any[]>([]);
+  const [loadingRegistrations, setLoadingRegistrations] = React.useState(false);
   const [events, setEvents] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -192,6 +196,29 @@ export default function AdminCareerEvents() {
       console.error("Error deleting event:", err);
       setError(err instanceof Error ? err.message : "Error deleting event");
     }
+  }
+
+  async function handleViewRegistrations(event: any) {
+    setSelectedEvent(event);
+    setShowRegistrationsModal(true);
+    setLoadingRegistrations(true);
+    
+    try {
+      const regs = await getEventRegistrations(event.id);
+      setRegistrations(regs);
+    } catch (err) {
+      console.error("Error fetching registrations:", err);
+      setError(err instanceof Error ? err.message : "Error fetching registrations");
+      setRegistrations([]);
+    } finally {
+      setLoadingRegistrations(false);
+    }
+  }
+
+  function handleCloseRegistrationsModal() {
+    setShowRegistrationsModal(false);
+    setSelectedEvent(null);
+    setRegistrations([]);
   }
 
   return (
@@ -373,6 +400,14 @@ export default function AdminCareerEvents() {
                             <div className="flex items-center gap-2 text-sm">
                               <Users className="w-4 h-4 text-blue-500" />
                               <span className="font-medium text-gray-900">{event.registered || 0}</span>
+                              {(event.registered || 0) > 0 && (
+                                <button
+                                  onClick={() => handleViewRegistrations(event)}
+                                  className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
+                                >
+                                  View List
+                                </button>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -604,6 +639,71 @@ export default function AdminCareerEvents() {
                 className="px-6 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#15203a] transition-colors font-medium"
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Registrations Modal */}
+      {showRegistrationsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Registered Students</h2>
+                <p className="text-gray-600 text-sm mt-1">{selectedEvent?.title}</p>
+              </div>
+              <button
+                onClick={handleCloseRegistrationsModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              {loadingRegistrations ? (
+                <div className="text-center py-12 text-gray-500">Loading registrations...</div>
+              ) : registrations.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">No students registered yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {registrations.map((reg, index) => (
+                    <div
+                      key={reg.student_id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-[#1B2744] text-white flex items-center justify-center font-semibold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{reg.full_name}</div>
+                          <div className="text-sm text-gray-600">{reg.email}</div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {reg.registered_at ? new Date(reg.registered_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 'N/A'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={handleCloseRegistrationsModal}
+                className="px-6 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#15203a] transition-colors font-medium"
+              >
+                Close
               </button>
             </div>
           </div>

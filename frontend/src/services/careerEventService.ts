@@ -226,16 +226,38 @@ export async function unregisterFromEvent(eventId: string, studentId: string): P
 }
 
 /**
- * Get all students registered for an event
+ * Get all students registered for an event with their details
  */
-export async function getEventRegistrations(eventId: string): Promise<string[]> {
+export async function getEventRegistrations(eventId: string): Promise<any[]> {
   const { data, error } = await supabase
     .from('event_registrations')
-    .select('student_id')
+    .select('student_id, registered_at')
     .eq('event_id', eventId)
+    .order('registered_at', { ascending: false })
   
   if (error) throw error
-  return (data || []).map(r => r.student_id)
+  
+  // Get student details from auth users
+  const registrations = data || []
+  const studentDetails = await Promise.all(
+    registrations.map(async (reg) => {
+      // Try to get user email from profiles or auth
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', reg.student_id)
+        .single()
+      
+      return {
+        student_id: reg.student_id,
+        email: profile?.email || 'Unknown',
+        full_name: profile?.full_name || 'Unknown Student',
+        registered_at: reg.registered_at
+      }
+    })
+  )
+  
+  return studentDetails
 }
 
 /**
