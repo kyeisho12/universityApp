@@ -29,8 +29,9 @@ interface EventData {
   id: string;
   title: string;
   event_type: string;
-  start_date: string;
-  end_date: string;
+  date: string;
+  time?: string;
+  location?: string;
 }
 
 export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, onNavigate }: { email: string; fullName?: string; displayName?: string; studentId?: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
@@ -73,9 +74,10 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
         // Fetch all career events (for count)
         const { data: eventsData, error: eventsError } = await supabase
           .from('career_events')
-          .select('id, title, event_type, start_date, end_date')
-          .gte('end_date', new Date().toISOString())
-          .order('start_date', { ascending: true });
+          .select('id, title, event_type, date, time, location')
+          .gte('date', new Date().toISOString().split('T')[0])
+          .order('date', { ascending: true })
+          .limit(10);
 
         if (!eventsError && eventsData) {
           setEventsCount(eventsData.length);
@@ -326,7 +328,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
                           key={event.id}
                           title={event.title}
                           type={event.event_type}
-                          date={new Date(event.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          date={new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         />
                       ))}
                     </div>
