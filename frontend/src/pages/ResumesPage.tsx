@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, RefreshCw, Eye } from "lucide-react";
+import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudent } from "../context/StudentContext";
@@ -32,9 +32,55 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showResumeBuilder, setShowResumeBuilder] = useState(false);
+  const [showResumeDetails, setShowResumeDetails] = useState(false);
+  const [selectedResume, setSelectedResume] = useState<ResumeWithUrl | null>(null);
+  const [resumeName, setResumeName] = useState("");
+  const [personalInfo, setPersonalInfo] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    address: "",
+    linkedin: "",
+    portfolio: "",
+    summary: "",
+  });
+  const [skills, setSkills] = useState("");
+  const [educationEntries, setEducationEntries] = useState([
+    { id: 1, school: "", degree: "", field: "", gpa: "", startDate: "", endDate: "" },
+  ]);
+  const [experienceEntries, setExperienceEntries] = useState([
+    { id: 1, company: "", position: "", startDate: "", endDate: "", current: false, description: "" },
+  ]);
+  const [projectEntries, setProjectEntries] = useState([
+    { id: 1, name: "", technologies: "", link: "", description: "" },
+  ]);
+  const [certificationEntries, setCertificationEntries] = useState([
+    { id: 1, name: "", organization: "", dateIssued: "", credentialId: "" },
+  ]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const allowedFormatsLabel = useMemo(() => ALLOWED_EXTENSIONS.map((ext) => ext.toUpperCase()).join(", "), []);
+
+  const resetResumeBuilder = () => {
+    setResumeName("");
+    setPersonalInfo({
+      fullName: "",
+      email: "",
+      phone: "",
+      address: "",
+      linkedin: "",
+      portfolio: "",
+      summary: "",
+    });
+    setSkills("");
+    setEducationEntries([{ id: 1, school: "", degree: "", field: "", gpa: "", startDate: "", endDate: "" }]);
+    setExperienceEntries([
+      { id: 1, company: "", position: "", startDate: "", endDate: "", current: false, description: "" },
+    ]);
+    setProjectEntries([{ id: 1, name: "", technologies: "", link: "", description: "" }]);
+    setCertificationEntries([{ id: 1, name: "", organization: "", dateIssued: "", credentialId: "" }]);
+  };
 
   useEffect(() => {
     let active = true;
@@ -90,6 +136,103 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setIsUploading(false);
   };
 
+  const buildResumeText = () => {
+    const lines: string[] = [];
+    lines.push(resumeName || "Resume");
+    lines.push("");
+    lines.push("Personal Information");
+    lines.push(`Name: ${personalInfo.fullName}`);
+    lines.push(`Email: ${personalInfo.email}`);
+    if (personalInfo.phone) lines.push(`Phone: ${personalInfo.phone}`);
+    if (personalInfo.address) lines.push(`Address: ${personalInfo.address}`);
+    if (personalInfo.linkedin) lines.push(`LinkedIn: ${personalInfo.linkedin}`);
+    if (personalInfo.portfolio) lines.push(`Portfolio: ${personalInfo.portfolio}`);
+    if (personalInfo.summary) {
+      lines.push("");
+      lines.push("Summary:");
+      lines.push(personalInfo.summary);
+    }
+    lines.push("");
+    lines.push("Education");
+    educationEntries.forEach((entry, index) => {
+      if (!entry.school && !entry.degree && !entry.field) return;
+      lines.push(`Education #${index + 1}`);
+      if (entry.school) lines.push(`School: ${entry.school}`);
+      if (entry.degree) lines.push(`Degree: ${entry.degree}`);
+      if (entry.field) lines.push(`Field: ${entry.field}`);
+      if (entry.gpa) lines.push(`GPA: ${entry.gpa}`);
+      if (entry.startDate || entry.endDate) lines.push(`Dates: ${entry.startDate || ""} - ${entry.endDate || ""}`);
+      lines.push("");
+    });
+    lines.push("Work Experience");
+    experienceEntries.forEach((entry, index) => {
+      if (!entry.company && !entry.position) return;
+      lines.push(`Experience #${index + 1}`);
+      if (entry.company) lines.push(`Company: ${entry.company}`);
+      if (entry.position) lines.push(`Position: ${entry.position}`);
+      if (entry.startDate || entry.endDate) lines.push(`Dates: ${entry.startDate || ""} - ${entry.current ? "Present" : entry.endDate || ""}`);
+      if (entry.description) lines.push(`Description: ${entry.description}`);
+      lines.push("");
+    });
+    if (skills.trim()) {
+      lines.push("Skills");
+      lines.push(skills.trim());
+      lines.push("");
+    }
+    lines.push("Projects");
+    projectEntries.forEach((entry, index) => {
+      if (!entry.name && !entry.technologies && !entry.link) return;
+      lines.push(`Project #${index + 1}`);
+      if (entry.name) lines.push(`Name: ${entry.name}`);
+      if (entry.technologies) lines.push(`Technologies: ${entry.technologies}`);
+      if (entry.link) lines.push(`Link: ${entry.link}`);
+      if (entry.description) lines.push(`Description: ${entry.description}`);
+      lines.push("");
+    });
+    lines.push("Certifications & Awards");
+    certificationEntries.forEach((entry, index) => {
+      if (!entry.name && !entry.organization) return;
+      lines.push(`Certification #${index + 1}`);
+      if (entry.name) lines.push(`Name: ${entry.name}`);
+      if (entry.organization) lines.push(`Organization: ${entry.organization}`);
+      if (entry.dateIssued) lines.push(`Date Issued: ${entry.dateIssued}`);
+      if (entry.credentialId) lines.push(`Credential ID: ${entry.credentialId}`);
+      lines.push("");
+    });
+    return lines.join("\n");
+  };
+
+  const handleSaveResume = async () => {
+    if (!userId) {
+      setErrorMessage("You must be signed in to save a résumé.");
+      return;
+    }
+    if (!resumeName.trim() || !personalInfo.fullName.trim() || !personalInfo.email.trim()) {
+      setErrorMessage("Please fill in the résumé name, full name, and email.");
+      return;
+    }
+
+    setIsUploading(true);
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    const safeName = resumeName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
+    const fileName = `${safeName || "resume"}.doc`;
+    const content = buildResumeText();
+    const blob = new Blob([content], { type: "application/msword" });
+    const file = new File([blob], fileName, { type: "application/msword" });
+
+    const { data, error } = await uploadResume(file, userId);
+    if (error || !data) {
+      setErrorMessage(error?.message || "Failed to save résumé. Please try again.");
+    } else {
+      setResumes((prev) => [data, ...prev]);
+      setStatusMessage("Résumé saved successfully.");
+      setShowResumeBuilder(false);
+    }
+    setIsUploading(false);
+  };
+
   const handleDelete = async (resume: ResumeWithUrl) => {
     if (!window.confirm(`Delete ${resume.file_name}?`)) return;
     setErrorMessage(null);
@@ -110,13 +253,9 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const handleViewDetails = async (resume: ResumeWithUrl) => {
-    const url = resume.signed_url || (await getDownloadUrl(resume.file_path));
-    if (!url) {
-      setErrorMessage("Unable to view document right now.");
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+  const handleViewDetails = (resume: ResumeWithUrl) => {
+    setSelectedResume(resume);
+    setShowResumeDetails(true);
   };
 
   const formatSize = (bytes: number) => {
@@ -198,21 +337,14 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {isUploading ? "Uploading..." : "Browse Files"}
               </button>
               <button
-                disabled={isLoading}
                 onClick={() => {
-                  setErrorMessage(null);
-                  setStatusMessage(null);
-                  setIsLoading(true);
-                  listResumes(userId).then(({ data, error }) => {
-                    if (error) setErrorMessage(error.message || "Unable to refresh resumes.");
-                    setResumes(data);
-                    setIsLoading(false);
-                  });
+                  resetResumeBuilder();
+                  setShowResumeBuilder(true);
                 }}
-                className="border-2 border-gray-300 text-gray-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-60"
+                className="border-2 border-[#1B2744] text-[#1B2744] px-6 py-2.5 rounded-lg font-semibold hover:bg-[#1B2744] hover:text-white transition-colors flex items-center gap-2"
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-                Refresh
+                <Plus className="w-5 h-5" />
+                Create New Resume
               </button>
             </div>
           </div>
@@ -287,6 +419,616 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
           </div>
         </div>
       </div>
+
+      {/* Resume Details Modal */}
+      {showResumeDetails && selectedResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Résumé Details</h2>
+                <p className="text-gray-600 text-sm mt-1">{selectedResume.file_name}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowResumeDetails(false);
+                  setSelectedResume(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">File name</span>
+                <span className="text-sm font-medium text-gray-900">{selectedResume.file_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">File size</span>
+                <span className="text-sm font-medium text-gray-900">{formatSize(selectedResume.file_size)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Uploaded</span>
+                <span className="text-sm font-medium text-gray-900">{formatDate(selectedResume.created_at)}</span>
+              </div>
+              {selectedResume.file_type && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">File type</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedResume.file_type}</span>
+                </div>
+              )}
+              {selectedResume.status && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Status</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedResume.status}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowResumeDetails(false);
+                  setSelectedResume(null);
+                }}
+                className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Builder Modal */}
+      {showResumeBuilder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <FileText className="w-6 h-6 text-gray-700" />
+                <h2 className="text-2xl font-bold text-gray-900">Create New Résumé</h2>
+              </div>
+              <button
+                onClick={() => setShowResumeBuilder(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              <div className="max-w-3xl mx-auto space-y-6">
+                {/* Resume Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Résumé Name</label>
+                  <input
+                    type="text"
+                    value={resumeName}
+                    onChange={(e) => setResumeName(e.target.value)}
+                    placeholder="e.g., Software Developer Resume"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744] focus:border-transparent"
+                  />
+                </div>
+
+                {/* Personal Information */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span>👤</span> Personal Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                      <input
+                        type="text"
+                        value={personalInfo.fullName}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
+                        placeholder="Juan Dela Cruz"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                      <input
+                        type="email"
+                        value={personalInfo.email}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
+                        placeholder="juan@email.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                      <input
+                        type="text"
+                        value={personalInfo.phone}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                        placeholder="+63 912 345 6789"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                      <input
+                        type="text"
+                        value={personalInfo.address}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, address: e.target.value })}
+                        placeholder="City, Province"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn URL</label>
+                      <input
+                        type="text"
+                        value={personalInfo.linkedin}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, linkedin: e.target.value })}
+                        placeholder="linkedin.com/in/username"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Portfolio/Website</label>
+                      <input
+                        type="text"
+                        value={personalInfo.portfolio}
+                        onChange={(e) => setPersonalInfo({ ...personalInfo, portfolio: e.target.value })}
+                        placeholder="yourportfolio.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Professional Summary</label>
+                    <textarea
+                      value={personalInfo.summary}
+                      onChange={(e) => setPersonalInfo({ ...personalInfo, summary: e.target.value })}
+                      placeholder="Brief summary of your professional background and career objectives..."
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                    />
+                  </div>
+                </div>
+
+                {/* Education */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span>🎓</span> Education
+                  </h3>
+                  {educationEntries.map((entry, index) => (
+                    <div key={entry.id} className="space-y-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">Education #{index + 1}</p>
+                        {educationEntries.length > 1 && (
+                          <button
+                            onClick={() => setEducationEntries(educationEntries.filter((_, i) => i !== index))}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">School/University *</label>
+                        <input
+                          type="text"
+                          value={entry.school}
+                          onChange={(e) => {
+                            const next = [...educationEntries];
+                            next[index] = { ...next[index], school: e.target.value };
+                            setEducationEntries(next);
+                          }}
+                          placeholder="Tarlac State University"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
+                        <input
+                          type="text"
+                          value={entry.degree}
+                          onChange={(e) => {
+                            const next = [...educationEntries];
+                            next[index] = { ...next[index], degree: e.target.value };
+                            setEducationEntries(next);
+                          }}
+                          placeholder="Bachelor of Science"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Field of Study</label>
+                        <input
+                          type="text"
+                          value={entry.field}
+                          onChange={(e) => {
+                            const next = [...educationEntries];
+                            next[index] = { ...next[index], field: e.target.value };
+                            setEducationEntries(next);
+                          }}
+                          placeholder="Computer Science"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">GPA (Optional)</label>
+                        <input
+                          type="text"
+                          value={entry.gpa}
+                          onChange={(e) => {
+                            const next = [...educationEntries];
+                            next[index] = { ...next[index], gpa: e.target.value };
+                            setEducationEntries(next);
+                          }}
+                          placeholder="3.5/4.0"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                        <input
+                          type="month"
+                          value={entry.startDate}
+                          onChange={(e) => {
+                            const next = [...educationEntries];
+                            next[index] = { ...next[index], startDate: e.target.value };
+                            setEducationEntries(next);
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                        <input
+                          type="month"
+                          value={entry.endDate}
+                          onChange={(e) => {
+                            const next = [...educationEntries];
+                            next[index] = { ...next[index], endDate: e.target.value };
+                            setEducationEntries(next);
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  ))}
+                  <button 
+                    onClick={() => setEducationEntries([...educationEntries, { id: Date.now() }])}
+                    className="w-full mt-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                      <Plus className="w-4 h-4" />
+                      Add Education
+                    </button>
+                </div>
+
+                {/* Work Experience */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span>💼</span> Work Experience
+                  </h3>
+                  {experienceEntries.map((entry, index) => (
+                    <div key={entry.id} className="space-y-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">Experience #{index + 1}</p>
+                        {experienceEntries.length > 1 && (
+                          <button
+                            onClick={() => setExperienceEntries(experienceEntries.filter((_, i) => i !== index))}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Company *</label>
+                        <input
+                          type="text"
+                          value={entry.company}
+                          onChange={(e) => {
+                            const next = [...experienceEntries];
+                            next[index] = { ...next[index], company: e.target.value };
+                            setExperienceEntries(next);
+                          }}
+                          placeholder="Company Name"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Position *</label>
+                        <input
+                          type="text"
+                          value={entry.position}
+                          onChange={(e) => {
+                            const next = [...experienceEntries];
+                            next[index] = { ...next[index], position: e.target.value };
+                            setExperienceEntries(next);
+                          }}
+                          placeholder="Job Title"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                        <input
+                          type="month"
+                          value={entry.startDate}
+                          onChange={(e) => {
+                            const next = [...experienceEntries];
+                            next[index] = { ...next[index], startDate: e.target.value };
+                            setExperienceEntries(next);
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                        <input
+                          type="month"
+                          value={entry.endDate}
+                          onChange={(e) => {
+                            const next = [...experienceEntries];
+                            next[index] = { ...next[index], endDate: e.target.value };
+                            setExperienceEntries(next);
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={entry.current}
+                        onChange={(e) => {
+                          const next = [...experienceEntries];
+                          next[index] = { ...next[index], current: e.target.checked };
+                          setExperienceEntries(next);
+                        }}
+                        className="w-4 h-4 text-[#1B2744] rounded"
+                      />
+                      <label className="text-sm text-gray-700">Currently working here</label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <textarea
+                        value={entry.description}
+                        onChange={(e) => {
+                          const next = [...experienceEntries];
+                          next[index] = { ...next[index], description: e.target.value };
+                          setExperienceEntries(next);
+                        }}
+                        placeholder="Describe your responsibilities and achievements..."
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                  </div>
+                  ))}
+                  <button 
+                    onClick={() => setExperienceEntries([...experienceEntries, { id: Date.now() }])}
+                    className="w-full mt-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                      <Plus className="w-4 h-4" />
+                      Add Experience
+                    </button>
+                </div>
+
+                {/* Skills */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span>⚡</span> Skills
+                  </h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Skills (comma-separated)</label>
+                    <textarea
+                      value={skills}
+                      onChange={(e) => setSkills(e.target.value)}
+                      placeholder="JavaScript, React, Node.js, Python, SQL, Git, Agile, Communication..."
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Enter your skills separated by commas</p>
+                  </div>
+                </div>
+
+                {/* Projects */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span>🚀</span> Projects
+                  </h3>
+                  {projectEntries.map((entry, index) => (
+                    <div key={entry.id} className="space-y-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">Project #{index + 1}</p>
+                        {projectEntries.length > 1 && (
+                          <button
+                            onClick={() => setProjectEntries(projectEntries.filter((_, i) => i !== index))}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
+                        <input
+                          type="text"
+                          value={entry.name}
+                          onChange={(e) => {
+                            const next = [...projectEntries];
+                            next[index] = { ...next[index], name: e.target.value };
+                            setProjectEntries(next);
+                          }}
+                          placeholder="Project Title"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Technologies Used</label>
+                        <input
+                          type="text"
+                          value={entry.technologies}
+                          onChange={(e) => {
+                            const next = [...projectEntries];
+                            next[index] = { ...next[index], technologies: e.target.value };
+                            setProjectEntries(next);
+                          }}
+                          placeholder="React, Node.js, MongoDB"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Project Link (Optional)</label>
+                      <input
+                        type="text"
+                        value={entry.link}
+                        onChange={(e) => {
+                          const next = [...projectEntries];
+                          next[index] = { ...next[index], link: e.target.value };
+                          setProjectEntries(next);
+                        }}
+                        placeholder="github.com/username/project"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <textarea
+                        value={entry.description}
+                        onChange={(e) => {
+                          const next = [...projectEntries];
+                          next[index] = { ...next[index], description: e.target.value };
+                          setProjectEntries(next);
+                        }}
+                        placeholder="Brief description of the project and your contributions..."
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                  </div>
+                  ))}
+                  <button 
+                    onClick={() => setProjectEntries([...projectEntries, { id: Date.now() }])}
+                    className="w-full mt-3 py-2 border-2 border-[#00B4D8] text-[#00B4D8] rounded-lg hover:bg-[#00B4D8] hover:text-white transition-colors flex items-center justify-center gap-2"
+                  >
+                      <Plus className="w-4 h-4" />
+                      Add Project
+                    </button>
+                </div>
+
+                {/* Certifications & Awards */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <span>🏆</span> Certifications & Awards
+                  </h3>
+                  {certificationEntries.map((entry, index) => (
+                    <div key={entry.id} className="space-y-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">Certification #{index + 1}</p>
+                        {certificationEntries.length > 1 && (
+                          <button
+                            onClick={() => setCertificationEntries(certificationEntries.filter((_, i) => i !== index))}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Certification Name *</label>
+                        <input
+                          type="text"
+                          value={entry.name}
+                          onChange={(e) => {
+                            const next = [...certificationEntries];
+                            next[index] = { ...next[index], name: e.target.value };
+                            setCertificationEntries(next);
+                          }}
+                          placeholder="AWS Certified Developer"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Issuing Organization</label>
+                        <input
+                          type="text"
+                          value={entry.organization}
+                          onChange={(e) => {
+                            const next = [...certificationEntries];
+                            next[index] = { ...next[index], organization: e.target.value };
+                            setCertificationEntries(next);
+                          }}
+                          placeholder="Amazon Web Services"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Date Issued</label>
+                        <input
+                          type="month"
+                          value={entry.dateIssued}
+                          onChange={(e) => {
+                            const next = [...certificationEntries];
+                            next[index] = { ...next[index], dateIssued: e.target.value };
+                            setCertificationEntries(next);
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Credential ID (Optional)</label>
+                        <input
+                          type="text"
+                          value={entry.credentialId}
+                          onChange={(e) => {
+                            const next = [...certificationEntries];
+                            next[index] = { ...next[index], credentialId: e.target.value };
+                            setCertificationEntries(next);
+                          }}
+                          placeholder="ABC123XYZ"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  ))}
+                  <button 
+                    onClick={() => setCertificationEntries([...certificationEntries, { id: Date.now() }])}
+                    className="w-full mt-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                      <Plus className="w-4 h-4" />
+                      Add Certification
+                    </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowResumeBuilder(false)}
+                className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveResume}
+                disabled={isUploading}
+                className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium flex items-center gap-2 disabled:opacity-60"
+              >
+                <FileText className="w-4 h-4" />
+                {isUploading ? "Saving..." : "Save Résumé"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
