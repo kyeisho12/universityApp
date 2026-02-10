@@ -24,6 +24,7 @@ interface StudentProfile {
   Year_Level: number | null;
   Interviews: number | null;
   Student_ID: number | null;
+  college: string | null;
 }
 
 export default function ManageStudents() {
@@ -47,7 +48,7 @@ export default function ManageStudents() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, full_name, role, major, graduation_year, Year_Level, Interviews, Student_ID"
+        "id, email, full_name, role, major, graduation_year, Year_Level, Interviews, Student_ID, college"
       )
       .eq("role", "student");
 
@@ -85,7 +86,7 @@ export default function ManageStudents() {
     const matchesSearch = `${s.full_name} ${s.email} ${s.Student_ID}`
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-    const matchesCourse = courseFilter === "All" || s.major === courseFilter;
+    const matchesCourse = courseFilter === "All" || s.college === courseFilter;
     return matchesSearch && matchesCourse;
   });
 
@@ -168,14 +169,14 @@ export default function ManageStudents() {
               
           {/* Search and Filters */} 
           <div className="flex flex-col sm:flex-row gap-4"> 
-            <div className="relative flex-1 max-w-md"> 
+            <div className="relative flex-1 max-w-3xl"> 
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /> 
               <input type="text" placeholder="Search students..." value={searchQuery} onChange={(e) => 
                 setSearchQuery(e.target.value)} 
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent" /> 
             </div> 
             <div className="flex gap-2 flex-wrap"> 
-              {["All", "CCS", "CBA", "COE", "CAS", "COED"].map((filter) => (
+              {["All", "CASS", "CAFA", "CBA", "CCS",  "COE", "CIT", "CCJE", "CPAG", "COED", "COS"].map((filter) => (
             <button
             key={filter}
             onClick={() => setCourseFilter(filter)}

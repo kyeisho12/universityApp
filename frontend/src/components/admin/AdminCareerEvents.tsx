@@ -144,43 +144,40 @@ export default function AdminCareerEvents() {
   }
 
   async function handleSubmit() {
-    try {
-      // Validate required fields
-      if (!formData.title || !formData.description || !formData.date || !formData.location) {
-        setError("Please fill in all required fields");
-        return;
-      }
-
-      if (showEditModal && selectedEvent) {
-        // Update event
-        await updateEvent(selectedEvent.id, {
-          title: formData.title,
-          description: formData.description,
-          event_type: formData.event_type,
-          date: formData.date,
-          time: formData.time,
-          location: formData.location,
-        });
-      } else {
-        // Create new event
-        await createEvent({
-          title: formData.title,
-          description: formData.description,
-          event_type: formData.event_type,
-          date: formData.date,
-          time: formData.time,
-          location: formData.location,
-        });
-      }
-
-      // Refresh events list
-      await fetchEvents();
-      handleCloseModal();
-      setError(null);
-    } catch (err) {
-      console.error("Error submitting event:", err);
-      setError(err instanceof Error ? err.message : "Error saving event");
+  try {
+    // Validate required fields
+    if (!formData.title || !formData.description) {
+      setError("Please fill in title and description");
+      return;
     }
+
+    const eventData = {
+      title: formData.title,
+      description: formData.description,
+      event_type: formData.event_type,
+      date: formData.date || null,  // Convert empty string to null
+      time: formData.time || null,  // Convert empty string to null
+      location: formData.location || null,  // Convert empty string to null
+    };
+
+    if (showEditModal && selectedEvent) {
+      // Update event
+      await updateEvent(selectedEvent.id, eventData);
+    } else {
+      // Create new event
+      await createEvent(eventData);
+    }
+
+    // Refresh events list
+    await fetchEvents();
+    handleCloseModal();
+    setError(null);
+  } 
+  
+  catch (err) {
+    console.error("Error submitting event:", err);
+    setError(err instanceof Error ? err.message : "Error saving event");
+  }
   }
 
   async function handleDeleteEvent(eventId: string) {
