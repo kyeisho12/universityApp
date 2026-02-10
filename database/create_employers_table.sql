@@ -55,12 +55,12 @@ ALTER TABLE public.employers ENABLE ROW LEVEL SECURITY;
 -- 5. CREATE RLS POLICIES
 -- =============================================================================
 
--- Policy: Anyone can view verified employers
-DROP POLICY IF EXISTS "Anyone can view verified employers" ON public.employers;
-CREATE POLICY "Anyone can view verified employers"
+-- Policy: Anyone can view employers
+DROP POLICY IF EXISTS "Anyone can view employers" ON public.employers;
+CREATE POLICY "Anyone can view employers"
   ON public.employers
   FOR SELECT
-  USING (verified = TRUE);
+  USING (TRUE);
 
 -- Policy: Admins can view all employers (verified and unverified)
 DROP POLICY IF EXISTS "Admins can view all employers" ON public.employers;

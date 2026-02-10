@@ -20,6 +20,7 @@ import { submitJobApplication, checkIfApplied } from "../services/applicationSer
 import { supabase } from "../lib/supabaseClient";
 
 function JobsPageContent({ email, onLogout, onNavigate }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [userData, setUserData] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
@@ -36,6 +37,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [userResumes, setUserResumes] = useState<any[]>([]);
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [coverLetter, setCoverLetter] = useState('');
 
   // Fetch user profile data
   React.useEffect(() => {
@@ -126,6 +128,14 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const handleApplyNow = async () => {
     if (!user?.id || !currentJob) return;
 
+    if (!coverLetter.trim()) {
+      setApplyMessage({
+        type: 'error',
+        text: 'Cover letter is required to submit your application.'
+      });
+      return;
+    }
+
     setApplyingJobId(currentJob.id);
     setApplyMessage(null);
 
@@ -134,18 +144,25 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         user.id,
         currentJob.id,
         currentJob.employer_id,
-        undefined,
+        coverLetter.trim() || undefined,
         selectedResume || undefined
       );
 
       if (result.success) {
         setAppliedJobs(new Set(appliedJobs).add(currentJob.id));
         setShowApplyModal(false);
-        setApplyMessage({
-          type: 'success',
-          text: 'Application submitted successfully!'
+        setCoverLetter('');
+        navigate("/student/apply-outlook", {
+          state: {
+            jobTitle: currentJob.title,
+            jobType: currentJob.job_type,
+            employerId: currentJob.employer_id,
+            employerName: currentJob.employer_name,
+            employerEmail: currentJob.employer_email,
+            resumeId: selectedResume,
+            coverLetter: coverLetter.trim(),
+          },
         });
-        setTimeout(() => setApplyMessage(null), 3000);
       } else {
         setApplyMessage({
           type: 'error',
@@ -439,7 +456,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                       </button>
                     ) : (
                       <button 
-                        onClick={() => setShowApplyModal(true)}
+                        onClick={() => {
+                          setCoverLetter('');
+                          setShowApplyModal(true);
+                        }}
                         className="flex-1 bg-[#2C3E5C] text-white py-3 rounded-lg font-medium hover:bg-[#1B2744] transition-colors flex items-center justify-center gap-2 text-base"
                       >
                         Apply Now <ArrowRight className="w-4 h-4" />
@@ -531,7 +551,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Apply for {currentJob.title}</h3>
               <button
-                onClick={() => setShowApplyModal(false)}
+                onClick={() => {
+                  setShowApplyModal(false);
+                  setCoverLetter('');
+                }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-5 h-5" />
@@ -578,17 +601,33 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 )}
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Cover Letter
+                </label>
+                <textarea
+                  value={coverLetter}
+                  onChange={(e) => setCoverLetter(e.target.value)}
+                  placeholder="Write a brief cover letter to support your application"
+                  rows={4}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none text-sm resize-none"
+                />
+              </div>
+
               {userResumes.length > 0 && (
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={() => setShowApplyModal(false)}
+                    onClick={() => {
+                      setShowApplyModal(false);
+                      setCoverLetter('');
+                    }}
                     className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleApplyNow}
-                    disabled={applyingJobId === currentJob.id || !selectedResume}
+                    disabled={applyingJobId === currentJob.id || !selectedResume || !coverLetter.trim()}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {applyingJobId === currentJob.id ? (

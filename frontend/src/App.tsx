@@ -13,6 +13,7 @@ import MockInterviewPage from './pages/MockInterviewPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
 import ApplicationsPage from './pages/ApplicationsPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
+import ApplyOutlookPage from './pages/ApplyOutlookPage'
 import EmployerPartners from './components/admin/EmployerPartners'
 import StudentAnalytics from './components/admin/StudentAnalytics'
 import AdminMockInterview from './components/admin/AdminMockInterview'
@@ -301,6 +302,16 @@ export default function App() {
               <RequireStudent>
                 <RequireProfile>
                   <MyApplicationsPage />
+                </RequireProfile>
+              </RequireStudent>
+            }
+          />
+          <Route
+            path="/student/apply-outlook"
+            element={
+              <RequireStudent>
+                <RequireProfile>
+                  <ApplyOutlookPage />
                 </RequireProfile>
               </RequireStudent>
             }

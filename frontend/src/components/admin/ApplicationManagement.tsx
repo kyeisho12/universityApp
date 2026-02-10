@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Search, ChevronDown, Check, X, Clock, Eye, Trash2, FileText, ExternalLink } from "lucide-react";
-import { getAllApplications, updateApplicationStatus, withdrawApplication } from "../../services/applicationService";
+import { Search, Check, X, Clock, Eye, FileText, ExternalLink } from "lucide-react";
+import { getAllApplications } from "../../services/applicationService";
 import { supabase } from "../../lib/supabaseClient";
 
 interface ApplicationWithDetails {
@@ -30,11 +30,8 @@ export function ApplicationManagement() {
   const [filteredApplications, setFilteredApplications] = useState<ApplicationWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedApp, setSelectedApp] = useState<ApplicationWithDetails | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionNotes, setActionNotes] = useState("");
 
   useEffect(() => {
     fetchApplications();
@@ -116,7 +113,7 @@ export function ApplicationManagement() {
       );
 
       setApplications(enrichedData);
-      filterApplications(enrichedData, searchTerm, statusFilter);
+      filterApplications(enrichedData, searchTerm);
     } catch (err) {
       console.error("Failed to fetch applications:", err);
       setApplications([]);
@@ -128,14 +125,9 @@ export function ApplicationManagement() {
 
   const filterApplications = (
     data: ApplicationWithDetails[],
-    search: string,
-    status: string
+    search: string
   ) => {
     let filtered = data;
-
-    if (status !== "all") {
-      filtered = filtered.filter((app) => app.status === status);
-    }
 
     if (search) {
       filtered = filtered.filter(
@@ -151,36 +143,7 @@ export function ApplicationManagement() {
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    filterApplications(applications, value, statusFilter);
-  };
-
-  const handleStatusFilter = (value: string) => {
-    setStatusFilter(value);
-    filterApplications(applications, searchTerm, value);
-  };
-
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!selectedApp) return;
-
-    try {
-      setActionLoading(true);
-      const result = await updateApplicationStatus(
-        selectedApp.id,
-        newStatus as any,
-        actionNotes || undefined
-      );
-
-      if (result.success) {
-        setSelectedApp(null);
-        setModalOpen(false);
-        setActionNotes("");
-        fetchApplications();
-      }
-    } catch (err) {
-      console.error("Failed to update application status:", err);
-    } finally {
-      setActionLoading(false);
-    }
+    filterApplications(applications, value);
   };
 
   const getStatusColor = (status: string) => {
@@ -218,7 +181,7 @@ export function ApplicationManagement() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Job Applications</h2>
           <p className="text-gray-500 mt-1">
-            Manage student applications and review status
+            Review student applications and details
           </p>
         </div>
         <div className="text-right">
@@ -243,17 +206,6 @@ export function ApplicationManagement() {
             />
           </div>
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => handleStatusFilter(e.target.value)}
-          className="px-4 py-2.5 border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none bg-white"
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="accepted">Accepted</option>
-          <option value="rejected">Rejected</option>
-          <option value="withdrawn">Withdrawn</option>
-        </select>
       </div>
 
       {/* Applications Table */}
@@ -358,13 +310,12 @@ export function ApplicationManagement() {
             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">
-                Review Application
+                Application Details
               </h3>
               <button
                 onClick={() => {
                   setModalOpen(false);
                   setSelectedApp(null);
-                  setActionNotes("");
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -460,57 +411,11 @@ export function ApplicationManagement() {
                 </div>
               )}
 
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Review Notes
-                </label>
-                <textarea
-                  value={actionNotes}
-                  onChange={(e) => setActionNotes(e.target.value)}
-                  placeholder="Add any notes about this application..."
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-gray-900"
-                  rows={4}
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3 border-t border-gray-200 pt-6">
-                <p className="text-sm font-medium text-gray-900">Change Status</p>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    onClick={() => handleUpdateStatus("accepted")}
-                    disabled={actionLoading}
-                    className="px-4 py-2.5 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50"
-                  >
-                    <Check className="w-4 h-4" />
-                    Accept
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus("rejected")}
-                    disabled={actionLoading}
-                    className="px-4 py-2.5 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50"
-                  >
-                    <X className="w-4 h-4" />
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus("pending")}
-                    disabled={actionLoading}
-                    className="px-4 py-2.5 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100 transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50"
-                  >
-                    <Clock className="w-4 h-4" />
-                    Pending
-                  </button>
-                </div>
-              </div>
-
               {/* Close Button */}
               <button
                 onClick={() => {
                   setModalOpen(false);
                   setSelectedApp(null);
-                  setActionNotes("");
                 }}
                 className="w-full px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors font-medium"
               >

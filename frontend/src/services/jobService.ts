@@ -20,6 +20,7 @@ export interface Job {
 export interface JobWithEmployer extends Job {
   employer_name?: string
   employer_website?: string
+  employer_email?: string
 }
 
 /**
@@ -33,7 +34,8 @@ export async function getAllJobs(includeInactive = false): Promise<JobWithEmploy
         *,
         employer:employer_id (
           name,
-          website
+          website,
+          contact_email
         )
       `)
       .order('deadline', { ascending: true })
@@ -51,7 +53,8 @@ export async function getAllJobs(includeInactive = false): Promise<JobWithEmploy
     return (data || []).map((job: any) => ({
       ...job,
       employer_name: job.employer?.name,
-      employer_website: job.employer?.website
+      employer_website: job.employer?.website,
+      employer_email: job.employer?.contact_email
     }))
   } catch (error) {
     console.error('Error fetching jobs:', error)

@@ -24,17 +24,20 @@ export async function submitJobApplication(
   resumeId?: string
 ): Promise<{ success: boolean; data?: Application; error?: string }> {
   try {
-    const { data, error } = await supabase.from("applications").insert([
-      {
-        student_id: studentId,
-        job_id: jobId,
-        employer_id: employerId,
-        status: "pending",
-        cover_letter: coverLetter,
-        resume_id: resumeId,
-        application_date: new Date().toISOString(),
-      },
-    ]);
+    const { data, error } = await supabase
+      .from("applications")
+      .insert([
+        {
+          student_id: studentId,
+          job_id: jobId,
+          employer_id: employerId,
+          status: "pending",
+          cover_letter: coverLetter,
+          resume_id: resumeId,
+          application_date: new Date().toISOString(),
+        },
+      ])
+      .select();
 
     if (error) {
       return { success: false, error: error.message };

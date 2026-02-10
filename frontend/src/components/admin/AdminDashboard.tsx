@@ -69,11 +69,12 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
         .eq('status', 'completed');
 
       // Fetch active events (future events)
+      const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
       const { data: eventsData, error: eventsError } = await supabase
         .from('career_events')
-        .select('id, title, event_type, start_date, end_date')
-        .gte('end_date', new Date().toISOString())
-        .order('start_date', { ascending: true });
+        .select('id, title, event_type, date, time, location')
+        .gte('date', today)
+        .order('date', { ascending: true });
 
       // Fetch recent activity data
       const recentActivities: Activity[] = [];
