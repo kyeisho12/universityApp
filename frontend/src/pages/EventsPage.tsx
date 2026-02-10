@@ -294,19 +294,25 @@ function EventCard({
 
       {/* Event Details */}
       <div className="space-y-2 mb-6 text-sm text-gray-600 flex-1">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-gray-400" />
-          {event.date}
-        </div>
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-gray-400" />
-          {event.time}
-        </div>
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-gray-400" />
-          {event.location}
-        </div>
-        {event.registered && event.registered > 0 && (
+        {event.date && (
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-400" />
+            {event.date}
+          </div>
+        )}
+        {event.time && (
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-400" />
+            {event.time}
+          </div>
+        )}
+        {event.location && (
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-gray-400" />
+            {event.location}
+          </div>
+        )}
+        {event.event_type !== "Announcement" && event.registered && event.registered > 0 && (
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-gray-400" />
             {event.registered} registered
@@ -314,17 +320,19 @@ function EventCard({
         )}
       </div>
 
-      {/* Action Button */}
-      <button
-        onClick={isRegistered ? onUnregister : onRegister}
-        className={`w-full py-2.5 rounded-lg font-semibold transition-colors ${
-          isRegistered
-            ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            : "bg-[#1B2744] text-white hover:bg-[#131d33]"
-        }`}
-      >
-        {isRegistered ? "Cancel Registration" : "Register Now"}
-      </button>
+      {/* Action Button - Only show for non-announcements */}
+      {event.event_type !== "Announcement" && (
+        <button
+          onClick={isRegistered ? onUnregister : onRegister}
+          className={`w-full py-2.5 rounded-lg font-semibold transition-colors ${
+            isRegistered
+              ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              : "bg-[#1B2744] text-white hover:bg-[#131d33]"
+          }`}
+        >
+          {isRegistered ? "Cancel Registration" : "Register Now"}
+        </button>
+      )}
     </div>
   );
 }
