@@ -186,6 +186,24 @@ export default function StudentAnalytics() {
                             </ChartCard>
                         </div>
 
+                        {/* Additional Analytics (placeholders) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <ChartCard title="Monthly Activity Trends">
+                                <ChartPlaceholder />
+                            </ChartCard>
+                            <ChartCard title="Application Status Breakdown">
+                                <ChartPlaceholder />
+                            </ChartCard>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <ChartCard title="Events by Type">
+                                <ChartPlaceholder />
+                            </ChartCard>
+                            <ChartCard title="Top Events by Registration">
+                                <ListPlaceholder />
+                            </ChartCard>
+                        </div>
+
                         {/* Department Performance */}
                         <ChartCard title="Department Performance">
                             <PerformanceTable rows={departmentPerformance} />
@@ -210,6 +228,17 @@ function ChartPlaceholder() {
     return (
         <div className="h-64 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500 text-sm">
             Chart placeholder
+        </div>
+    );
+}
+
+function ListPlaceholder() {
+    return (
+        <div className="h-64 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-gray-500 text-sm flex flex-col justify-center gap-3">
+            <div className="h-4 w-3/4 rounded bg-gray-200" />
+            <div className="h-4 w-2/3 rounded bg-gray-200" />
+            <div className="h-4 w-4/5 rounded bg-gray-200" />
+            <div className="h-4 w-1/2 rounded bg-gray-200" />
         </div>
     );
 }
