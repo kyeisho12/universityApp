@@ -60,6 +60,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   ]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const DRAFT_KEY = `resume_draft_${userId}`;
+  const MODAL_KEY = `resume_builder_open_${userId}`;
 
   const allowedFormatsLabel = useMemo(() => ALLOWED_EXTENSIONS.map((ext) => ext.toUpperCase()).join(", "), []);
 
@@ -76,6 +77,36 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   );
 
   const isLoadingResumes = isLoading;
+
+  const openResumeBuilder = () => {
+    try {
+      localStorage.setItem(MODAL_KEY, "true");
+    } catch (error) {
+      console.error("Failed to persist modal state:", error);
+    }
+    setShowResumeBuilder(true);
+  };
+
+  const closeResumeBuilder = () => {
+    try {
+      localStorage.removeItem(MODAL_KEY);
+    } catch (error) {
+      console.error("Failed to clear modal state:", error);
+    }
+    setShowResumeBuilder(false);
+  };
+
+  // Restore modal open state when returning to the page
+  useEffect(() => {
+    try {
+      const shouldOpen = localStorage.getItem(MODAL_KEY) === "true";
+      if (shouldOpen) {
+        setShowResumeBuilder(true);
+      }
+    } catch (error) {
+      console.error("Failed to restore modal state:", error);
+    }
+  }, [MODAL_KEY]);
 
   // Load draft from localStorage when modal opens
   const loadDraft = () => {
@@ -306,7 +337,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
         refetch();
         setStatusMessage("Résumé saved successfully.");
         resetResumeBuilder(); // This also clears the draft
-        setShowResumeBuilder(false);
+        closeResumeBuilder();
       }
     } catch (err) {
       setErrorMessage("Failed to generate PDF. Please try again.");
@@ -430,7 +461,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                   } else {
                     resetResumeBuilder();
                   }
-                  setShowResumeBuilder(true);
+                  openResumeBuilder();
                 }}
                 className="border-2 border-[#1B2744] text-[#1B2744] px-6 py-2.5 rounded-lg font-semibold hover:bg-[#1B2744] hover:text-white transition-colors flex items-center gap-2"
               >
@@ -522,7 +553,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                   Clear Form
                 </button>
                 <button
-                  onClick={() => setShowResumeBuilder(false)}
+                  onClick={closeResumeBuilder}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <X className="w-6 h-6 text-gray-600" />
@@ -1043,7 +1074,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setShowResumeBuilder(false)}
+                onClick={closeResumeBuilder}
                 className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
                 Cancel
