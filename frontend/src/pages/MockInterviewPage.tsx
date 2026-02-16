@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -17,6 +17,7 @@ type NavigateHandler = (route: string) => void;
 
 interface MockInterviewPageContentProps {
   email: string;
+  userId: string;
   onLogout: () => Promise<void> | void;
   onNavigate: NavigateHandler;
 }
@@ -29,6 +30,7 @@ interface Question {
 
 function MockInterviewPageContent({
   email,
+  userId,
   studentId,
   onLogout,
   onNavigate,
@@ -38,6 +40,79 @@ function MockInterviewPageContent({
   const [hasStarted, setHasStarted] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const desiredCameraOnRef = useRef(false);
+  const cameraRequestIdRef = useRef(0);
+  const STATE_KEY = `mock_interview_state_${userId || email || "guest"}`;
+  const hasHydratedRef = useRef(false);
+  const hasSavedInitialStateRef = useRef(false);
+
+  useEffect(() => {
+    if (!STATE_KEY) return;
+    hasHydratedRef.current = false;
+    try {
+      const savedState = localStorage.getItem(STATE_KEY);
+      if (!savedState) {
+        hasHydratedRef.current = true;
+        return;
+      }
+      const parsed = JSON.parse(savedState) as {
+        hasStarted: boolean;
+        isCompleted: boolean;
+        currentQuestion: number;
+        isCameraOn: boolean;
+        isMicOn: boolean;
+      };
+      if (typeof parsed.hasStarted === "boolean") {
+        setHasStarted(parsed.hasStarted);
+      }
+      if (typeof parsed.isCompleted === "boolean") {
+        setIsCompleted(parsed.isCompleted);
+      }
+      if (typeof parsed.currentQuestion === "number") {
+        setCurrentQuestion(parsed.currentQuestion);
+      }
+      if (typeof parsed.isCameraOn === "boolean") {
+        setIsCameraOn(parsed.isCameraOn);
+      }
+      if (typeof parsed.isMicOn === "boolean") {
+        setIsMicOn(parsed.isMicOn);
+      }
+      hasHydratedRef.current = true;
+      hasSavedInitialStateRef.current = true;
+    } catch (error) {
+      console.error("Failed to restore mock interview state:", error);
+      hasHydratedRef.current = true;
+    }
+  }, [STATE_KEY]);
+
+  useEffect(() => {
+    desiredCameraOnRef.current = isCameraOn;
+  }, [isCameraOn]);
+
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    if (!hasSavedInitialStateRef.current) {
+      hasSavedInitialStateRef.current = true;
+      return;
+    }
+    try {
+      const nextState = {
+        hasStarted,
+        isCompleted,
+        currentQuestion,
+        isCameraOn,
+        isMicOn,
+      };
+      localStorage.setItem(STATE_KEY, JSON.stringify(nextState));
+    } catch (error) {
+      console.error("Failed to persist mock interview state:", error);
+    }
+  }, [STATE_KEY, hasStarted, isCompleted, currentQuestion, isCameraOn, isMicOn]);
 
   const questions: Question[] = [
     {
@@ -84,7 +159,86 @@ function MockInterviewPageContent({
     setHasStarted(false);
     setIsCompleted(false);
     setCurrentQuestion(0);
+    setIsCameraOn(false);
+    setIsMicOn(true);
+    setMediaError(null);
+    stopCamera();
   };
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaError("Camera not supported in this browser.");
+      setIsCameraOn(false);
+      return;
+    }
+
+    try {
+      const requestId = (cameraRequestIdRef.current += 1);
+      stopCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+      if (requestId !== cameraRequestIdRef.current || !desiredCameraOnRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setMediaError(null);
+    } catch (error) {
+      setMediaError("Unable to access camera. Check permissions.");
+      setIsCameraOn(false);
+    }
+  }, [stopCamera]);
+
+  const handleToggleCamera = useCallback(() => {
+    setIsCameraOn((prev) => {
+      const next = !prev;
+      desiredCameraOnRef.current = next;
+      if (!next) {
+        cameraRequestIdRef.current += 1;
+        stopCamera();
+      } else {
+        setMediaError(null);
+        if (!streamRef.current) {
+          void startCamera();
+        }
+      }
+      return next;
+    });
+  }, [startCamera, stopCamera]);
+
+  useEffect(() => {
+    if (!hasStarted || isCompleted || !isCameraOn) {
+      stopCamera();
+      return;
+    }
+
+    if (!streamRef.current) {
+      startCamera();
+    }
+
+    return () => {
+      if (isCompleted) {
+        stopCamera();
+      }
+    };
+  }, [hasStarted, isCompleted, isCameraOn, startCamera, stopCamera]);
+
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
   if (!hasStarted) {
     return (
@@ -170,7 +324,11 @@ function MockInterviewPageContent({
 
               {/* Start Button */}
               <button
-                onClick={() => setHasStarted(true)}
+                onClick={() => {
+                  setHasStarted(true);
+                  setIsCameraOn(true);
+                  setMediaError(null);
+                }}
                 className="w-full bg-[#1B2744] text-white py-3.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center justify-center gap-2"
               >
                 <svg
@@ -371,20 +529,53 @@ function MockInterviewPageContent({
 
               {/* Camera Preview */}
               <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center">
-                  <div className="w-32 h-32 bg-gray-400 rounded-full flex items-center justify-center mb-4">
-                    <Camera className="w-16 h-16 text-gray-600" />
+                {isCameraOn && !mediaError ? (
+                  <div className="w-full h-full rounded-xl overflow-hidden">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <p className="text-gray-600 font-medium">Camera Preview</p>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <div className="w-32 h-32 bg-gray-400 rounded-full flex items-center justify-center mb-4">
+                      <Camera className="w-16 h-16 text-gray-600" />
+                    </div>
+                    <p className="text-gray-600 font-medium">Camera Preview</p>
+                    {mediaError && (
+                      <p className="text-xs text-red-600 mt-2 text-center max-w-xs">
+                        {mediaError}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Controls */}
               <div className="flex items-center gap-4 bg-white rounded-2xl px-6 py-3 shadow-lg">
-                <button className="p-2 text-gray-600 hover:text-gray-900">
+                <button
+                  onClick={() => setIsMicOn((prev) => !prev)}
+                  className={
+                    isMicOn
+                      ? "p-2 text-gray-600 hover:text-gray-900"
+                      : "p-2 text-red-600 hover:text-red-700"
+                  }
+                  title={isMicOn ? "Mute mic" : "Unmute mic"}
+                >
                   <Mic className="w-6 h-6" />
                 </button>
-                <button className="p-2 text-gray-600 hover:text-gray-900">
+                <button
+                  onClick={handleToggleCamera}
+                  className={
+                    isCameraOn
+                      ? "p-2 text-gray-600 hover:text-gray-900"
+                      : "p-2 text-red-600 hover:text-red-700"
+                  }
+                  title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+                >
                   <Camera className="w-6 h-6" />
                 </button>
                 <button
@@ -491,6 +682,7 @@ export default function MockInterviewPage() {
   return (
     <MockInterviewPageContent
       email={user?.email || ""}
+      userId={user?.id || ""}
       studentId={studentId}
       onLogout={handleLogout}
       onNavigate={handleNavigate}
