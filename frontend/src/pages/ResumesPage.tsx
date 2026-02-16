@@ -33,8 +33,6 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showResumeBuilder, setShowResumeBuilder] = useState(false);
-  const [showResumeDetails, setShowResumeDetails] = useState(false);
-  const [selectedResume, setSelectedResume] = useState<ResumeWithUrl | null>(null);
   const [resumeName, setResumeName] = useState("");
   const [personalInfo, setPersonalInfo] = useState({
     fullName: "",
@@ -253,10 +251,6 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const handleViewDetails = (resume: ResumeWithUrl) => {
-    setSelectedResume(resume);
-    setShowResumeDetails(true);
-  };
 
   const formatSize = (bytes: number) => {
     if (!bytes && bytes !== 0) return "";
@@ -379,19 +373,12 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                       <button
-                        onClick={() => handleViewDetails(resume)}
+                        onClick={() => handleDownload(resume)}
                         className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
-                        title="View Details"
+                        title="View resume"
                       >
                         <Eye className="w-4 h-4" />
-                        View Details
-                      </button>
-                      <button
-                        onClick={() => handleDownload(resume)}
-                        className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                        title="Download résumé"
-                      >
-                        <Download className="w-5 h-5" />
+                        View Resume
                       </button>
                       <button
                         onClick={() => handleDelete(resume)}
@@ -419,68 +406,6 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
           </div>
         </div>
       </div>
-
-      {/* Resume Details Modal */}
-      {showResumeDetails && selectedResume && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Résumé Details</h2>
-                <p className="text-gray-600 text-sm mt-1">{selectedResume.file_name}</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowResumeDetails(false);
-                  setSelectedResume(null);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">File name</span>
-                <span className="text-sm font-medium text-gray-900">{selectedResume.file_name}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">File size</span>
-                <span className="text-sm font-medium text-gray-900">{formatSize(selectedResume.file_size)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Uploaded</span>
-                <span className="text-sm font-medium text-gray-900">{formatDate(selectedResume.created_at)}</span>
-              </div>
-              {selectedResume.file_type && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">File type</span>
-                  <span className="text-sm font-medium text-gray-900">{selectedResume.file_type}</span>
-                </div>
-              )}
-              {selectedResume.status && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Status</span>
-                  <span className="text-sm font-medium text-gray-900">{selectedResume.status}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  setShowResumeDetails(false);
-                  setSelectedResume(null);
-                }}
-                className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Resume Builder Modal */}
       {showResumeBuilder && (
