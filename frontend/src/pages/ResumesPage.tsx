@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { useCachedQuery } from "../hooks/useCachedQuery";
 import { useStudent } from "../context/StudentContext";
+import { useStudentId } from "../hooks/useStudentId";
 import { supabase } from "../lib/supabaseClient";
+import { queryCache } from "../utils/queryCache";
 import {
   ALLOWED_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
@@ -15,6 +18,7 @@ import {
   validateResumeFile,
   type ResumeWithUrl,
 } from "../services/resumeService";
+import { generateResumePDF } from "../utils/pdfGenerator";
 
 type NavigateHandler = (route: string) => void;
 
@@ -27,8 +31,6 @@ interface ResumesPageContentProps {
 
 function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate }: ResumesPageContentProps & { studentId?: string }) {
   const userID = studentId || "2024-00001";
-  const [resumes, setResumes] = useState<ResumeWithUrl[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -57,8 +59,77 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     { id: 1, name: "", organization: "", dateIssued: "", credentialId: "" },
   ]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const DRAFT_KEY = `resume_draft_${userId}`;
 
   const allowedFormatsLabel = useMemo(() => ALLOWED_EXTENSIONS.map((ext) => ext.toUpperCase()).join(", "), []);
+
+  // Use cached query for resumes
+  const { data: resumes = [], isLoading, error: resumesError, refetch } = useCachedQuery(
+    `resumes-list-${userId}`,
+    async () => {
+      if (!userId) return [];
+      const { data, error } = await listResumes(userId);
+      if (error) throw error;
+      return data;
+    },
+    { enabled: !!userId }
+  );
+
+  const isLoadingResumes = isLoading;
+
+  // Load draft from localStorage when modal opens
+  const loadDraft = () => {
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_KEY);
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        setResumeName(draft.resumeName || "");
+        setPersonalInfo(draft.personalInfo || {
+          fullName: "",
+          email: "",
+          phone: "",
+          address: "",
+          linkedin: "",
+          portfolio: "",
+          summary: "",
+        });
+        setSkills(draft.skills || "");
+        setEducationEntries(draft.educationEntries || [{ id: 1, school: "", degree: "", field: "", gpa: "", startDate: "", endDate: "" }]);
+        setExperienceEntries(draft.experienceEntries || [
+          { id: 1, company: "", position: "", startDate: "", endDate: "", current: false, description: "" },
+        ]);
+        setProjectEntries(draft.projectEntries || [{ id: 1, name: "", technologies: "", link: "", description: "" }]);
+        setCertificationEntries(draft.certificationEntries || [{ id: 1, name: "", organization: "", dateIssued: "", credentialId: "" }]);
+      }
+    } catch (error) {
+      console.error("Failed to load draft:", error);
+    }
+  };
+
+  const saveDraft = () => {
+    try {
+      const draft = {
+        resumeName,
+        personalInfo,
+        skills,
+        educationEntries,
+        experienceEntries,
+        projectEntries,
+        certificationEntries,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.error("Failed to save draft:", error);
+    }
+  };
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (error) {
+      console.error("Failed to clear draft:", error);
+    }
+  };
 
   const resetResumeBuilder = () => {
     setResumeName("");
@@ -78,26 +149,23 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     ]);
     setProjectEntries([{ id: 1, name: "", technologies: "", link: "", description: "" }]);
     setCertificationEntries([{ id: 1, name: "", organization: "", dateIssued: "", credentialId: "" }]);
+    clearDraft();
   };
 
+  // Load draft when modal opens
   useEffect(() => {
-    let active = true;
-    async function load() {
-      if (!userId) return;
-      setIsLoading(true);
-      const { data, error } = await listResumes(userId);
-      if (!active) return;
-      if (error) {
-        setErrorMessage(error.message || "Unable to load resumes.");
-      }
-      setResumes(data);
-      setIsLoading(false);
+    if (showResumeBuilder) {
+      loadDraft();
     }
-    load();
-    return () => {
-      active = false;
-    };
-  }, [userId]);
+  }, [showResumeBuilder]);
+
+  // Auto-save draft whenever form data changes
+  useEffect(() => {
+    if (showResumeBuilder) {
+      const timeoutId = setTimeout(saveDraft, 500); // Debounce 500ms
+      return () => clearTimeout(timeoutId);
+    }
+  }, [resumeName, personalInfo, skills, educationEntries, experienceEntries, projectEntries, certificationEntries, showResumeBuilder]);
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -128,7 +196,8 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     if (error || !data) {
       setErrorMessage(error?.message || "Failed to upload résumé. Please try again.");
     } else {
-      setResumes((prev) => [data, ...prev]);
+      queryCache.invalidate(`resumes-list-${userId}`);
+      refetch();
       setStatusMessage("Résumé uploaded successfully.");
     }
     setIsUploading(false);
@@ -214,20 +283,36 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setErrorMessage(null);
     setStatusMessage(null);
 
-    const safeName = resumeName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
-    const fileName = `${safeName || "resume"}.doc`;
-    const content = buildResumeText();
-    const blob = new Blob([content], { type: "application/msword" });
-    const file = new File([blob], fileName, { type: "application/msword" });
+    try {
+      // Generate PDF using the template
+      const pdfBlob = generateResumePDF({
+        personalInfo,
+        skills,
+        educationEntries,
+        experienceEntries,
+        projectEntries,
+        certificationEntries,
+      });
 
-    const { data, error } = await uploadResume(file, userId);
-    if (error || !data) {
-      setErrorMessage(error?.message || "Failed to save résumé. Please try again.");
-    } else {
-      setResumes((prev) => [data, ...prev]);
-      setStatusMessage("Résumé saved successfully.");
-      setShowResumeBuilder(false);
+      const safeName = resumeName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
+      const fileName = `${safeName || "resume"}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+      const { data, error } = await uploadResume(file, userId);
+      if (error || !data) {
+        setErrorMessage(error?.message || "Failed to save résumé. Please try again.");
+      } else {
+        queryCache.invalidate(`resumes-list-${userId}`);
+        refetch();
+        setStatusMessage("Résumé saved successfully.");
+        resetResumeBuilder(); // This also clears the draft
+        setShowResumeBuilder(false);
+      }
+    } catch (err) {
+      setErrorMessage("Failed to generate PDF. Please try again.");
+      console.error("PDF generation error:", err);
     }
+    
     setIsUploading(false);
   };
 
@@ -239,7 +324,8 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       setErrorMessage(error.message || "Failed to delete résumé.");
       return;
     }
-    setResumes((prev) => prev.filter((r) => r.id !== resume.id));
+    queryCache.invalidate(`resumes-list-${userId}`);
+    refetch();
   };
 
   const handleDownload = async (resume: ResumeWithUrl) => {
@@ -332,7 +418,18 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               </button>
               <button
                 onClick={() => {
-                  resetResumeBuilder();
+                  // Check if there's a draft before clearing
+                  const hasDraft = localStorage.getItem(DRAFT_KEY);
+                  if (hasDraft) {
+                    const shouldContinue = window.confirm(
+                      "You have an unsaved draft. Do you want to continue where you left off?\n\nClick OK to continue your draft, or Cancel to start fresh."
+                    );
+                    if (!shouldContinue) {
+                      resetResumeBuilder();
+                    }
+                  } else {
+                    resetResumeBuilder();
+                  }
                   setShowResumeBuilder(true);
                 }}
                 className="border-2 border-[#1B2744] text-[#1B2744] px-6 py-2.5 rounded-lg font-semibold hover:bg-[#1B2744] hover:text-white transition-colors flex items-center gap-2"
@@ -416,12 +513,21 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 <FileText className="w-6 h-6 text-gray-700" />
                 <h2 className="text-2xl font-bold text-gray-900">Create New Résumé</h2>
               </div>
-              <button
-                onClick={() => setShowResumeBuilder(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-gray-600" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetResumeBuilder}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Clear all fields and start fresh"
+                >
+                  Clear Form
+                </button>
+                <button
+                  onClick={() => setShowResumeBuilder(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-auto p-6">
@@ -979,30 +1085,10 @@ export default function ResumesPage() {
   const { user, signOut } = useAuth();
   const { profile } = useStudent();
   const navigate = useNavigate();
-  const [studentId, setStudentId] = React.useState<string>('2024-00001');
+  const studentId = useStudentId(user?.id);
 
   const userId = user?.id || "";
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
-
-  React.useEffect(() => {
-    const fetchStudentId = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error: err } = await supabase
-          .from('profiles')
-          .select('student_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (err) throw err;
-        setStudentId(data?.student_id || '2024-00001');
-      } catch (err) {
-        console.error('Failed to fetch student_id:', err);
-      }
-    };
-
-    fetchStudentId();
-  }, [user?.id]);
 
   async function handleLogout() {
     try {

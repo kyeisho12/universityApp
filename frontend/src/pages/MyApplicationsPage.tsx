@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useCachedQuery } from "../hooks/useCachedQuery";
 import { Sidebar } from "../components/common/Sidebar";
 import {
   FileText,
@@ -31,20 +32,69 @@ interface Application {
 }
 
 const MyApplicationsPage: React.FC = () => {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
   const userName = user?.email?.split("@")[0] || "Student";
   const userID = "2024-00001";
 
-  useEffect(() => {
-    fetchApplications();
-  }, []);
+  // Use cached query for applications
+  const {
+    data: applications = [],
+    isLoading: loading,
+    error: errorObj,
+    refetch,
+  } = useCachedQuery(
+    `applications-${user?.id}`,
+    async () => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (!currentUser) {
+        throw new Error("You must be logged in to view applications");
+      }
+
+      // Fetch applications with job and employer details in one query
+      const { data: appsData, error: appsError } = await supabase
+        .from("applications")
+        .select(
+          `
+          id,
+          job_id,
+          employer_id,
+          status,
+          application_date,
+          cover_letter,
+          resume_id,
+          jobs (
+            title,
+            location,
+            job_type
+          ),
+          employers (
+            name
+          )
+        `
+        )
+        .eq("student_id", currentUser.id)
+        .order("application_date", { ascending: false });
+
+      if (appsError) throw appsError;
+
+      return (appsData || []).map((app: any) => ({
+        ...app,
+        job_title: app.jobs?.title || "Unknown Job",
+        employer_name: app.employers?.name || "Unknown Employer",
+        job_location: app.jobs?.location,
+        job_type: app.jobs?.job_type,
+      }));
+    },
+    { enabled: !!user }
+  );
+
+  const error = errorObj?.message || null;
 
   async function handleLogout() {
     try {
@@ -59,59 +109,6 @@ const MyApplicationsPage: React.FC = () => {
   function handleNavigate(route: string) {
     navigate(`/${route}`);
   }
-
-  const fetchApplications = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError("You must be logged in to view applications");
-        return;
-      }
-
-      // Fetch applications with job and employer details
-      const { data: appsData, error: appsError } = await supabase
-        .from("applications")
-        .select("*")
-        .eq("student_id", user.id)
-        .order("application_date", { ascending: false });
-
-      if (appsError) throw appsError;
-
-      // Enrich with job and employer details
-      const enrichedApps = await Promise.all(
-        (appsData || []).map(async (app) => {
-          const [jobRes, employerRes] = await Promise.all([
-            supabase.from("jobs").select("*").eq("id", app.job_id).single(),
-            supabase
-              .from("employers")
-              .select("name")
-              .eq("id", app.employer_id)
-              .single(),
-          ]);
-
-          return {
-            ...app,
-            job_title: jobRes.data?.title || "Unknown Job",
-            employer_name: employerRes.data?.name || "Unknown Employer",
-            job_location: jobRes.data?.location,
-            job_type: jobRes.data?.job_type,
-          };
-        })
-      );
-
-      setApplications(enrichedApps);
-    } catch (err: any) {
-      console.error("Error fetching applications:", err);
-      setError(err.message || "Failed to load applications");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -146,12 +143,14 @@ const MyApplicationsPage: React.FC = () => {
     }
   };
 
-  const filteredApplications = applications.filter((app) => {
-    if (filterStatus === "all") return true;
-    return app.status.toLowerCase() === filterStatus.toLowerCase();
-  });
+  const filteredApplications = useMemo(() => 
+    applications.filter((app) => {
+      if (filterStatus === "all") return true;
+      return app.status.toLowerCase() === filterStatus.toLowerCase();
+    }), [applications, filterStatus]
+  );
 
-  const statusCounts = {
+  const statusCounts = useMemo(() => ({
     all: applications.length,
     pending: applications.filter((a) => a.status.toLowerCase() === "pending")
       .length,
@@ -159,7 +158,7 @@ const MyApplicationsPage: React.FC = () => {
       .length,
     rejected: applications.filter((a) => a.status.toLowerCase() === "rejected")
       .length,
-  };
+  }), [applications]);
 
   if (loading) {
     return (

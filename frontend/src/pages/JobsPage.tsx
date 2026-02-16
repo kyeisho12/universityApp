@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -15,114 +15,98 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { useCachedQuery } from "../hooks/useCachedQuery";
 import { getAllJobs, type JobWithEmployer } from "../services/jobService";
 import { submitJobApplication, checkIfApplied } from "../services/applicationService";
 import { supabase } from "../lib/supabaseClient";
+import { queryCache } from "../utils/queryCache";
 
 function JobsPageContent({ email, onLogout, onNavigate }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [userData, setUserData] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [jobs, setJobs] = useState<JobWithEmployer[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All Types");
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [userResumes, setUserResumes] = useState<any[]>([]);
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
 
-  // Fetch user profile data
-  React.useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error: err } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        
-        if (err) throw err;
-        setUserData(data);
-      } catch (err) {
-        console.error("Failed to fetch user profile:", err);
-      }
-    };
-
-    fetchUserProfile();
-  }, [user?.id]);
+  // Fetch user profile data with caching
+  const { data: userData } = useCachedQuery(
+    `user-profile-${user?.id}`,
+    async () => {
+      if (!user?.id) return null;
+      const { data, error: err } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (err) throw err;
+      return data;
+    },
+    { enabled: !!user?.id }
+  );
 
   // Get display name and ID from user data or fall back to email
   const userName = userData?.full_name || email?.split("@")[0] || "User";
   const userID = userData?.student_id || "2024-00001";
 
-  // Load jobs from Supabase
-  React.useEffect(() => {
-    const loadJobs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getAllJobs(false); // false = only active jobs for students
-        setJobs(data || []);
-        
-        // Check which jobs the student has applied to
-        if (user?.id && data) {
-          const appliedSet = new Set<string>();
-          for (const job of data) {
-            const { hasApplied } = await checkIfApplied(user.id, job.id);
-            if (hasApplied) {
-              appliedSet.add(job.id);
-            }
-          }
-          setAppliedJobs(appliedSet);
-        }
-        
-        if (data && data.length > 0) {
-          setSelectedJob(data[0].id || null);
-        }
-      } catch (err) {
-        console.error("Failed to load jobs:", err);
-        setError("Failed to load job listings");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadJobs();
-  }, [user?.id]);
-
-  // Load user resumes
-  React.useEffect(() => {
-    const loadResumes = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error } = await supabase
-          .from('resumes')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (!error && data) {
-          setUserResumes(data);
-          if (data.length > 0) {
-            setSelectedResume(data[0].id);
+  // Load jobs from Supabase with caching
+  const { data: jobs = [], isLoading: loading, error: jobsError } = useCachedQuery(
+    `jobs-list-${user?.id}`,
+    async () => {
+      const data = await getAllJobs(false); // false = only active jobs for students
+      
+      // Check which jobs the student has applied to
+      if (user?.id && data) {
+        const appliedSet = new Set<string>();
+        for (const job of data) {
+          const { hasApplied } = await checkIfApplied(user.id, job.id);
+          if (hasApplied) {
+            appliedSet.add(job.id);
           }
         }
-      } catch (err) {
-        console.error('Failed to load resumes:', err);
+        setAppliedJobs(appliedSet);
       }
-    };
+      
+      if (data && data.length > 0 && !selectedJob) {
+        setSelectedJob(data[0].id || null);
+      }
+      
+      return data || [];
+    },
+    { enabled: !!user?.id }
+  );
 
-    loadResumes();
-  }, [user?.id]);
+  const error = jobsError?.message || null;
+
+  // Load user resumes with caching
+  const { data: userResumes = [] } = useCachedQuery(
+    `resumes-${user?.id}`,
+    async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('resumes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0 && !selectedResume) {
+        setSelectedResume(data[0].id);
+      }
+      
+      return data || [];
+    },
+    { enabled: !!user?.id }
+  );
 
   // Handle job application
   const handleApplyNow = async () => {
@@ -152,6 +136,11 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         setAppliedJobs(new Set(appliedJobs).add(currentJob.id));
         setShowApplyModal(false);
         setCoverLetter('');
+        
+        // Invalidate jobs and applications cache to reflect new application
+        queryCache.invalidate(`jobs-list-${user.id}`);
+        queryCache.invalidate(`applications-${user.id}`);
+        
         navigate("/student/apply-outlook", {
           state: {
             jobTitle: currentJob.title,
@@ -180,7 +169,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   };
 
   // Filter jobs based on search and filters
-  const filteredJobs = jobs.filter((job) => {
+  const filteredJobs = useMemo(() => jobs.filter((job) => {
     const matchesSearch =
       searchTerm === "" ||
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -191,7 +180,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       filterCategory === "All Types" || job.category === filterCategory;
 
     return matchesSearch && matchesType && matchesCategory;
-  });
+  }), [jobs, searchTerm, filterType, filterCategory]);
 
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)

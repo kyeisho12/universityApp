@@ -1,9 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useStudentId } from "../hooks/useStudentId";
 import { AdminNavbar } from "../components/common/AdminNavbar";
 import { X, Search, Bell, Menu, Settings } from "lucide-react";
-import { supabase } from "../lib/supabaseClient";
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -12,30 +12,10 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = React.useState(true);
   const [jobAlerts, setJobAlerts] = React.useState(true);
   const [interviewAlerts, setInterviewAlerts] = React.useState(true);
-  const [studentId, setStudentId] = React.useState<string>('2024-00001');
 
+  const studentId = useStudentId(user?.id);
   const userName = user?.email?.split("@")[0] || "";
   const userID = studentId;
-
-  React.useEffect(() => {
-    const fetchStudentId = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error: err } = await supabase
-          .from('profiles')
-          .select('student_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (err) throw err;
-        setStudentId(data?.student_id || '2024-00001');
-      } catch (err) {
-        console.error('Failed to fetch student_id:', err);
-      }
-    };
-
-    fetchStudentId();
-  }, [user?.id]);
 
   async function handleLogout() {
     try {
@@ -53,7 +33,7 @@ export default function SettingsPage() {
 
   function handleSaveChanges() {
     // Handle saving changes
-    console.log("Changes saved");
+    // TODO: Implement settings save logic
   }
 
   return (
