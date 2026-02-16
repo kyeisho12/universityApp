@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../lib/supabaseClient";
+import { useStudentId } from "../hooks/useStudentId";
 
 type NavigateHandler = (route: string) => void;
 
@@ -472,27 +472,7 @@ function MetricCard({
 export default function MockInterviewPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [studentId, setStudentId] = React.useState<string>('2024-00001');
-
-  React.useEffect(() => {
-    const fetchStudentId = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error: err } = await supabase
-          .from('profiles')
-          .select('student_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (err) throw err;
-        setStudentId(data?.student_id || '2024-00001');
-      } catch (err) {
-        console.error('Failed to fetch student_id:', err);
-      }
-    };
-
-    fetchStudentId();
-  }, [user?.id]);
+  const studentId = useStudentId(user?.id);
 
   async function handleLogout() {
     try {

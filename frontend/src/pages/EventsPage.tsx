@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { useStudentId } from "../hooks/useStudentId";
 import { supabase } from "../lib/supabaseClient";
+import { queryCache } from "../utils/queryCache";
 import { 
   getEventsForStudent, 
   registerForEvent, 
@@ -45,13 +48,6 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
   const userID = studentId || userId || "2024-00001";
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
 
   async function getSupabaseUserId(): Promise<string | null> {
     try {
@@ -63,13 +59,12 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
     }
   }
 
-  async function fetchEvents() {
-    try {
-      setLoading(true);
-      setError(null);
-
+  // Use cached query for events
+  const { data: events = [], isLoading: loading, error: eventsError, refetch } = useCachedQuery(
+    `events-${userID}`,
+    async () => {
       const supabaseUserId = await getSupabaseUserId();
-      const eventsData = await getEventsForStudent(supabaseUserId || userID)
+      const eventsData = await getEventsForStudent(supabaseUserId || userID);
       
       // Track which events this student is registered for
       const registered = new Set(
@@ -79,15 +74,11 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
       );
       setRegisteredEvents(registered);
       
-      setEvents(eventsData);
-    } catch (err) {
-      console.error("Error fetching events:", err);
-      setError(err instanceof Error ? err.message : "Error fetching events");
-      setEvents([]);
-    } finally {
-      setLoading(false);
+      return eventsData;
     }
-  }
+  );
+
+  const error = eventsError?.message || null;
 
   async function handleRegister(eventId: string) {
     try {
@@ -97,16 +88,11 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
         return;
       }
 
-      await registerForEvent(eventId, supabaseUserId)
+      await registerForEvent(eventId, supabaseUserId);
       
-      // Update local state
-      setEvents(events.map(e => 
-        e.id === eventId 
-          ? { ...e, registered: (e.registered || 0) + 1, isRegistered: true }
-          : e
-      ));
-      
-      setRegisteredEvents(new Set([...registeredEvents, eventId]));
+      // Invalidate cache and refetch to get updated data
+      queryCache.invalidate(`events-${userID}`);
+      refetch();
     } catch (err) {
       console.error('Registration error:', err);
       alert(err instanceof Error ? err.message : 'Failed to register for event');
@@ -121,18 +107,11 @@ function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigat
         return;
       }
 
-      await unregisterFromEvent(eventId, supabaseUserId)
+      await unregisterFromEvent(eventId, supabaseUserId);
       
-      // Update local state
-      setEvents(events.map(e => 
-        e.id === eventId 
-          ? { ...e, registered: Math.max((e.registered || 1) - 1, 0), isRegistered: false }
-          : e
-      ));
-      
-      const newSet = new Set(registeredEvents);
-      newSet.delete(eventId);
-      setRegisteredEvents(newSet);
+      // Invalidate cache and refetch to get updated data
+      queryCache.invalidate(`events-${userID}`);
+      refetch();
     } catch (err) {
       console.error('Unregistration error:', err);
       alert(err instanceof Error ? err.message : 'Failed to unregister from event');
@@ -340,27 +319,7 @@ function EventCard({
 export default function EventsPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [studentId, setStudentId] = React.useState<string>('2024-00001');
-
-  React.useEffect(() => {
-    const fetchStudentId = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error: err } = await supabase
-          .from('profiles')
-          .select('student_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (err) throw err;
-        setStudentId(data?.student_id || '2024-00001');
-      } catch (err) {
-        console.error('Failed to fetch student_id:', err);
-      }
-    };
-
-    fetchStudentId();
-  }, [user?.id]);
+  const studentId = useStudentId(user?.id);
 
   async function handleLogout() {
     try {
