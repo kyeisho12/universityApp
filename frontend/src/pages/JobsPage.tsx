@@ -229,8 +229,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
     return matchesSearch && matchesType && matchesCategory;
   }), [jobs, searchTerm, filterType, filterCategory]);
-<<<<<<< HEAD
-=======
 
   const recommendedJobs = useMemo(() => {
     if (!jobs.length) return [];
@@ -305,7 +303,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 4);
   }, [jobs, userData, userResumes]);
->>>>>>> origin/mary
 
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)
