@@ -518,7 +518,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             </div>
 
             {/* Job Details */}
-            <div className="lg:col-span-2 flex flex-col overflow-hidden">
+            <div className="lg:col-span-2 flex flex-col overflow-hidden sticky top-0 h-fit">
               {currentJob ? (
                 <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 overflow-y-auto">
                   {/* Header */}
