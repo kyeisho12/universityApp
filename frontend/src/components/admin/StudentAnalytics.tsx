@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
 import * as XLSX from 'xlsx';
+import { supabase } from "../../lib/supabaseClient";
 import {
     X,
     Search,
@@ -22,12 +23,9 @@ export default function StudentAnalytics() {
     const userName = user?.email?.split("@")[0] || "";
     const userID = "2024-00001";
 
-    const stats = [
-        { label: "Active Students", value: "2,847", icon: <Users className="w-5 h-5 text-[#00B4D8]" /> },
-        { label: "Interviews", value: "1,234", icon: <ClipboardList className="w-5 h-5 text-[#00B4D8]" /> },
-        { label: "Avg Score", value: "3.9/5", icon: <TrendingUp className="w-5 h-5 text-[#00B4D8]" /> },
-        { label: "Events", value: "24", icon: <Calendar className="w-5 h-5 text-[#00B4D8]" /> },
-    ];
+    const [stats, setStats] = React.useState<
+        { label: string; value: string; icon: JSX.Element }[]
+        >([]);
 
     const departmentPerformance = [
         { dept: "CCS", students: 450, interviews: 234, score: 4.1, engagement: 0.82 },
@@ -73,6 +71,74 @@ export default function StudentAnalytics() {
 
         XLSX.writeFile(workbook, 'student_analytics.xlsx');
     };
+
+    React.useEffect(() => {
+  async function fetchStats() {
+    try {
+      // Active students
+      const { count: activeStudents } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "student")
+        .eq("is_active", true);
+
+      // Interviews count
+      const { count: interviews } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "student")
+        .eq("interview_status", true);
+
+      // Average interview score
+      const { data: avgScoreData } = await supabase
+        .from("profiles")
+        .select("interview_score")
+        .not("interview_score", "is", null);
+
+      const avgScore =
+        avgScoreData && avgScoreData.length > 0
+          ? (
+              avgScoreData.reduce(
+                (sum, row) => sum + (row.interview_score ?? 0),
+                0
+              ) / avgScoreData.length
+            ).toFixed(1)
+          : "0.0";
+
+      // Events (registrations)
+      const { count: events } = await supabase
+        .from("event_registrations")
+        .select("*", { count: "exact", head: true });
+
+      setStats([
+        {
+          label: "Active Students",
+          value: activeStudents?.toString() ?? "0",
+          icon: <Users className="w-5 h-5 text-[#00B4D8]" />,
+        },
+        {
+          label: "Interviews",
+          value: interviews?.toString() ?? "0",
+          icon: <ClipboardList className="w-5 h-5 text-[#00B4D8]" />,
+        },
+        {
+          label: "Avg Score",
+          value: `${avgScore}/5`,
+          icon: <TrendingUp className="w-5 h-5 text-[#00B4D8]" />,
+        },
+        {
+          label: "Events",
+          value: events?.toString() ?? "0",
+          icon: <Calendar className="w-5 h-5 text-[#00B4D8]" />,
+        },
+      ]);
+    } catch (error) {
+      console.error("Error fetching analytics stats:", error);
+    }
+  }
+
+  fetchStats();
+}, []);
 
     return (
         <div className="min-h-screen bg-gray-50">

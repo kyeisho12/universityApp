@@ -25,6 +25,7 @@ interface StudentProfile {
   Interviews: number | null;
   Student_ID: number | null;
   college: string | null;
+  is_active: boolean;
 }
 
 export default function ManageStudents() {
@@ -48,7 +49,7 @@ export default function ManageStudents() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, full_name, role, major, graduation_year, Year_Level, Interviews, Student_ID, college"
+        "id, email, full_name, role, major, graduation_year, Year_Level, Interviews, Student_ID, college, is_active"
       )
       .eq("role", "student");
 
@@ -67,6 +68,28 @@ export default function ManageStudents() {
       navigate("/login");
     }
   }
+
+  async function handleDeactivate(studentId: string, currentStatus: boolean) {
+  const confirmAction = window.confirm(
+    currentStatus
+      ? "Are you sure you want to deactivate this student?"
+      : "Reactivate this student?"
+  );
+
+  if (!confirmAction) return;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: !currentStatus })
+    .eq("id", studentId);
+
+  if (error) {
+    alert("Failed to update account.");
+    console.error(error);
+  } else {
+    fetchStudents(); // refresh table
+  }
+}
 
   function handleNavigate(route: string) {
     navigate(`/${route}`);
@@ -199,6 +222,8 @@ export default function ManageStudents() {
                   <th className="px-6 py-3 text-left text-xs font-semibold">Major</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold">Year Level</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold">Interview Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -256,6 +281,29 @@ export default function ManageStudents() {
                           )}
                           {interviewDone ? "Done" : "Pending"}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            student.is_active
+                              ? "bg-green-50 text-green-700"
+                              : "bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {student.is_active ? "Active" : "Deactivated"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleDeactivate(student.id, student.is_active)}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                            student.is_active
+                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                          }`}
+                        >
+                          {student.is_active ? "Deactivate" : "Reactivate"}
+                        </button>
                       </td>
                     </tr>
                   );
