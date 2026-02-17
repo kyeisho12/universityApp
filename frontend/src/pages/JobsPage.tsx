@@ -21,6 +21,54 @@ import { submitJobApplication, checkIfApplied } from "../services/applicationSer
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
 
+const STOPWORDS = new Set([
+  "and",
+  "or",
+  "the",
+  "a",
+  "an",
+  "to",
+  "of",
+  "in",
+  "for",
+  "with",
+  "on",
+  "at",
+  "by",
+  "from",
+  "as",
+  "is",
+  "are",
+  "be",
+  "this",
+  "that",
+  "it",
+  "we",
+  "you",
+  "your",
+]);
+
+function tokenize(value) {
+  if (!value) return [];
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 1 && !STOPWORDS.has(token));
+}
+
+function uniqueTokens(values) {
+  return Array.from(new Set(values.flatMap((value) => tokenize(value))));
+}
+
+function extractSkills(rawSkills) {
+  if (!rawSkills) return [];
+  if (Array.isArray(rawSkills)) return rawSkills.flatMap((item) => tokenize(item));
+  return String(rawSkills)
+    .split(/[\n,]/g)
+    .flatMap((item) => tokenize(item));
+}
+
 function JobsPageContent({ email, onLogout, onNavigate }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -181,6 +229,83 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
     return matchesSearch && matchesType && matchesCategory;
   }), [jobs, searchTerm, filterType, filterCategory]);
+<<<<<<< HEAD
+=======
+
+  const recommendedJobs = useMemo(() => {
+    if (!jobs.length) return [];
+
+    const profileSkills = extractSkills(userData?.skills);
+    const profileKeywords = uniqueTokens([
+      userData?.major,
+      userData?.bio,
+      userData?.university,
+    ]);
+    const resumeKeywords = uniqueTokens([
+      userResumes[0]?.file_name,
+      userResumes[0]?.file_type,
+    ]);
+
+    const keywordSet = new Set([
+      ...profileSkills,
+      ...profileKeywords,
+      ...resumeKeywords,
+    ]);
+
+    const preferredJobType = userData?.preferred_job_type;
+    const preferredLocation = userData?.preferred_location;
+    const preferredCategory = userData?.preferred_category;
+
+    return jobs
+      .map((job) => {
+        const requirements = Array.isArray(job.requirements) ? job.requirements : [];
+        const requirementMatches = requirements.filter((req) =>
+          tokenize(req).some((token) => keywordSet.has(token))
+        );
+        const skillScore = requirements.length
+          ? requirementMatches.length / requirements.length
+          : 0;
+
+        let preferenceMatches = 0;
+        let preferenceTotal = 0;
+        if (preferredJobType) {
+          preferenceTotal += 1;
+          if (preferredJobType === job.job_type) preferenceMatches += 1;
+        }
+        if (preferredLocation) {
+          preferenceTotal += 1;
+          if (String(job.location).toLowerCase().includes(String(preferredLocation).toLowerCase())) {
+            preferenceMatches += 1;
+          }
+        }
+        if (preferredCategory) {
+          preferenceTotal += 1;
+          if (String(job.category).toLowerCase() === String(preferredCategory).toLowerCase()) {
+            preferenceMatches += 1;
+          }
+        }
+        const preferenceScore = preferenceTotal ? preferenceMatches / preferenceTotal : 0;
+
+        const jobTextTokens = tokenize(
+          [job.title, job.description, job.category, job.location].join(" ")
+        );
+        const resumeOverlap = jobTextTokens.filter((token) => keywordSet.has(token));
+        const resumeScore = jobTextTokens.length
+          ? Math.min(resumeOverlap.length / jobTextTokens.length, 1)
+          : 0;
+
+        const score = 0.6 * skillScore + 0.25 * preferenceScore + 0.15 * resumeScore;
+
+        return {
+          job,
+          score,
+          matchedSkills: requirementMatches.slice(0, 3),
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
+  }, [jobs, userData, userResumes]);
+>>>>>>> origin/mary
 
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)
@@ -321,6 +446,44 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             {/* Jobs List */}
             <div className="lg:col-span-1 flex flex-col overflow-hidden">
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col h-full">
+                {recommendedJobs.length > 0 && (
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">Recommended for you</h3>
+                      <span className="text-xs text-gray-500">Based on your profile</span>
+                    </div>
+                    <div className="space-y-3">
+                      {recommendedJobs.map(({ job, score, matchedSkills }) => (
+                        <button
+                          key={`recommended-${job.id}`}
+                          onClick={() => setSelectedJob(job.id || null)}
+                          className={`w-full text-left p-3 rounded-xl border transition-all ${
+                            selectedJob === job.id
+                              ? "border-[#1B2744] bg-gray-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{job.title}</p>
+                              <p className="text-xs text-gray-500 truncate">{job.employer_name}</p>
+                              {matchedSkills.length > 0 && (
+                                <p className="text-xs text-gray-500 mt-1 truncate">
+                                  Matched: {matchedSkills.join(", ")}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold text-[#00B4D8] bg-[#E0F7FA] px-2 py-1 rounded-full">
+                              {Math.round(score * 100)}%
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="border-t border-gray-100 mt-5" />
+                  </div>
+                )}
+
                 {/* Jobs List */}
                 <div className="flex-1 overflow-y-auto py-1 px-0.5">
                   {loading ? (
