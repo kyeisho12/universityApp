@@ -376,7 +376,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden flex flex-col">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto flex flex-col">
           {/* Page Header */}
           <div className="mb-4 sm:mb-6 flex-shrink-0">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -439,12 +439,13 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             Showing {filteredJobs.length} of {jobs.length} opportunities
           </p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
-            {/* Jobs List */}
-            <div className="lg:col-span-1 flex flex-col overflow-hidden">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col h-full">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Jobs List - Left Side */}
+            <div className="lg:col-span-1 flex flex-col gap-8">
+              {/* Recommended Jobs Section */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 {recommendedJobs.length > 0 && (
-                  <div className="mb-5">
+                  <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-900">Recommended for you</h3>
                       <span className="text-xs text-gray-500">Based on your profile</span>
@@ -477,82 +478,41 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                         </button>
                       ))}
                     </div>
-                    <div className="border-t border-gray-100 mt-5" />
                   </div>
                 )}
+              </div>
 
-                {/* Jobs List */}
-                <div className="flex-1 overflow-y-auto py-1 px-0.5">
-                  {loading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B4D8] mx-auto"></div>
-                        <p className="text-gray-500 mt-4">Loading jobs...</p>
+              {/* All Jobs Section */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">All Jobs</h3>
+                  <div className="space-y-3">
+                    {jobs.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Bookmark className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-gray-500 text-xs">No jobs available</p>
                       </div>
-                    </div>
-                  ) : error ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center py-12">
-                        <p className="text-red-500 font-medium mb-2">{error}</p>
-                        <p className="text-gray-400 text-sm">Try refreshing the page</p>
-                      </div>
-                    </div>
-                  ) : filteredJobs.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center py-12">
-                        <Bookmark className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500 font-medium mb-2">No job listings available</p>
-                        <p className="text-gray-400 text-sm">Check back soon for new opportunities</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 px-0.5">
-                      {filteredJobs.map((job) => (
+                    ) : (
+                      jobs.map((job) => (
                         <button
-                          key={job.id}
+                          key={`all-${job.id}`}
                           onClick={() => setSelectedJob(job.id || null)}
-                          className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                          className={`w-full text-left p-3 rounded-xl border transition-all ${
                             selectedJob === job.id
                               ? "border-[#1B2744] bg-gray-50"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
-                          <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <svg
-                                className="w-6 h-6 text-gray-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                                />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">
-                                {job.title}
-                              </h4>
-                              <p className="text-xs text-gray-500">{job.employer_name}</p>
-                              <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                <MapPin className="w-3 h-3" />
-                                {job.location}
-                                <Clock className="w-3 h-3 ml-2" />
-                                {new Date(job.created_at || "").toLocaleDateString()}
-                              </div>
-                              <span className="inline-block text-xs font-medium text-[#00B4D8] bg-[#E0F7FA] px-2 py-1 rounded mt-2">
-                                {job.job_type}
-                              </span>
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{job.title}</p>
+                              <p className="text-xs text-gray-500 truncate">{job.employer_name}</p>
                             </div>
                           </div>
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -73,12 +73,6 @@ export const Sidebar = ({
           onClick={() => handleNavClick("student/dashboard")}
         />
         <NavItem
-          icon={<User className="w-5 h-5" />}
-          label="My Profile"
-          active={activeNav === "student/profile"}
-          onClick={() => handleNavClick("student/profile")}
-        />
-        <NavItem
           icon={<Briefcase className="w-5 h-5" />}
           label="Job & Internships"
           active={activeNav === "student/jobs"}
@@ -114,7 +108,10 @@ export const Sidebar = ({
       {/* Footer */}
       <div className="p-4 border-t border-gray-700 space-y-4">
         {/* User Profile */}
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/50 cursor-pointer">
+        <button
+          onClick={() => handleNavClick("student/profile")}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors"
+        >
           <div className="w-10 h-10 bg-[#00B4D8] rounded-full flex items-center justify-center flex-shrink-0">
             <User className="w-5 h-5 text-white" />
           </div>
@@ -122,7 +119,7 @@ export const Sidebar = ({
             <p className="text-sm font-medium truncate capitalize">{userName}</p>
             <p className="text-xs text-gray-400">{userID}</p>
           </div>
-        </div>
+        </button>
 
         {/* Sign Out */}
         <button
