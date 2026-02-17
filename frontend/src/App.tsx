@@ -11,6 +11,7 @@ import ResumesPage from './pages/ResumesPage'
 import EventsPage from './pages/EventsPage'
 import MockInterviewPage from './pages/MockInterviewPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
+import StudentProfilePage from './pages/StudentProfilePage.tsx'
 import ApplicationsPage from './pages/ApplicationsPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
 import ApplyOutlookPage from './pages/ApplyOutlookPage'
@@ -342,6 +343,16 @@ export default function App() {
               <RequireStudent>
                 <RequireProfile>
                   <MockInterviewPage />
+                </RequireProfile>
+              </RequireStudent>
+            }
+          />
+          <Route
+            path="/student/profile"
+            element={
+              <RequireStudent>
+                <RequireProfile>
+                  <StudentProfilePage />
                 </RequireProfile>
               </RequireStudent>
             }

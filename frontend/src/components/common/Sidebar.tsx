@@ -73,6 +73,12 @@ export const Sidebar = ({
           onClick={() => handleNavClick("student/dashboard")}
         />
         <NavItem
+          icon={<User className="w-5 h-5" />}
+          label="My Profile"
+          active={activeNav === "student/profile"}
+          onClick={() => handleNavClick("student/profile")}
+        />
+        <NavItem
           icon={<Briefcase className="w-5 h-5" />}
           label="Job & Internships"
           active={activeNav === "student/jobs"}

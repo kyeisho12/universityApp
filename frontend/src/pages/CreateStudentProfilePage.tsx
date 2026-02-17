@@ -1,27 +1,50 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useStudent } from '../context/StudentContext'
 
 interface ProfileForm {
   full_name: string
   phone: string
+  address: string
   university: string
   major: string
   graduation_year: string | number | null
   bio: string
+  skills_entries: string[]
+  education_entries: {
+    school: string
+    degree: string
+    field: string
+    start_year: string
+    end_year: string
+  }[]
+  work_experience_entries: {
+    title: string
+    company: string
+    start_date: string
+    end_date: string
+    description: string
+  }[]
 }
 
 const initialState: ProfileForm = {
   full_name: '',
   phone: '',
+  address: '',
   university: '',
   major: '',
   graduation_year: '',
   bio: '',
+  skills_entries: [''],
+  education_entries: [{ school: '', degree: '', field: '', start_year: '', end_year: '' }],
+  work_experience_entries: [
+    { title: '', company: '', start_date: '', end_date: '', description: '' },
+  ],
 }
 
 export default function CreateStudentProfilePage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { profile, isProfileLoading, saveProfile, isProfileComplete } = useStudent()
   const [formData, setFormData] = useState<ProfileForm>(initialState)
   const [message, setMessage] = useState('')
@@ -37,23 +60,106 @@ export default function CreateStudentProfilePage() {
       setFormData({
         full_name: profile.full_name ?? '',
         phone: profile.phone ?? '',
+        address: profile.address ?? '',
         university: profile.university ?? '',
         major: profile.major ?? '',
         graduation_year: profile.graduation_year ?? '',
         bio: profile.bio ?? '',
+        skills_entries: Array.isArray(profile.skills_entries)
+          ? profile.skills_entries
+          : profile.skills
+          ? String(profile.skills)
+              .split(/[\n,]/g)
+              .map((item: string) => item.trim())
+              .filter(Boolean)
+          : [''],
+        education_entries: Array.isArray(profile.education_entries) && profile.education_entries.length > 0
+          ? profile.education_entries
+          : [{ school: '', degree: '', field: '', start_year: '', end_year: '' }],
+        work_experience_entries: Array.isArray(profile.work_experience_entries) && profile.work_experience_entries.length > 0
+          ? profile.work_experience_entries
+          : [{ title: '', company: '', start_date: '', end_date: '', description: '' }],
       })
     }
   }, [profile])
 
+  const isEditMode = new URLSearchParams(location.search).get('edit') === '1'
+
   useEffect(() => {
-    if (isProfileComplete) {
+    if (isProfileComplete && !isEditMode) {
       navigate('/', { replace: true })
     }
-  }, [isProfileComplete, navigate])
+  }, [isProfileComplete, isEditMode, navigate])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  function updateSkill(index: number, value: string) {
+    setFormData((prev) => {
+      const next = [...prev.skills_entries]
+      next[index] = value
+      return { ...prev, skills_entries: next }
+    })
+  }
+
+  function addSkill() {
+    setFormData((prev) => ({ ...prev, skills_entries: [...prev.skills_entries, ''] }))
+  }
+
+  function removeSkill(index: number) {
+    setFormData((prev) => ({
+      ...prev,
+      skills_entries: prev.skills_entries.filter((_, idx) => idx !== index),
+    }))
+  }
+
+  function updateEducation(index: number, field: string, value: string) {
+    setFormData((prev) => {
+      const next = [...prev.education_entries]
+      next[index] = { ...next[index], [field]: value }
+      return { ...prev, education_entries: next }
+    })
+  }
+
+  function addEducation() {
+    setFormData((prev) => ({
+      ...prev,
+      education_entries: [...prev.education_entries, { school: '', degree: '', field: '', start_year: '', end_year: '' }],
+    }))
+  }
+
+  function removeEducation(index: number) {
+    setFormData((prev) => ({
+      ...prev,
+      education_entries: prev.education_entries.filter((_, idx) => idx !== index),
+    }))
+  }
+
+  function updateWork(index: number, field: string, value: string) {
+    setFormData((prev) => {
+      const next = [...prev.work_experience_entries]
+      next[index] = { ...next[index], [field]: value }
+      return { ...prev, work_experience_entries: next }
+    })
+  }
+
+  function addWork() {
+    setFormData((prev) => ({
+      ...prev,
+      work_experience_entries: [
+        ...prev.work_experience_entries,
+        { title: '', company: '', start_date: '', end_date: '', description: '' },
+      ],
+    }))
+  }
+
+  function removeWork(index: number) {
+    setFormData((prev) => ({
+      ...prev,
+      work_experience_entries: prev.work_experience_entries.filter((_, idx) => idx !== index),
+    }))
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -63,6 +169,13 @@ export default function CreateStudentProfilePage() {
     const payload = {
       ...formData,
       graduation_year: formData.graduation_year ? Number(formData.graduation_year) : null,
+      skills_entries: formData.skills_entries.map((item) => item.trim()).filter(Boolean),
+      education_entries: formData.education_entries.filter((entry) =>
+        entry.school || entry.degree || entry.field || entry.start_year || entry.end_year
+      ),
+      work_experience_entries: formData.work_experience_entries.filter((entry) =>
+        entry.title || entry.company || entry.start_date || entry.end_date || entry.description
+      ),
     }
     const { error: saveError } = await saveProfile(payload)
     if (saveError) {
@@ -70,7 +183,7 @@ export default function CreateStudentProfilePage() {
       return
     }
     setMessage('Profile saved successfully')
-    navigate('/', { replace: true })
+    navigate(isEditMode ? '/student/profile' : '/', { replace: true })
   }
 
   return (
@@ -137,6 +250,16 @@ export default function CreateStudentProfilePage() {
         />
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+          Address
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
           Short bio
           <textarea
             name="bio"
@@ -146,6 +269,174 @@ export default function CreateStudentProfilePage() {
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
         </label>
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-neutral-800">Skills & Competencies</span>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={addSkill}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                + Add Skill
+              </button>
+            )}
+          </div>
+          {formData.skills_entries.map((skill, index) => (
+            <div key={`skill-${index}`} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={skill}
+                onChange={(e) => updateSkill(index, e.target.value)}
+                placeholder="e.g., JavaScript"
+                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              {isEditMode && formData.skills_entries.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeSkill(index)}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-neutral-800">Education</span>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={addEducation}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                + Add Education
+              </button>
+            )}
+          </div>
+          {formData.education_entries.map((entry, index) => (
+            <div key={`edu-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
+              <input
+                type="text"
+                placeholder="School"
+                value={entry.school}
+                onChange={(e) => updateEducation(index, 'school', e.target.value)}
+                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Degree"
+                  value={entry.degree}
+                  onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Field of Study"
+                  value={entry.field}
+                  onChange={(e) => updateEducation(index, 'field', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Start Year"
+                  value={entry.start_year}
+                  onChange={(e) => updateEducation(index, 'start_year', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="End Year"
+                  value={entry.end_year}
+                  onChange={(e) => updateEducation(index, 'end_year', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+              {isEditMode && formData.education_entries.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeEducation(index)}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600 text-left"
+                >
+                  Remove Education
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-neutral-800">Work Experience</span>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={addWork}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                + Add Experience
+              </button>
+            )}
+          </div>
+          {formData.work_experience_entries.map((entry, index) => (
+            <div key={`work-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Role"
+                  value={entry.title}
+                  onChange={(e) => updateWork(index, 'title', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Company"
+                  value={entry.company}
+                  onChange={(e) => updateWork(index, 'company', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Start Date"
+                  value={entry.start_date}
+                  onChange={(e) => updateWork(index, 'start_date', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="End Date"
+                  value={entry.end_date}
+                  onChange={(e) => updateWork(index, 'end_date', e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <textarea
+                placeholder="Describe your responsibilities"
+                value={entry.description}
+                onChange={(e) => updateWork(index, 'description', e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              />
+              {isEditMode && formData.work_experience_entries.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeWork(index)}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600 text-left"
+                >
+                  Remove Experience
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
         <button
           type="submit"
           disabled={isProfileLoading}
