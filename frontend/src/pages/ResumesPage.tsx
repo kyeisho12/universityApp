@@ -108,6 +108,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     }
   }, [MODAL_KEY]);
 
+
   // Load draft from localStorage when modal opens
   const loadDraft = () => {
     try {
@@ -251,52 +252,60 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       lines.push(personalInfo.summary);
     }
     lines.push("");
-    lines.push("Education");
-    educationEntries.forEach((entry, index) => {
-      if (!entry.school && !entry.degree && !entry.field) return;
-      lines.push(`Education #${index + 1}`);
-      if (entry.school) lines.push(`School: ${entry.school}`);
-      if (entry.degree) lines.push(`Degree: ${entry.degree}`);
-      if (entry.field) lines.push(`Field: ${entry.field}`);
-      if (entry.gpa) lines.push(`GPA: ${entry.gpa}`);
-      if (entry.startDate || entry.endDate) lines.push(`Dates: ${entry.startDate || ""} - ${entry.endDate || ""}`);
-      lines.push("");
-    });
-    lines.push("Work Experience");
-    experienceEntries.forEach((entry, index) => {
-      if (!entry.company && !entry.position) return;
-      lines.push(`Experience #${index + 1}`);
-      if (entry.company) lines.push(`Company: ${entry.company}`);
-      if (entry.position) lines.push(`Position: ${entry.position}`);
-      if (entry.startDate || entry.endDate) lines.push(`Dates: ${entry.startDate || ""} - ${entry.current ? "Present" : entry.endDate || ""}`);
-      if (entry.description) lines.push(`Description: ${entry.description}`);
-      lines.push("");
-    });
+    const validEducation = educationEntries.filter((entry) => entry.school || entry.degree || entry.field || entry.gpa || entry.startDate || entry.endDate);
+    if (validEducation.length > 0) {
+      lines.push("Education");
+      validEducation.forEach((entry, index) => {
+        lines.push(`Education #${index + 1}`);
+        if (entry.school) lines.push(`School: ${entry.school}`);
+        if (entry.degree) lines.push(`Degree: ${entry.degree}`);
+        if (entry.field) lines.push(`Field: ${entry.field}`);
+        if (entry.gpa) lines.push(`GPA: ${entry.gpa}`);
+        if (entry.startDate || entry.endDate) lines.push(`Dates: ${entry.startDate || ""} - ${entry.endDate || ""}`);
+        lines.push("");
+      });
+    }
+    const validExperiences = experienceEntries.filter((entry) => entry.company || entry.position || entry.description || entry.startDate || entry.endDate);
+    if (validExperiences.length > 0) {
+      lines.push("Work Experience");
+      validExperiences.forEach((entry, index) => {
+        lines.push(`Experience #${index + 1}`);
+        if (entry.company) lines.push(`Company: ${entry.company}`);
+        if (entry.position) lines.push(`Position: ${entry.position}`);
+        if (entry.startDate || entry.endDate) lines.push(`Dates: ${entry.startDate || ""} - ${entry.current ? "Present" : entry.endDate || ""}`);
+        if (entry.description) lines.push(`Description: ${entry.description}`);
+        lines.push("");
+      });
+    }
     if (skills.trim()) {
       lines.push("Skills");
       lines.push(skills.trim());
       lines.push("");
     }
-    lines.push("Projects");
-    projectEntries.forEach((entry, index) => {
-      if (!entry.name && !entry.technologies && !entry.link) return;
-      lines.push(`Project #${index + 1}`);
-      if (entry.name) lines.push(`Name: ${entry.name}`);
-      if (entry.technologies) lines.push(`Technologies: ${entry.technologies}`);
-      if (entry.link) lines.push(`Link: ${entry.link}`);
-      if (entry.description) lines.push(`Description: ${entry.description}`);
-      lines.push("");
-    });
-    lines.push("Certifications & Awards");
-    certificationEntries.forEach((entry, index) => {
-      if (!entry.name && !entry.organization) return;
-      lines.push(`Certification #${index + 1}`);
-      if (entry.name) lines.push(`Name: ${entry.name}`);
-      if (entry.organization) lines.push(`Organization: ${entry.organization}`);
-      if (entry.dateIssued) lines.push(`Date Issued: ${entry.dateIssued}`);
-      if (entry.credentialId) lines.push(`Credential ID: ${entry.credentialId}`);
-      lines.push("");
-    });
+    const validProjects = projectEntries.filter((entry) => entry.name || entry.technologies || entry.link || entry.description);
+    if (validProjects.length > 0) {
+      lines.push("Projects");
+      validProjects.forEach((entry, index) => {
+        lines.push(`Project #${index + 1}`);
+        if (entry.name) lines.push(`Name: ${entry.name}`);
+        if (entry.technologies) lines.push(`Technologies: ${entry.technologies}`);
+        if (entry.link) lines.push(`Link: ${entry.link}`);
+        if (entry.description) lines.push(`Description: ${entry.description}`);
+        lines.push("");
+      });
+    }
+    const validCerts = certificationEntries.filter((entry) => entry.name || entry.organization || entry.dateIssued || entry.credentialId);
+    if (validCerts.length > 0) {
+      lines.push("Certifications & Awards");
+      validCerts.forEach((entry, index) => {
+        lines.push(`Certification #${index + 1}`);
+        if (entry.name) lines.push(`Name: ${entry.name}`);
+        if (entry.organization) lines.push(`Organization: ${entry.organization}`);
+        if (entry.dateIssued) lines.push(`Date Issued: ${entry.dateIssued}`);
+        if (entry.credentialId) lines.push(`Credential ID: ${entry.credentialId}`);
+        lines.push("");
+      });
+    }
     return lines.join("\n");
   };
 
@@ -787,7 +796,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Company *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
                         <input
                           type="text"
                           value={entry.company}
@@ -801,7 +810,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Position *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Position</label>
                         <input
                           type="text"
                           value={entry.position}
@@ -917,7 +926,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
                         <input
                           type="text"
                           value={entry.name}
@@ -1004,7 +1013,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Certification Name *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Certification Name</label>
                         <input
                           type="text"
                           value={entry.name}

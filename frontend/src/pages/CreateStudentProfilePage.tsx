@@ -25,6 +25,10 @@ interface ProfileForm {
     end_date: string
     description: string
   }[]
+  preferred_job_types: string[]
+  preferred_industries: string[]
+  preferred_locations: string[]
+  expected_salary_range: string
 }
 
 const initialState: ProfileForm = {
@@ -40,6 +44,10 @@ const initialState: ProfileForm = {
   work_experience_entries: [
     { title: '', company: '', start_date: '', end_date: '', description: '' },
   ],
+  preferred_job_types: [''],
+  preferred_industries: [''],
+  preferred_locations: [''],
+  expected_salary_range: '',
 }
 
 export default function CreateStudentProfilePage() {
@@ -49,6 +57,10 @@ export default function CreateStudentProfilePage() {
   const [formData, setFormData] = useState<ProfileForm>(initialState)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const draftKey = useMemo(() => {
+    const id = profile?.id || 'draft'
+    return `student_profile_draft_${id}`
+  }, [profile?.id])
 
   const pageTitle = useMemo(() => (profile && isProfileComplete ? 'Update Profile' : 'Create Your Student Profile'), [
     profile,
@@ -57,6 +69,36 @@ export default function CreateStudentProfilePage() {
 
   useEffect(() => {
     if (profile) {
+      const normalizeList = (value: unknown) => {
+        if (Array.isArray(value)) {
+          const cleaned = value.map((item) => `${item}`.trim()).filter(Boolean)
+          return cleaned.length > 0 ? cleaned : ['']
+        }
+        if (typeof value === 'string') {
+          const cleaned = value
+            .split(/[\n,]/g)
+            .map((item) => item.trim())
+            .filter(Boolean)
+          return cleaned.length > 0 ? cleaned : ['']
+        }
+        return ['']
+      }
+
+      let draftData: ProfileForm | null = null
+      try {
+        const savedDraft = localStorage.getItem(draftKey)
+        if (savedDraft) {
+          draftData = JSON.parse(savedDraft) as ProfileForm
+        }
+      } catch (error) {
+        console.error('Failed to restore profile draft:', error)
+      }
+
+      if (draftData) {
+        setFormData(draftData)
+        return
+      }
+
       setFormData({
         full_name: profile.full_name ?? '',
         phone: profile.phone ?? '',
@@ -79,9 +121,21 @@ export default function CreateStudentProfilePage() {
         work_experience_entries: Array.isArray(profile.work_experience_entries) && profile.work_experience_entries.length > 0
           ? profile.work_experience_entries
           : [{ title: '', company: '', start_date: '', end_date: '', description: '' }],
+        preferred_job_types: normalizeList(profile.preferred_job_types),
+        preferred_industries: normalizeList(profile.preferred_industries),
+        preferred_locations: normalizeList(profile.preferred_locations),
+        expected_salary_range: profile.expected_salary_range ?? '',
       })
     }
-  }, [profile])
+  }, [profile, draftKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(formData))
+    } catch (error) {
+      console.error('Failed to persist profile draft:', error)
+    }
+  }, [formData, draftKey])
 
   const isEditMode = new URLSearchParams(location.search).get('edit') === '1'
 
@@ -162,6 +216,25 @@ export default function CreateStudentProfilePage() {
     }))
   }
 
+  function updatePreference(listKey: 'preferred_job_types' | 'preferred_industries' | 'preferred_locations', index: number, value: string) {
+    setFormData((prev) => {
+      const next = [...prev[listKey]]
+      next[index] = value
+      return { ...prev, [listKey]: next }
+    })
+  }
+
+  function addPreference(listKey: 'preferred_job_types' | 'preferred_industries' | 'preferred_locations') {
+    setFormData((prev) => ({ ...prev, [listKey]: [...prev[listKey], ''] }))
+  }
+
+  function removePreference(listKey: 'preferred_job_types' | 'preferred_industries' | 'preferred_locations', index: number) {
+    setFormData((prev) => ({
+      ...prev,
+      [listKey]: prev[listKey].filter((_, idx) => idx !== index),
+    }))
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
@@ -176,11 +249,42 @@ export default function CreateStudentProfilePage() {
       work_experience_entries: formData.work_experience_entries.filter((entry) =>
         entry.title || entry.company || entry.start_date || entry.end_date || entry.description
       ),
+      preferred_job_types: formData.preferred_job_types.map((item) => item.trim()).filter(Boolean),
+      preferred_industries: formData.preferred_industries.map((item) => item.trim()).filter(Boolean),
+      preferred_locations: formData.preferred_locations.map((item) => item.trim()).filter(Boolean),
     }
     const { error: saveError } = await saveProfile(payload)
     if (saveError) {
-      setError(saveError.message ?? 'Failed to save profile')
+      const errorMessage = (saveError as { message?: string })?.message || ''
+      if (errorMessage.includes("Could not find the") && errorMessage.includes("profiles")) {
+        const fallbackPayload = {
+          ...payload,
+        }
+        delete fallbackPayload.preferred_job_types
+        delete fallbackPayload.preferred_industries
+        delete fallbackPayload.preferred_locations
+        delete fallbackPayload.expected_salary_range
+        const { error: fallbackError } = await saveProfile(fallbackPayload)
+        if (!fallbackError) {
+          try {
+            localStorage.removeItem(draftKey)
+          } catch (error) {
+            console.error('Failed to clear profile draft:', error)
+          }
+          setMessage('Profile saved successfully')
+          navigate(isEditMode ? '/student/profile' : '/', { replace: true })
+          return
+        }
+        setError((fallbackError as { message?: string })?.message ?? 'Failed to save profile')
+        return
+      }
+      setError(errorMessage || 'Failed to save profile')
       return
+    }
+    try {
+      localStorage.removeItem(draftKey)
+    } catch (error) {
+      console.error('Failed to clear profile draft:', error)
     }
     setMessage('Profile saved successfully')
     navigate(isEditMode ? '/student/profile' : '/', { replace: true })
@@ -436,6 +540,119 @@ export default function CreateStudentProfilePage() {
               )}
             </div>
           ))}
+        </div>
+
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-neutral-800">Career Preferences</span>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={() => addPreference('preferred_job_types')}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                + Add Job Type
+              </button>
+            )}
+          </div>
+          {formData.preferred_job_types.map((item, index) => (
+            <div key={`job-type-${index}`} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={item}
+                onChange={(e) => updatePreference('preferred_job_types', index, e.target.value)}
+                placeholder="e.g., Internship"
+                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              {isEditMode && formData.preferred_job_types.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removePreference('preferred_job_types', index)}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-neutral-800">Preferred Industries</span>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={() => addPreference('preferred_industries')}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                + Add Industry
+              </button>
+            )}
+          </div>
+          {formData.preferred_industries.map((item, index) => (
+            <div key={`industry-${index}`} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={item}
+                onChange={(e) => updatePreference('preferred_industries', index, e.target.value)}
+                placeholder="e.g., Software Development"
+                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              {isEditMode && formData.preferred_industries.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removePreference('preferred_industries', index)}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-neutral-800">Preferred Locations</span>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={() => addPreference('preferred_locations')}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                + Add Location
+              </button>
+            )}
+          </div>
+          {formData.preferred_locations.map((item, index) => (
+            <div key={`location-${index}`} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={item}
+                onChange={(e) => updatePreference('preferred_locations', index, e.target.value)}
+                placeholder="e.g., Remote"
+                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              {isEditMode && formData.preferred_locations.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removePreference('preferred_locations', index)}
+                  className="text-xs font-semibold text-red-500 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+
+          <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+            Expected Salary Range
+            <input
+              type="text"
+              name="expected_salary_range"
+              value={formData.expected_salary_range}
+              onChange={handleChange}
+              placeholder="e.g., ₱15,000 - ₱30,000/month"
+              className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            />
+          </label>
         </div>
         <button
           type="submit"

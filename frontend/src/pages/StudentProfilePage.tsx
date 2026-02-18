@@ -53,6 +53,37 @@ export default function StudentProfilePage() {
         .map((item: string) => item.trim())
         .filter(Boolean);
 
+  const normalizeList = (value: unknown, fallback: string[]) => {
+    if (Array.isArray(value)) {
+      const cleaned = value.map((item) => `${item}`.trim()).filter(Boolean);
+      return cleaned.length > 0 ? cleaned : fallback;
+    }
+    if (typeof value === "string") {
+      const cleaned = value
+        .split(/[\n,]/g)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      return cleaned.length > 0 ? cleaned : fallback;
+    }
+    return fallback;
+  };
+
+  const preferredJobTypes = normalizeList(profile?.preferred_job_types, [
+    "Internship",
+    "Full-time",
+  ]);
+  const preferredIndustries = normalizeList(profile?.preferred_industries, [
+    "Information Technology",
+    "Software Development",
+  ]);
+  const preferredLocations = normalizeList(profile?.preferred_locations, [
+    "Tarlac City",
+    "Clark, Pampanga",
+    "Remote",
+  ]);
+  const expectedSalaryRange =
+    profile?.expected_salary_range || "₱15,000 - ₱30,000/month";
+
   const educationEntries = Array.isArray(profile?.education_entries) ? profile.education_entries : [];
   const workEntries = Array.isArray(profile?.work_experience_entries) ? profile.work_experience_entries : [];
 
@@ -231,6 +262,68 @@ export default function StudentProfilePage() {
                   ) : (
                     <p className="text-sm text-gray-500">No work experience added yet.</p>
                   )}
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Career Preferences</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border border-gray-200 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-3">
+                        Preferred Job Types
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {preferredJobTypes.map((item) => (
+                          <span
+                            key={`job-type-${item}`}
+                            className="px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 text-xs font-semibold"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border border-gray-200 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-3">
+                        Preferred Industries
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {preferredIndustries.map((item) => (
+                          <span
+                            key={`industry-${item}`}
+                            className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border border-gray-200 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-3">
+                        Preferred Locations
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {preferredLocations.map((item) => (
+                          <span
+                            key={`location-${item}`}
+                            className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border border-gray-200 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-3">
+                        Expected Salary Range
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {expectedSalaryRange}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
