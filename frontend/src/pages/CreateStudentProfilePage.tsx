@@ -61,6 +61,7 @@ export default function CreateStudentProfilePage() {
     const id = profile?.id || 'draft'
     return `student_profile_draft_${id}`
   }, [profile?.id])
+  const [isDirty, setIsDirty] = useState(false)
 
   const pageTitle = useMemo(() => (profile && isProfileComplete ? 'Update Profile' : 'Create Your Student Profile'), [
     profile,
@@ -96,9 +97,11 @@ export default function CreateStudentProfilePage() {
 
       if (draftData) {
         setFormData(draftData)
+        setIsDirty(true)
         return
       }
-
+    }
+    if (profile && !isDirty) {
       setFormData({
         full_name: profile.full_name ?? '',
         phone: profile.phone ?? '',
@@ -127,15 +130,16 @@ export default function CreateStudentProfilePage() {
         expected_salary_range: profile.expected_salary_range ?? '',
       })
     }
-  }, [profile, draftKey])
+  }, [profile, draftKey, isDirty])
 
   useEffect(() => {
+    if (!isDirty) return
     try {
       localStorage.setItem(draftKey, JSON.stringify(formData))
     } catch (error) {
       console.error('Failed to persist profile draft:', error)
     }
-  }, [formData, draftKey])
+  }, [formData, draftKey, isDirty])
 
   const isEditMode = new URLSearchParams(location.search).get('edit') === '1'
 
@@ -147,10 +151,12 @@ export default function CreateStudentProfilePage() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target
+    setIsDirty(true)
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   function updateSkill(index: number, value: string) {
+    setIsDirty(true)
     setFormData((prev) => {
       const next = [...prev.skills_entries]
       next[index] = value
@@ -159,10 +165,12 @@ export default function CreateStudentProfilePage() {
   }
 
   function addSkill() {
+    setIsDirty(true)
     setFormData((prev) => ({ ...prev, skills_entries: [...prev.skills_entries, ''] }))
   }
 
   function removeSkill(index: number) {
+    setIsDirty(true)
     setFormData((prev) => ({
       ...prev,
       skills_entries: prev.skills_entries.filter((_, idx) => idx !== index),
@@ -170,6 +178,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function updateEducation(index: number, field: string, value: string) {
+    setIsDirty(true)
     setFormData((prev) => {
       const next = [...prev.education_entries]
       next[index] = { ...next[index], [field]: value }
@@ -178,6 +187,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function addEducation() {
+    setIsDirty(true)
     setFormData((prev) => ({
       ...prev,
       education_entries: [...prev.education_entries, { school: '', degree: '', field: '', start_year: '', end_year: '' }],
@@ -185,6 +195,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function removeEducation(index: number) {
+    setIsDirty(true)
     setFormData((prev) => ({
       ...prev,
       education_entries: prev.education_entries.filter((_, idx) => idx !== index),
@@ -192,6 +203,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function updateWork(index: number, field: string, value: string) {
+    setIsDirty(true)
     setFormData((prev) => {
       const next = [...prev.work_experience_entries]
       next[index] = { ...next[index], [field]: value }
@@ -200,6 +212,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function addWork() {
+    setIsDirty(true)
     setFormData((prev) => ({
       ...prev,
       work_experience_entries: [
@@ -210,6 +223,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function removeWork(index: number) {
+    setIsDirty(true)
     setFormData((prev) => ({
       ...prev,
       work_experience_entries: prev.work_experience_entries.filter((_, idx) => idx !== index),
@@ -287,6 +301,7 @@ export default function CreateStudentProfilePage() {
       console.error('Failed to clear profile draft:', error)
     }
     setMessage('Profile saved successfully')
+    setIsDirty(false)
     navigate(isEditMode ? '/student/profile' : '/', { replace: true })
   }
 
