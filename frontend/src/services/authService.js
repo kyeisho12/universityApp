@@ -10,10 +10,10 @@ export async function signIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
   
-  // Check if user account is disabled
+  // Check if user account is disabled or not verified
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('is_active')
+    .select('is_active, is_verified')
     .eq('id', data.user.id)
     .single()
   
@@ -25,6 +25,11 @@ export async function signIn(email, password) {
   if (!profile.is_active) {
     await supabase.auth.signOut()
     throw new Error('Your account has been disabled. Please contact an administrator.')
+  }
+  
+  if (!profile.is_verified) {
+    await supabase.auth.signOut()
+    throw new Error('Your account is not yet verified. Please wait for admin approval.')
   }
   
   return data
