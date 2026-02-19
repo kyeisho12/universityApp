@@ -6,23 +6,45 @@ import { supabase } from '../lib/supabaseClient';
  * Reduces duplicate code across pages
  */
 export function useStudentId(userId: string | undefined): string {
-  const [studentId, setStudentId] = useState<string>('2024-00001');
+  const [studentId, setStudentId] = useState<string>('');
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setStudentId('');
+      return;
+    }
 
     const fetchStudentId = async () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('student_id')
+          .select('student_number')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
-        setStudentId(data?.student_id || '2024-00001');
+        if (error) {
+          const missingColumn = error.message?.toLowerCase().includes('student_number');
+
+          if (!missingColumn) throw error;
+
+          const { data: legacyData, error: legacyError } = await supabase
+            .from('profiles')
+            .select('student_id')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (legacyError) throw legacyError;
+
+          const legacyId = (legacyData as { student_id?: string | number } | null)?.student_id;
+          setStudentId(legacyId != null ? String(legacyId) : '2024-00001');
+          return;
+        }
+
+        const resolvedId = (data as { student_number?: string | number } | null)?.student_number;
+        setStudentId(resolvedId != null ? String(resolvedId) : '2024-00001');
       } catch (err) {
-        console.error('Failed to fetch student_id:', err);
+        console.error('Failed to fetch student number:', err);
+        setStudentId('2024-00001');
       }
     };
 

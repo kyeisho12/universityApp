@@ -103,7 +103,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
   // Get display name and ID from user data or fall back to email
   const userName = userData?.full_name || email?.split("@")[0] || "User";
-  const userID = userData?.student_id || "2024-00001";
+  const userID = userData?.student_number || userData?.student_id || "2024-00001";
 
   // Load jobs from Supabase with caching
   const { data: jobs = [], isLoading: loading, error: jobsError } = useCachedQuery(

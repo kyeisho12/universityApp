@@ -14,6 +14,7 @@ import {
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudentId } from "../hooks/useStudentId";
+import { useStudent } from "../context/StudentContext";
 
 type NavigateHandler = (route: string) => void;
 
@@ -364,6 +365,7 @@ function CoverLettersPageContent({ userId, userName, studentId, onLogout, onNavi
 
 export default function CoverLettersPage() {
   const { user, signOut } = useAuth();
+  const { profile } = useStudent();
   const navigate = useNavigate();
   const studentId = useStudentId(user?.id);
 
@@ -379,7 +381,10 @@ export default function CoverLettersPage() {
     navigate(`/${route}`);
   }
 
-  const userName = useMemo(() => user?.email?.split("@")[0] || "Student", [user?.email]);
+  const userName = useMemo(
+    () => profile?.full_name || user?.email?.split("@")[0] || "Student",
+    [profile?.full_name, user?.email]
+  );
 
   return (
     <CoverLettersPageContent

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
+import { useStudent } from "../context/StudentContext";
+import { useStudentId } from "../hooks/useStudentId";
 import { Sidebar } from "../components/common/Sidebar";
 import {
   FileText,
@@ -36,9 +38,11 @@ const MyApplicationsPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { profile } = useStudent();
+  const studentId = useStudentId(user?.id);
 
-  const userName = user?.email?.split("@")[0] || "Student";
-  const userID = "2024-00001";
+  const userName = profile?.full_name || user?.email?.split("@")[0] || "Student";
+  const userID = studentId || "2024-00001";
 
   // Use cached query for applications
   const {

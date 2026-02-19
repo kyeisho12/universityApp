@@ -1,41 +1,23 @@
-﻿import React from 'react'
+﻿import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useStudent } from '../context/StudentContext'
+import { useStudentId } from '../hooks/useStudentId'
 import { Dashboard } from '../components/student/Dashboard'
-import { supabase } from '../lib/supabaseClient'
 
 export default function StudentDashboardPage() {
   const { user, signOut } = useAuth()
+  const { profile, isProfileComplete, isProfileLoading } = useStudent()
   const navigate = useNavigate()
-  const [fullName, setFullName] = React.useState<string>(user?.user_metadata?.full_name || '')
-  const [studentId, setStudentId] = React.useState<string>('2024-00001')
-  const [isNameLoading, setIsNameLoading] = React.useState<boolean>(false)
+  const studentId = useStudentId(user?.id)
+  const fullName = profile?.full_name ? String(profile.full_name) : ''
 
-  React.useEffect(() => {
-    let active = true
-    async function loadProfile() {
-      if (!user?.id) return
-      setIsNameLoading(true)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, student_id')
-        .eq('id', user.id)
-        .single()
-      if (!active) return
-      if (error) {
-        console.error('Failed to load profile', error)
-        setIsNameLoading(false)
-        return
-      }
-      setFullName(data?.full_name || '')
-      setStudentId(data?.student_id || '2024-00001')
-      setIsNameLoading(false)
+  useEffect(() => {
+    // Wait until profile is loaded to check completeness
+    if (!isProfileLoading && user && !isProfileComplete) {
+      navigate('/create-profile', { replace: true })
     }
-    loadProfile()
-    return () => {
-      active = false
-    }
-  }, [user?.id])
+  }, [isProfileComplete, isProfileLoading, user, navigate])
 
   async function handleLogout() {
     try {
@@ -49,10 +31,24 @@ export default function StudentDashboardPage() {
   }
 
   const emailPrefix = user?.email?.split('@')[0] || ''
-  const displayName = isNameLoading ? '' : (fullName?.trim() || emailPrefix)
+  const displayName = fullName?.trim() || emailPrefix
 
   function handleNavigate(route: string) {
     navigate(`/${route}`);
+  }
+
+  // Show loading state while checking profile
+  if (isProfileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-neutral-600">Loading...</p>
+      </div>
+    )
+  }
+
+  // Render dashboard only if profile is complete
+  if (!isProfileComplete) {
+    return null
   }
 
   return (

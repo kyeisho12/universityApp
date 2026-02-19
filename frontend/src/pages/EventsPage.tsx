@@ -13,6 +13,7 @@ import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { useStudentId } from "../hooks/useStudentId";
+import { useStudent } from "../context/StudentContext";
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
 import { 
@@ -25,7 +26,7 @@ import {
 type NavigateHandler = (route: string) => void;
 
 interface CareerEventsPageContentProps {
-  email: string;
+  userName: string;
   userId: string;
   onLogout: () => Promise<void> | void;
   onNavigate: NavigateHandler;
@@ -43,9 +44,8 @@ interface Event {
   isRegistered?: boolean;
 }
 
-function CareerEventsPageContent({ email, userId, studentId, onLogout, onNavigate }: CareerEventsPageContentProps & { studentId?: string }) {
-  const userName = email.split("@")[0];
-  const userID = studentId || userId || "2024-00001";
+function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavigate }: CareerEventsPageContentProps & { studentId?: string }) {
+  const userID = studentId || "2024-00001";
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
 
@@ -318,8 +318,10 @@ function EventCard({
 
 export default function EventsPage() {
   const { user, signOut } = useAuth();
+  const { profile } = useStudent();
   const navigate = useNavigate();
   const studentId = useStudentId(user?.id);
+  const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
 
   async function handleLogout() {
     try {
@@ -337,7 +339,7 @@ export default function EventsPage() {
 
   return (
     <CareerEventsPageContent
-      email={user?.email || ""}
+      userName={displayName}
       userId={user?.id ?? ""}
       studentId={studentId}
       onLogout={handleLogout}

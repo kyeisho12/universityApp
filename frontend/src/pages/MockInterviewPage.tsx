@@ -12,11 +12,13 @@ import {
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudentId } from "../hooks/useStudentId";
+import { useStudent } from "../context/StudentContext";
 
 type NavigateHandler = (route: string) => void;
 
 interface MockInterviewPageContentProps {
   email: string;
+  userName: string;
   userId: string;
   onLogout: () => Promise<void> | void;
   onNavigate: NavigateHandler;
@@ -30,12 +32,12 @@ interface Question {
 
 function MockInterviewPageContent({
   email,
+  userName,
   userId,
   studentId,
   onLogout,
   onNavigate,
 }: MockInterviewPageContentProps & { studentId?: string }) {
-  const userName = email.split("@")[0];
   const userID = studentId || "2024-00001";
   const SESSION_BACKUP_KEY = "mock_interview_state_active";
   const ACTIVE_KEY_STORAGE = "mock_interview_active_key";
@@ -810,8 +812,10 @@ function MetricCard({
 
 export default function MockInterviewPage() {
   const { user, signOut } = useAuth();
+  const { profile } = useStudent();
   const navigate = useNavigate();
   const studentId = useStudentId(user?.id);
+  const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
 
   async function handleLogout() {
     try {
@@ -830,6 +834,7 @@ export default function MockInterviewPage() {
   return (
     <MockInterviewPageContent
       email={user?.email || ""}
+      userName={displayName}
       userId={user?.id || ""}
       studentId={studentId}
       onLogout={handleLogout}

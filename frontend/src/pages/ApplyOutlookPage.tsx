@@ -38,12 +38,13 @@ export default function ApplyOutlookPage() {
       try {
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, student_id")
+          .select("full_name, student_number, student_id")
           .eq("id", user.id)
           .single();
 
         if (data?.full_name) setUserName(data.full_name);
-        if (data?.student_id) setUserID(data.student_id);
+        const resolvedId = data?.student_number ?? data?.student_id;
+        if (resolvedId != null) setUserID(String(resolvedId));
       } catch (error) {
         console.error("Failed to load user profile:", error);
       }

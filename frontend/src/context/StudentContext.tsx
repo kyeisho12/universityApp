@@ -6,6 +6,8 @@ export interface StudentProfile {
   id: string
   email: string
   full_name?: string
+  student_number?: string | number
+  student_id?: string | number
   university?: string
   major?: string
   graduation_year?: string | number
@@ -30,7 +32,7 @@ type StudentContextValue = {
 const StudentContext = createContext<StudentContextValue | undefined>(undefined)
 
 function isProfileComplete(profile: StudentProfileData) {
-  const requiredFields = ['full_name', 'university', 'major', 'graduation_year']
+  const requiredFields = ['full_name', 'student_number', 'university', 'major', 'graduation_year', 'phone', 'address', 'bio']
   return requiredFields.every((field) => {
     const value = (profile as StudentProfile | null)?.[field]
     if (value === null || value === undefined) return false

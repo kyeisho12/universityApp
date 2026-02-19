@@ -4,6 +4,7 @@ import { useStudent } from '../context/StudentContext'
 
 interface ProfileForm {
   full_name: string
+  student_number: string
   phone: string
   address: string
   university: string
@@ -33,6 +34,7 @@ interface ProfileForm {
 
 const initialState: ProfileForm = {
   full_name: '',
+  student_number: '',
   phone: '',
   address: '',
   university: '',
@@ -110,6 +112,7 @@ export default function CreateStudentProfilePage() {
     if (profile && !isDirty) {
       setFormData({
         full_name: toStringValue(profile.full_name),
+        student_number: toStringValue(profile.student_number ?? profile.student_id),
         phone: toStringValue(profile.phone),
         address: toStringValue(profile.address),
         university: toStringValue(profile.university),
@@ -261,6 +264,7 @@ export default function CreateStudentProfilePage() {
     setMessage('')
     const payload = {
       ...formData,
+      student_number: toStringValue(formData.student_number).trim(),
       graduation_year: formData.graduation_year ? Number(formData.graduation_year) : null,
       skills_entries: formData.skills_entries.map((item) => item.trim()).filter(Boolean),
       education_entries: formData.education_entries.filter((entry) =>
@@ -315,7 +319,7 @@ export default function CreateStudentProfilePage() {
     <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200/60">
       <div className="mb-6 space-y-2">
         <h1 className="text-2xl font-bold text-neutral-900">{pageTitle}</h1>
-        <p className="text-sm text-neutral-600">We need a few details to set up your student dashboard.</p>
+        <p className="text-sm text-neutral-600">Please complete all required fields (*) including your bio to access your dashboard.</p>
       </div>
       <form className="grid gap-5" onSubmit={handleSubmit}>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
@@ -324,6 +328,17 @@ export default function CreateStudentProfilePage() {
             type="text"
             name="full_name"
             value={formData.full_name}
+            onChange={handleChange}
+            required
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+          Student Number *
+          <input
+            type="text"
+            name="student_number"
+            value={formData.student_number}
             onChange={handleChange}
             required
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
@@ -365,32 +380,35 @@ export default function CreateStudentProfilePage() {
         />
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
-        Phone
+        Phone *
         <input
             type="tel"
             name="phone"
             value={formData.phone}
             onChange={handleChange}
+            required
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
         />
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
-          Address
+          Address *
           <input
             type="text"
             name="address"
             value={formData.address}
             onChange={handleChange}
+            required
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
-          Short bio
+          Short bio *
           <textarea
             name="bio"
             value={formData.bio}
             onChange={handleChange}
             rows={4}
+            required
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
         </label>

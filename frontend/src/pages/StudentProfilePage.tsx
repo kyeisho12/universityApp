@@ -44,7 +44,7 @@ export default function StudentProfilePage() {
   }
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
-  const studentId = profile?.student_id || "2024-00001";
+  const studentId = profile?.student_number || profile?.student_id || "2024-00001";
   const department = profile?.university || "Department";
   const skills = Array.isArray(profile?.skills_entries)
     ? profile.skills_entries

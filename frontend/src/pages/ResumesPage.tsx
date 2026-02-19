@@ -636,7 +636,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       {/* Sidebar */}
       <Sidebar
         userName={userName}
-        userID={userId}
+        userID={userID}
         onLogout={onLogout}
         onNavigate={onNavigate}
         activeNav="student/resumes"
