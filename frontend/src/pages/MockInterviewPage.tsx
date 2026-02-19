@@ -37,27 +37,111 @@ function MockInterviewPageContent({
 }: MockInterviewPageContentProps & { studentId?: string }) {
   const userName = email.split("@")[0];
   const userID = studentId || "2024-00001";
-  const [hasStarted, setHasStarted] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isMicOn, setIsMicOn] = useState(true);
+  const SESSION_BACKUP_KEY = "mock_interview_state_active";
+  const ACTIVE_KEY_STORAGE = "mock_interview_active_key";
+  const derivedStateKey = React.useMemo(
+    () => `mock_interview_state_${userId || email || "guest"}`,
+    [userId, email]
+  );
+  const [stateKey, setStateKey] = useState(() => {
+    try {
+      return sessionStorage.getItem(ACTIVE_KEY_STORAGE) || derivedStateKey;
+    } catch {
+      return derivedStateKey;
+    }
+  });
+  const initialStateRef = useRef<{
+    hasStarted: boolean;
+    isCompleted: boolean;
+    currentQuestion: number;
+    isCameraOn: boolean;
+    isMicOn: boolean;
+  } | null>(null);
+
+  if (!initialStateRef.current) {
+    try {
+      const preferredKey =
+        sessionStorage.getItem(ACTIVE_KEY_STORAGE) || derivedStateKey;
+      const savedState =
+        localStorage.getItem(preferredKey) ||
+        sessionStorage.getItem(SESSION_BACKUP_KEY);
+      if (savedState) {
+        const parsed = JSON.parse(savedState) as {
+          hasStarted: boolean;
+          isCompleted: boolean;
+          currentQuestion: number;
+          isCameraOn: boolean;
+          isMicOn: boolean;
+        };
+        initialStateRef.current = {
+          hasStarted: Boolean(parsed.hasStarted),
+          isCompleted: Boolean(parsed.isCompleted),
+          currentQuestion: typeof parsed.currentQuestion === "number" ? parsed.currentQuestion : 0,
+          isCameraOn: Boolean(parsed.isCameraOn),
+          isMicOn: typeof parsed.isMicOn === "boolean" ? parsed.isMicOn : true,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to restore mock interview state:", error);
+    }
+  }
+
+  const [hasStarted, setHasStarted] = useState(
+    initialStateRef.current?.hasStarted ?? false
+  );
+  const [isCompleted, setIsCompleted] = useState(
+    initialStateRef.current?.isCompleted ?? false
+  );
+  const [currentQuestion, setCurrentQuestion] = useState(
+    initialStateRef.current?.currentQuestion ?? 0
+  );
+  const [isCameraOn, setIsCameraOn] = useState(
+    initialStateRef.current?.isCameraOn ?? false
+  );
+  const [isMicOn, setIsMicOn] = useState(
+    initialStateRef.current?.isMicOn ?? true
+  );
+  const [isHydrated, setIsHydrated] = useState(Boolean(initialStateRef.current));
   const [mediaError, setMediaError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const desiredCameraOnRef = useRef(false);
   const cameraRequestIdRef = useRef(0);
-  const STATE_KEY = `mock_interview_state_${userId || email || "guest"}`;
-  const hasHydratedRef = useRef(false);
-  const hasSavedInitialStateRef = useRef(false);
+  const hasHydratedRef = useRef(Boolean(initialStateRef.current));
+  const lastHydratedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!STATE_KEY) return;
-    hasHydratedRef.current = false;
+    if (stateKey === derivedStateKey) return;
+    if (stateKey.endsWith("_guest") && derivedStateKey !== stateKey) {
+      try {
+        const previousState = localStorage.getItem(stateKey);
+        if (previousState) {
+          localStorage.setItem(derivedStateKey, previousState);
+          localStorage.removeItem(stateKey);
+        }
+      } catch (error) {
+        console.error("Failed to migrate mock interview state:", error);
+      }
+    }
     try {
-      const savedState = localStorage.getItem(STATE_KEY);
+      sessionStorage.setItem(ACTIVE_KEY_STORAGE, derivedStateKey);
+    } catch {
+      // ignore storage errors
+    }
+    setStateKey(derivedStateKey);
+  }, [derivedStateKey, stateKey]);
+
+  useEffect(() => {
+    if (!stateKey) return;
+    if (lastHydratedKeyRef.current === stateKey) return;
+    try {
+      let savedState = localStorage.getItem(stateKey);
+      if (!savedState) {
+        savedState = sessionStorage.getItem(SESSION_BACKUP_KEY);
+      }
       if (!savedState) {
         hasHydratedRef.current = true;
+        lastHydratedKeyRef.current = stateKey;
         return;
       }
       const parsed = JSON.parse(savedState) as {
@@ -83,23 +167,22 @@ function MockInterviewPageContent({
         setIsMicOn(parsed.isMicOn);
       }
       hasHydratedRef.current = true;
-      hasSavedInitialStateRef.current = true;
+      lastHydratedKeyRef.current = stateKey;
+      setIsHydrated(true);
     } catch (error) {
       console.error("Failed to restore mock interview state:", error);
       hasHydratedRef.current = true;
+      lastHydratedKeyRef.current = stateKey;
+      setIsHydrated(true);
     }
-  }, [STATE_KEY]);
+  }, [stateKey]);
 
   useEffect(() => {
     desiredCameraOnRef.current = isCameraOn;
   }, [isCameraOn]);
 
   useEffect(() => {
-    if (!hasHydratedRef.current) return;
-    if (!hasSavedInitialStateRef.current) {
-      hasSavedInitialStateRef.current = true;
-      return;
-    }
+    if (!hasHydratedRef.current || !stateKey) return;
     try {
       const nextState = {
         hasStarted,
@@ -108,11 +191,55 @@ function MockInterviewPageContent({
         isCameraOn,
         isMicOn,
       };
-      localStorage.setItem(STATE_KEY, JSON.stringify(nextState));
+      const serialized = JSON.stringify(nextState);
+      localStorage.setItem(stateKey, serialized);
+      sessionStorage.setItem(SESSION_BACKUP_KEY, serialized);
+      sessionStorage.setItem(ACTIVE_KEY_STORAGE, stateKey);
     } catch (error) {
       console.error("Failed to persist mock interview state:", error);
     }
-  }, [STATE_KEY, hasStarted, isCompleted, currentQuestion, isCameraOn, isMicOn]);
+  }, [hasStarted, isCompleted, currentQuestion, isCameraOn, isMicOn, stateKey]);
+
+  const persistSnapshot = useCallback(() => {
+    if (!stateKey) return;
+    try {
+      const nextState = {
+        hasStarted,
+        isCompleted,
+        currentQuestion,
+        isCameraOn,
+        isMicOn,
+      };
+      const serialized = JSON.stringify(nextState);
+      localStorage.setItem(stateKey, serialized);
+      sessionStorage.setItem(SESSION_BACKUP_KEY, serialized);
+      sessionStorage.setItem(ACTIVE_KEY_STORAGE, stateKey);
+    } catch (error) {
+      console.error("Failed to persist mock interview state:", error);
+    }
+  }, [stateKey, hasStarted, isCompleted, currentQuestion, isCameraOn, isMicOn]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        persistSnapshot();
+      }
+    };
+
+    const handlePageHide = () => {
+      persistSnapshot();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+    };
+  }, [persistSnapshot]);
 
   const questions: Question[] = [
     {
@@ -240,6 +367,10 @@ function MockInterviewPageContent({
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
+  if (!isHydrated) {
+    return null;
+  }
+
   if (!hasStarted) {
     return (
       <div className="flex h-screen bg-gray-50">
@@ -325,6 +456,23 @@ function MockInterviewPageContent({
               {/* Start Button */}
               <button
                 onClick={() => {
+                  const nextState = {
+                    hasStarted: true,
+                    isCompleted: false,
+                    currentQuestion,
+                    isCameraOn: true,
+                    isMicOn,
+                  };
+                  if (stateKey) {
+                    try {
+                      const serialized = JSON.stringify(nextState);
+                      localStorage.setItem(stateKey, serialized);
+                      sessionStorage.setItem(SESSION_BACKUP_KEY, serialized);
+                      sessionStorage.setItem(ACTIVE_KEY_STORAGE, stateKey);
+                    } catch (error) {
+                      console.error("Failed to persist mock interview state:", error);
+                    }
+                  }
                   setHasStarted(true);
                   setIsCameraOn(true);
                   setMediaError(null);
