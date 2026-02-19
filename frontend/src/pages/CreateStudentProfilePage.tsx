@@ -63,6 +63,27 @@ export default function CreateStudentProfilePage() {
   }, [profile?.id])
   const [isDirty, setIsDirty] = useState(false)
 
+  const normalizeList = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      const cleaned = value.map((item) => `${item}`.trim()).filter(Boolean)
+      return cleaned.length > 0 ? cleaned : ['']
+    }
+    if (typeof value === 'string') {
+      const cleaned = value
+        .split(/[\n,]/g)
+        .map((item) => item.trim())
+        .filter(Boolean)
+      return cleaned.length > 0 ? cleaned : ['']
+    }
+    return ['']
+  }
+
+  const toStringValue = (value: unknown): string => {
+    if (typeof value === 'string') return value
+    if (value == null) return ''
+    return String(value)
+  }
+
   const pageTitle = useMemo(() => (profile && isProfileComplete ? 'Update Profile' : 'Create Your Student Profile'), [
     profile,
     isProfileComplete,
@@ -70,21 +91,6 @@ export default function CreateStudentProfilePage() {
 
   useEffect(() => {
     if (profile) {
-      const normalizeList = (value: unknown) => {
-        if (Array.isArray(value)) {
-          const cleaned = value.map((item) => `${item}`.trim()).filter(Boolean)
-          return cleaned.length > 0 ? cleaned : ['']
-        }
-        if (typeof value === 'string') {
-          const cleaned = value
-            .split(/[\n,]/g)
-            .map((item) => item.trim())
-            .filter(Boolean)
-          return cleaned.length > 0 ? cleaned : ['']
-        }
-        return ['']
-      }
-
       let draftData: ProfileForm | null = null
       try {
         const savedDraft = localStorage.getItem(draftKey)
@@ -103,13 +109,13 @@ export default function CreateStudentProfilePage() {
     }
     if (profile && !isDirty) {
       setFormData({
-        full_name: profile.full_name ?? '',
-        phone: profile.phone ?? '',
-        address: profile.address ?? '',
-        university: profile.university ?? '',
-        major: profile.major ?? '',
+        full_name: toStringValue(profile.full_name),
+        phone: toStringValue(profile.phone),
+        address: toStringValue(profile.address),
+        university: toStringValue(profile.university),
+        major: toStringValue(profile.major),
         graduation_year: profile.graduation_year ?? '',
-        bio: profile.bio ?? '',
+        bio: toStringValue(profile.bio),
         skills_entries: Array.isArray(profile.skills_entries)
           ? profile.skills_entries
           : profile.skills
@@ -127,7 +133,7 @@ export default function CreateStudentProfilePage() {
         preferred_job_types: normalizeList(profile.preferred_job_types),
         preferred_industries: normalizeList(profile.preferred_industries),
         preferred_locations: normalizeList(profile.preferred_locations),
-        expected_salary_range: profile.expected_salary_range ?? '',
+        expected_salary_range: toStringValue(profile.expected_salary_range),
       })
     }
   }, [profile, draftKey, isDirty])
@@ -271,13 +277,13 @@ export default function CreateStudentProfilePage() {
     if (saveError) {
       const errorMessage = (saveError as { message?: string })?.message || ''
       if (errorMessage.includes("Could not find the") && errorMessage.includes("profiles")) {
-        const fallbackPayload = {
-          ...payload,
-        }
-        delete fallbackPayload.preferred_job_types
-        delete fallbackPayload.preferred_industries
-        delete fallbackPayload.preferred_locations
-        delete fallbackPayload.expected_salary_range
+        const {
+          preferred_job_types,
+          preferred_industries,
+          preferred_locations,
+          expected_salary_range,
+          ...fallbackPayload
+        } = payload
         const { error: fallbackError } = await saveProfile(fallbackPayload)
         if (!fallbackError) {
           try {
