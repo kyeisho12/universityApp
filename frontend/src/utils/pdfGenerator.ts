@@ -51,6 +51,26 @@ export interface ResumeData {
   certificationEntries: CertificationEntry[];
 }
 
+export interface CoverLetterData {
+  senderName: string;
+  senderTitle: string;
+  senderPhone: string;
+  senderEmail: string;
+  senderLocation: string;
+  letterDate: string;
+  recipientName: string;
+  recipientTitle: string;
+  companyName: string;
+  companyAddress: string;
+  positionTitle: string;
+  salutation: string;
+  introParagraph: string;
+  experienceParagraph: string;
+  closingParagraph: string;
+  complimentaryClose: string;
+  signatureName: string;
+}
+
 export function generateResumePDF(data: ResumeData): Blob {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -260,6 +280,111 @@ export function generateResumePDF(data: ResumeData): Blob {
       const height = addBulletPoint(certText, margin, yPos, pageWidth - 2 * margin - 5);
       yPos += height;
     });
+  }
+
+  return doc.output('blob');
+}
+
+export function generateCoverLetterPDF(data: CoverLetterData): Blob {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const maxWidth = pageWidth - margin * 2;
+  const lineHeight = 6;
+  let yPos = 20;
+
+  const ensureSpace = (requiredLines = 1) => {
+    if (yPos + requiredLines * lineHeight > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin;
+    }
+  };
+
+  const addWrapped = (text: string, fontSize = 12, isBold = false, isItalic = false) => {
+    if (!text.trim()) return;
+    doc.setFontSize(fontSize);
+    if (isBold) {
+      doc.setFont('times', 'bold');
+    } else if (isItalic) {
+      doc.setFont('times', 'italic');
+    } else {
+      doc.setFont('times', 'normal');
+    }
+
+    const lines = doc.splitTextToSize(text, maxWidth);
+    ensureSpace(lines.length);
+    doc.text(lines, margin, yPos);
+    yPos += lines.length * lineHeight;
+  };
+
+  const addSpacer = (size = 4) => {
+    yPos += size;
+  };
+
+  // Sender header (centered)
+  if (data.senderName.trim()) {
+    doc.setFont('times', 'bold');
+    doc.setFontSize(20);
+    const nameWidth = doc.getTextWidth(data.senderName.trim());
+    doc.text(data.senderName.trim(), (pageWidth - nameWidth) / 2, yPos);
+    yPos += 10;
+  }
+
+  if (data.senderTitle.trim()) {
+    doc.setFont('times', 'italic');
+    doc.setFontSize(13);
+    const titleWidth = doc.getTextWidth(data.senderTitle.trim());
+    doc.text(data.senderTitle.trim(), (pageWidth - titleWidth) / 2, yPos);
+    yPos += 8;
+  }
+
+  const contactParts = [data.senderPhone, data.senderEmail, data.senderLocation]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (contactParts.length > 0) {
+    doc.setFont('times', 'normal');
+    doc.setFontSize(11);
+    const contactText = contactParts.join('   *   ');
+    const contactWidth = doc.getTextWidth(contactText);
+    doc.text(contactText, (pageWidth - contactWidth) / 2, yPos);
+    yPos += 10;
+  }
+
+  addSpacer(4);
+
+  if (data.letterDate.trim()) {
+    addWrapped(data.letterDate.trim(), 12);
+    addSpacer(4);
+  }
+
+  if (data.recipientName.trim()) addWrapped(data.recipientName.trim(), 12, true);
+  if (data.recipientTitle.trim()) addWrapped(data.recipientTitle.trim(), 12);
+  if (data.companyName.trim()) addWrapped(data.companyName.trim(), 12);
+  if (data.companyAddress.trim()) addWrapped(data.companyAddress.trim(), 12);
+
+  addSpacer(6);
+
+  addWrapped(data.salutation.trim() || 'Dear Hiring Manager,', 12);
+  addSpacer(4);
+
+  addWrapped(data.introParagraph.trim(), 12);
+  addSpacer(4);
+
+  if (data.experienceParagraph.trim()) {
+    addWrapped(data.experienceParagraph.trim(), 12);
+    addSpacer(4);
+  }
+
+  addWrapped(data.closingParagraph.trim(), 12);
+  addSpacer(6);
+
+  addWrapped(data.complimentaryClose.trim() || 'Sincerely,', 12);
+  addSpacer(8);
+
+  const signature = data.signatureName.trim() || data.senderName.trim();
+  if (signature) {
+    addWrapped(signature, 12);
   }
 
   return doc.output('blob');

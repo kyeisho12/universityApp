@@ -18,7 +18,7 @@ import {
   validateResumeFile,
   type ResumeWithUrl,
 } from "../services/resumeService";
-import { generateResumePDF } from "../utils/pdfGenerator";
+import { generateCoverLetterPDF, generateResumePDF } from "../utils/pdfGenerator";
 
 type NavigateHandler = (route: string) => void;
 
@@ -35,7 +35,29 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showResumeBuilder, setShowResumeBuilder] = useState(false);
+  const [showCoverLetterBuilder, setShowCoverLetterBuilder] = useState(false);
+  const [coverLetterDocumentIds, setCoverLetterDocumentIds] = useState<string[]>([]);
   const [resumeName, setResumeName] = useState("");
+  const [coverLetterName, setCoverLetterName] = useState("");
+  const [coverLetterForm, setCoverLetterForm] = useState({
+    senderName: "",
+    senderTitle: "",
+    senderPhone: "",
+    senderEmail: "",
+    senderLocation: "",
+    letterDate: "",
+    recipientName: "",
+    recipientTitle: "",
+    companyName: "",
+    companyAddress: "",
+    positionTitle: "",
+    salutation: "Dear Hiring Manager,",
+    introParagraph: "",
+    experienceParagraph: "",
+    closingParagraph: "",
+    complimentaryClose: "Sincerely,",
+    signatureName: "",
+  });
   const [personalInfo, setPersonalInfo] = useState({
     fullName: "",
     email: "",
@@ -61,6 +83,9 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const DRAFT_KEY = `resume_draft_${userId}`;
   const MODAL_KEY = `resume_builder_open_${userId}`;
+  const COVER_LETTER_DRAFT_KEY = `cover_letter_draft_${userId}`;
+  const COVER_LETTER_MODAL_KEY = `cover_letter_builder_open_${userId}`;
+  const COVER_LETTER_DOC_IDS_KEY = `cover_letter_document_ids_${userId}`;
 
   const allowedFormatsLabel = useMemo(() => ALLOWED_EXTENSIONS.map((ext) => ext.toUpperCase()).join(", "), []);
 
@@ -96,6 +121,24 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setShowResumeBuilder(false);
   };
 
+  const openCoverLetterBuilder = () => {
+    try {
+      localStorage.setItem(COVER_LETTER_MODAL_KEY, "true");
+    } catch (error) {
+      console.error("Failed to persist cover letter modal state:", error);
+    }
+    setShowCoverLetterBuilder(true);
+  };
+
+  const closeCoverLetterBuilder = () => {
+    try {
+      localStorage.removeItem(COVER_LETTER_MODAL_KEY);
+    } catch (error) {
+      console.error("Failed to clear cover letter modal state:", error);
+    }
+    setShowCoverLetterBuilder(false);
+  };
+
   // Restore modal open state when returning to the page
   useEffect(() => {
     try {
@@ -107,6 +150,34 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       console.error("Failed to restore modal state:", error);
     }
   }, [MODAL_KEY]);
+
+  // Restore saved cover letter document ids for reliable type labels
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COVER_LETTER_DOC_IDS_KEY);
+      if (!saved) {
+        setCoverLetterDocumentIds([]);
+        return;
+      }
+      const parsed = JSON.parse(saved);
+      setCoverLetterDocumentIds(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.error("Failed to restore cover letter document ids:", error);
+      setCoverLetterDocumentIds([]);
+    }
+  }, [COVER_LETTER_DOC_IDS_KEY]);
+
+  // Restore cover letter modal open state when returning to the page
+  useEffect(() => {
+    try {
+      const shouldOpen = localStorage.getItem(COVER_LETTER_MODAL_KEY) === "true";
+      if (shouldOpen) {
+        setShowCoverLetterBuilder(true);
+      }
+    } catch (error) {
+      console.error("Failed to restore cover letter modal state:", error);
+    }
+  }, [COVER_LETTER_MODAL_KEY]);
 
 
   // Load draft from localStorage when modal opens
@@ -163,6 +234,72 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     }
   };
 
+  const loadCoverLetterDraft = () => {
+    try {
+      const savedDraft = localStorage.getItem(COVER_LETTER_DRAFT_KEY);
+      if (!savedDraft) return;
+      const draft = JSON.parse(savedDraft);
+      setCoverLetterName(draft.coverLetterName || "");
+      setCoverLetterForm(
+        draft.coverLetterForm || {
+          senderName: "",
+          senderTitle: "",
+          senderPhone: "",
+          senderEmail: "",
+          senderLocation: "",
+          letterDate: "",
+          recipientName: "",
+          recipientTitle: "",
+          companyName: "",
+          companyAddress: "",
+          positionTitle: "",
+          salutation: "Dear Hiring Manager,",
+          introParagraph: "",
+          experienceParagraph: "",
+          closingParagraph: "",
+          complimentaryClose: "Sincerely,",
+          signatureName: "",
+        }
+      );
+    } catch (error) {
+      console.error("Failed to load cover letter draft:", error);
+    }
+  };
+
+  const saveCoverLetterDraft = () => {
+    try {
+      const draft = {
+        coverLetterName,
+        coverLetterForm,
+      };
+      localStorage.setItem(COVER_LETTER_DRAFT_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.error("Failed to save cover letter draft:", error);
+    }
+  };
+
+  const clearCoverLetterDraft = () => {
+    try {
+      localStorage.removeItem(COVER_LETTER_DRAFT_KEY);
+    } catch (error) {
+      console.error("Failed to clear cover letter draft:", error);
+    }
+  };
+
+  const rememberCoverLetterDocumentId = (id?: string) => {
+    if (!id) return;
+    setCoverLetterDocumentIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      try {
+        localStorage.setItem(COVER_LETTER_DOC_IDS_KEY, JSON.stringify(next));
+      } catch (error) {
+        console.error("Failed to persist cover letter document ids:", error);
+      }
+      return next;
+    });
+  };
+
   const resetResumeBuilder = () => {
     setResumeName("");
     setPersonalInfo({
@@ -184,12 +321,43 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     clearDraft();
   };
 
+  const resetCoverLetterBuilder = () => {
+    setCoverLetterName("");
+    setCoverLetterForm({
+      senderName: "",
+      senderTitle: "",
+      senderPhone: "",
+      senderEmail: "",
+      senderLocation: "",
+      letterDate: "",
+      recipientName: "",
+      recipientTitle: "",
+      companyName: "",
+      companyAddress: "",
+      positionTitle: "",
+      salutation: "Dear Hiring Manager,",
+      introParagraph: "",
+      experienceParagraph: "",
+      closingParagraph: "",
+      complimentaryClose: "Sincerely,",
+      signatureName: "",
+    });
+    clearCoverLetterDraft();
+  };
+
   // Load draft when modal opens
   useEffect(() => {
     if (showResumeBuilder) {
       loadDraft();
     }
   }, [showResumeBuilder]);
+
+  // Load cover letter draft when modal opens
+  useEffect(() => {
+    if (showCoverLetterBuilder) {
+      loadCoverLetterDraft();
+    }
+  }, [showCoverLetterBuilder]);
 
   // Auto-save draft whenever form data changes
   useEffect(() => {
@@ -198,6 +366,14 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       return () => clearTimeout(timeoutId);
     }
   }, [resumeName, personalInfo, skills, educationEntries, experienceEntries, projectEntries, certificationEntries, showResumeBuilder]);
+
+  // Auto-save cover letter draft whenever form data changes
+  useEffect(() => {
+    if (showCoverLetterBuilder) {
+      const timeoutId = setTimeout(saveCoverLetterDraft, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [coverLetterName, coverLetterForm, showCoverLetterBuilder]);
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -377,12 +553,80 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const handleSaveCoverLetter = async () => {
+    if (
+      !coverLetterName.trim() ||
+      !coverLetterForm.senderName.trim() ||
+      !coverLetterForm.senderEmail.trim() ||
+      !coverLetterForm.companyName.trim() ||
+      !coverLetterForm.positionTitle.trim() ||
+      !coverLetterForm.introParagraph.trim() ||
+      !coverLetterForm.closingParagraph.trim()
+    ) {
+      setErrorMessage("Please complete the required cover letter fields.");
+      return;
+    }
+
+    if (!userId) {
+      setErrorMessage("You must be signed in to save a cover letter.");
+      return;
+    }
+
+    setIsUploading(true);
+    setErrorMessage(null);
+
+    try {
+      const pdfBlob = generateCoverLetterPDF(coverLetterForm);
+      const safeName = coverLetterName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
+      const fileName = `cover_letter_${safeName || "document"}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+      const { data, error } = await uploadResume(file, userId);
+      if (error || !data) {
+        setErrorMessage(error?.message || "Failed to save cover letter. Please try again.");
+      } else {
+        rememberCoverLetterDocumentId(data.id);
+        queryCache.invalidate(`resumes-list-${userId}`);
+        refetch();
+        setStatusMessage("Cover letter saved successfully.");
+        closeCoverLetterBuilder();
+        resetCoverLetterBuilder();
+      }
+    } catch (error) {
+      console.error("Cover letter PDF generation error:", error);
+      setErrorMessage("Failed to generate cover letter PDF. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
   const formatSize = (bytes: number) => {
     if (!bytes && bytes !== 0) return "";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getDocumentType = (resume: ResumeWithUrl) => {
+    if (coverLetterDocumentIds.includes(resume.id)) {
+      return "Cover Letter";
+    }
+
+    const fileName = resume.file_name || "";
+    const filePath = resume.file_path || "";
+    const normalized = fileName.toLowerCase();
+    const normalizedPath = filePath.toLowerCase();
+    if (
+      normalized.includes("cover_letter") ||
+      normalized.includes("cover letter") ||
+      normalized.includes("cover-letter") ||
+      normalizedPath.includes("cover_letter") ||
+      normalizedPath.includes("cover-letter")
+    ) {
+      return "Cover Letter";
+    }
+    return "Résumé";
   };
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString();
@@ -477,6 +721,26 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 <Plus className="w-5 h-5" />
                 Create New Resume
               </button>
+              <button
+                onClick={() => {
+                  const hasDraft = localStorage.getItem(COVER_LETTER_DRAFT_KEY);
+                  if (hasDraft) {
+                    const shouldContinue = window.confirm(
+                      "You have an unsaved cover letter draft. Do you want to continue where you left off?\n\nClick OK to continue your draft, or Cancel to start fresh."
+                    );
+                    if (!shouldContinue) {
+                      resetCoverLetterBuilder();
+                    }
+                  } else {
+                    resetCoverLetterBuilder();
+                  }
+                  openCoverLetterBuilder();
+                }}
+                className="border-2 border-[#1B2744] text-[#1B2744] px-6 py-2.5 rounded-lg font-semibold hover:bg-[#1B2744] hover:text-white transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-5 h-5" />
+                Create New Cover Letter
+              </button>
             </div>
           </div>
 
@@ -501,7 +765,18 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 truncate">{resume.file_name}</h4>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h4 className="font-semibold text-gray-900 truncate">{resume.file_name}</h4>
+                          <span
+                            className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${
+                              getDocumentType(resume) === "Cover Letter"
+                                ? "bg-indigo-100 text-indigo-700"
+                                : "bg-teal-100 text-teal-700"
+                            }`}
+                          >
+                            {getDocumentType(resume)}
+                          </span>
+                        </div>
                         <p className="text-sm text-gray-500">
                           Uploaded {formatDate(resume.created_at)} · {formatSize(resume.file_size)}
                         </p>
@@ -1095,6 +1370,254 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               >
                 <FileText className="w-4 h-4" />
                 {isUploading ? "Saving..." : "Save Résumé"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCoverLetterBuilder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <FileText className="w-6 h-6 text-gray-700" />
+                <h2 className="text-2xl font-bold text-gray-900">Create New Cover Letter</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetCoverLetterBuilder}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Clear Form
+                </button>
+                <button
+                  onClick={closeCoverLetterBuilder}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              <div className="max-w-3xl mx-auto space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cover Letter Name *</label>
+                  <input
+                    type="text"
+                    value={coverLetterName}
+                    onChange={(e) => setCoverLetterName(e.target.value)}
+                    placeholder="e.g., Cover Letter - Career Coach Position"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744] focus:border-transparent"
+                  />
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.senderName}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderName: e.target.value })}
+                        placeholder="Joe Williams"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Professional Title</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.senderTitle}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderTitle: e.target.value })}
+                        placeholder="Career Coach/Resume Writer"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.senderPhone}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderPhone: e.target.value })}
+                        placeholder="868-554-0430"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                      <input
+                        type="email"
+                        value={coverLetterForm.senderEmail}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderEmail: e.target.value })}
+                        placeholder="joewilliams@gmail.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.senderLocation}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderLocation: e.target.value })}
+                        placeholder="Boston, MA"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                      <input
+                        type="date"
+                        value={coverLetterForm.letterDate}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, letterDate: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recipient Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hiring Manager Name</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.recipientName}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, recipientName: e.target.value })}
+                        placeholder="Ms. Jenny Johnson"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Recipient Title/Department</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.recipientTitle}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, recipientTitle: e.target.value })}
+                        placeholder="Human Resources"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.companyName}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, companyName: e.target.value })}
+                        placeholder="IHeartjobs"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.companyAddress}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, companyAddress: e.target.value })}
+                        placeholder="55 Bixby Way, Manchester, NH 40344"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Letter Content</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Position Applying For *</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.positionTitle}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, positionTitle: e.target.value })}
+                        placeholder="Career Counselor Position"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Salutation</label>
+                      <input
+                        type="text"
+                        value={coverLetterForm.salutation}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, salutation: e.target.value })}
+                        placeholder="Dear Ms. Johnson,"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Opening Paragraph *</label>
+                      <textarea
+                        value={coverLetterForm.introParagraph}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, introParagraph: e.target.value })}
+                        placeholder="Introduce yourself, mention the role, and explain why you are interested."
+                        rows={4}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Experience Paragraph</label>
+                      <textarea
+                        value={coverLetterForm.experienceParagraph}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, experienceParagraph: e.target.value })}
+                        placeholder="Highlight your relevant skills and achievements."
+                        rows={4}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Closing Paragraph *</label>
+                      <textarea
+                        value={coverLetterForm.closingParagraph}
+                        onChange={(e) => setCoverLetterForm({ ...coverLetterForm, closingParagraph: e.target.value })}
+                        placeholder="Close confidently, include contact preference, and thank the reader."
+                        rows={4}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Complimentary Close</label>
+                        <input
+                          type="text"
+                          value={coverLetterForm.complimentaryClose}
+                          onChange={(e) => setCoverLetterForm({ ...coverLetterForm, complimentaryClose: e.target.value })}
+                          placeholder="Sincerely,"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Signature Name</label>
+                        <input
+                          type="text"
+                          value={coverLetterForm.signatureName}
+                          onChange={(e) => setCoverLetterForm({ ...coverLetterForm, signatureName: e.target.value })}
+                          placeholder="Joe Williams"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={closeCoverLetterBuilder}
+                className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveCoverLetter}
+                disabled={isUploading}
+                className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                {isUploading ? "Saving..." : "Save Cover Letter"}
               </button>
             </div>
           </div>
