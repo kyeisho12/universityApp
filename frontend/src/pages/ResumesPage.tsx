@@ -787,10 +787,16 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       <button
                         onClick={() => handleDownload(resume)}
                         className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
-                        title="View resume"
+                        title={
+                          getDocumentType(resume) === "Cover Letter"
+                            ? "View cover letter"
+                            : "View resume"
+                        }
                       >
                         <Eye className="w-4 h-4" />
-                        View Resume
+                        {getDocumentType(resume) === "Cover Letter"
+                          ? "View Cover Letter"
+                          : "View Resume"}
                       </button>
                       <button
                         onClick={() => handleDelete(resume)}

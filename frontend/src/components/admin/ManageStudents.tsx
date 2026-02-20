@@ -43,6 +43,15 @@ export default function ManageStudents() {
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<TabView>("verified");
   const [verifyingId, setVerifyingId] = React.useState<string | null>(null); // tracks in-progress action
+  const [deactivateTarget, setDeactivateTarget] = React.useState<
+    { id: string; name: string; isActive: boolean } | null
+  >(null);
+  const [approveTarget, setApproveTarget] = React.useState<
+    { id: string; name: string } | null
+  >(null);
+  const [rejectTarget, setRejectTarget] = React.useState<
+    { id: string; name: string } | null
+  >(null);
 
   const userName = user?.email?.split("@")[0] || "";
   const userID = "ADMIN";
@@ -79,13 +88,6 @@ export default function ManageStudents() {
   }
 
   async function handleDeactivate(studentId: string, currentStatus: boolean) {
-    const confirmAction = window.confirm(
-      currentStatus
-        ? "Are you sure you want to deactivate this student?"
-        : "Reactivate this student?"
-    );
-    if (!confirmAction) return;
-
     const { error } = await supabase
       .from("profiles")
       .update({ is_active: !currentStatus })
@@ -99,13 +101,26 @@ export default function ManageStudents() {
     }
   }
 
+  const openDeactivateConfirm = (student: StudentProfile) => {
+    setDeactivateTarget({
+      id: student.id,
+      name: student.full_name || student.email || "this student",
+      isActive: student.is_active,
+    });
+  };
+
+  const closeDeactivateConfirm = () => {
+    setDeactivateTarget(null);
+  };
+
+  const confirmDeactivate = async () => {
+    if (!deactivateTarget) return;
+    await handleDeactivate(deactivateTarget.id, deactivateTarget.isActive);
+    setDeactivateTarget(null);
+  };
+
   // ── NEW: Verify / Reject handlers ────────────────────────────────────────
   async function handleApprove(studentId: string) {
-    const confirmAction = window.confirm(
-      "Approve this student's registration? They will be granted access to the system."
-    );
-    if (!confirmAction) return;
-
     setVerifyingId(studentId);
     const { error } = await supabase
       .from("profiles")
@@ -122,11 +137,6 @@ export default function ManageStudents() {
   }
 
   async function handleReject(studentId: string) {
-    const confirmAction = window.confirm(
-      "Reject this registration? The student account will be permanently deleted."
-    );
-    if (!confirmAction) return;
-
     setVerifyingId(studentId);
     const { error } = await supabase
       .from("profiles")
@@ -142,6 +152,40 @@ export default function ManageStudents() {
     setVerifyingId(null);
   }
   // ─────────────────────────────────────────────────────────────────────────
+
+  const openApproveConfirm = (student: StudentProfile) => {
+    setApproveTarget({
+      id: student.id,
+      name: student.full_name || student.email || "this student",
+    });
+  };
+
+  const closeApproveConfirm = () => {
+    setApproveTarget(null);
+  };
+
+  const confirmApprove = async () => {
+    if (!approveTarget) return;
+    await handleApprove(approveTarget.id);
+    setApproveTarget(null);
+  };
+
+  const openRejectConfirm = (student: StudentProfile) => {
+    setRejectTarget({
+      id: student.id,
+      name: student.full_name || student.email || "this student",
+    });
+  };
+
+  const closeRejectConfirm = () => {
+    setRejectTarget(null);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectTarget) return;
+    await handleReject(rejectTarget.id);
+    setRejectTarget(null);
+  };
 
   function handleNavigate(route: string) {
     navigate(`/${route}`);
@@ -415,7 +459,7 @@ export default function ManageStudents() {
                         </td>
                         <td className="px-6 py-4">
                           <button
-                            onClick={() => handleDeactivate(student.id, student.is_active)}
+                            onClick={() => openDeactivateConfirm(student)}
                             className={`px-3 py-1 rounded-lg text-sm font-medium ${
                               student.is_active
                                 ? "bg-red-100 text-red-700 hover:bg-red-200"
@@ -501,7 +545,7 @@ export default function ManageStudents() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleApprove(student.id)}
+                            onClick={() => openApproveConfirm(student)}
                             disabled={verifyingId === student.id}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
                           >
@@ -509,7 +553,7 @@ export default function ManageStudents() {
                             Approve
                           </button>
                           <button
-                            onClick={() => handleReject(student.id)}
+                            onClick={() => openRejectConfirm(student)}
                             disabled={verifyingId === student.id}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
                           >
@@ -526,6 +570,130 @@ export default function ManageStudents() {
           )}
         </main>
       </div>
+
+      {deactivateTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeDeactivateConfirm}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {deactivateTarget.isActive ? "Deactivate Student" : "Reactivate Student"}
+                </h2>
+                <p className="text-sm text-gray-600 mt-2">
+                  {deactivateTarget.isActive
+                    ? `Are you sure you want to deactivate ${deactivateTarget.name}? They will lose access until reactivated.`
+                    : `Reactivate ${deactivateTarget.name} so they can access the system again.`}
+                </p>
+              </div>
+              <button
+                onClick={closeDeactivateConfirm}
+                className="p-2 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={closeDeactivateConfirm}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeactivate}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                  deactivateTarget.isActive ? "bg-red-600 hover:bg-red-700" : "bg-[#1B2744] hover:bg-[#131d33]"
+                }`}
+              >
+                {deactivateTarget.isActive ? "Deactivate" : "Reactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {approveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeApproveConfirm}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Approve Student</h2>
+                <p className="text-sm text-gray-600 mt-2">
+                  Are you sure you want to approve {approveTarget.name}? They will be granted access to the system.
+                </p>
+              </div>
+              <button
+                onClick={closeApproveConfirm}
+                className="p-2 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={closeApproveConfirm}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApprove}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeRejectConfirm}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Reject Student</h2>
+                <p className="text-sm text-gray-600 mt-2">
+                  Reject {rejectTarget.name}? This will permanently delete the student account.
+                </p>
+              </div>
+              <button
+                onClick={closeRejectConfirm}
+                className="p-2 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={closeRejectConfirm}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
