@@ -8,7 +8,6 @@ import AdminPage from './pages/AdminPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
 import JobsPage from './pages/JobsPage'
 import ResumesPage from './pages/ResumesPage'
-import CoverLettersPage from './pages/CoverLettersPage'
 import EventsPage from './pages/EventsPage'
 import MockInterviewPage from './pages/MockInterviewPage'
 import CreateStudentProfilePage from './pages/CreateStudentProfilePage'
@@ -324,16 +323,6 @@ export default function App() {
               <RequireStudent>
                 <RequireProfile>
                   <ResumesPage />
-                </RequireProfile>
-              </RequireStudent>
-            }
-          />
-          <Route
-            path="/student/cover-letters"
-            element={
-              <RequireStudent>
-                <RequireProfile>
-                  <CoverLettersPage />
                 </RequireProfile>
               </RequireStudent>
             }

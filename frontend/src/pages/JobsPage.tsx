@@ -365,14 +365,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               <LayoutGrid className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-          <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md">
-            <input
-              type="text"
-              placeholder="Search jobs, events, resources..."
-              className="w-full px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:bg-white focus:ring-0 outline-none placeholder-gray-500"
-            />
-          </div>
-          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0" />
+          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0 ml-auto" />
         </div>
 
         {/* Content Area */}
@@ -487,13 +480,15 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">All Jobs</h3>
                   <div className="space-y-3">
-                    {jobs.length === 0 ? (
+                    {filteredJobs.length === 0 ? (
                       <div className="text-center py-8">
                         <Bookmark className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                        <p className="text-gray-500 text-xs">No jobs available</p>
+                        <p className="text-gray-500 text-xs">
+                          {jobs.length === 0 ? "No jobs available" : "No jobs match your search"}
+                        </p>
                       </div>
                     ) : (
-                      jobs.map((job) => (
+                      filteredJobs.map((job) => (
                         <button
                           key={`all-${job.id}`}
                           onClick={() => setSelectedJob(job.id || null)}

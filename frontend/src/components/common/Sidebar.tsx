@@ -8,7 +8,6 @@ import {
   LogOut,
   User,
   ClipboardList,
-  FileSignature,
 } from "lucide-react";
 
 export const Sidebar = ({
@@ -87,15 +86,9 @@ export const Sidebar = ({
         />
         <NavItem
           icon={<FileText className="w-5 h-5" />}
-          label="My Résumés"
+          label="My Documents"
           active={activeNav === "student/resumes"}
           onClick={() => handleNavClick("student/resumes")}
-        />
-        <NavItem
-          icon={<FileSignature className="w-5 h-5" />}
-          label="Cover Letters"
-          active={activeNav === "student/cover-letters"}
-          onClick={() => handleNavClick("student/cover-letters")}
         />
         <NavItem
           icon={<Calendar className="w-5 h-5" />}

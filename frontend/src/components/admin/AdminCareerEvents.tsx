@@ -71,9 +71,36 @@ export default function AdminCareerEvents() {
     }
   }
 
+  function toDateKey(dateValue?: string | null): string | null {
+    if (!dateValue) return null;
+
+    const trimmed = dateValue.trim();
+    if (!trimmed) return null;
+
+    const isoDateMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoDateMatch) {
+      return isoDateMatch[1];
+    }
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const activeEventsCount = events.filter((event) => {
+    const eventDateKey = toDateKey(event.date);
+    return eventDateKey !== null && eventDateKey >= todayKey;
+  }).length;
+
   const stats = [
     { label: "Total Events", value: events.length.toString() },
-    { label: "Active Events", value: events.filter((e) => new Date(e.date) >= new Date(new Date().toISOString().split('T')[0])).length.toString() },
+    { label: "Active Events", value: activeEventsCount.toString() },
     { label: "Total Registrations", value: events.filter((e) => e.event_type !== "Announcement").reduce((sum, e) => sum + (e.registered || 0), 0).toString() },
     { label: "Job Fairs", value: events.filter((e) => e.event_type === "Job Fair").length.toString() },
   ];
@@ -274,16 +301,6 @@ export default function AdminCareerEvents() {
               >
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search students, employers, reports..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
             </div>
             <button className="p-2 hover:bg-gray-100 rounded-lg relative">
               <Bell className="w-6 h-6 text-gray-600" />

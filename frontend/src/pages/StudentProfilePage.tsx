@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Search, User, Mail, Phone, MapPin, GraduationCap, Briefcase, PencilLine } from "lucide-react";
+import { Bell, User, Mail, Phone, MapPin, GraduationCap, Briefcase, PencilLine } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabaseClient";
@@ -101,15 +101,7 @@ export default function StudentProfilePage() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search jobs, events, resources..."
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:bg-white focus:ring-0 outline-none placeholder-gray-500"
-            />
-          </div>
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900" />
+          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         <div className="p-8 overflow-y-auto">

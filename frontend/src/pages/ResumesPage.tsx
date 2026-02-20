@@ -646,14 +646,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       <div className="flex-1 overflow-auto">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Search jobs, events, resources..."
-              className="w-full px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:bg-white focus:ring-0 outline-none placeholder-gray-500"
-            />
-          </div>
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900" />
+          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         {/* Content Area */}
