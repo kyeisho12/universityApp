@@ -86,6 +86,13 @@ export default function CreateStudentProfilePage() {
     return String(value)
   }
 
+  const parseSalaryValue = (value: string): number | null => {
+    const cleaned = value.replace(/[^\d.]/g, '').trim()
+    if (!cleaned) return null
+    const parsed = Number(cleaned)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
   const pageTitle = useMemo(() => (profile && isProfileComplete ? 'Update Profile' : 'Create Your Student Profile'), [
     profile,
     isProfileComplete,
@@ -133,10 +140,10 @@ export default function CreateStudentProfilePage() {
         work_experience_entries: Array.isArray(profile.work_experience_entries) && profile.work_experience_entries.length > 0
           ? profile.work_experience_entries
           : [{ title: '', company: '', start_date: '', end_date: '', description: '' }],
-        preferred_job_types: normalizeList(profile.preferred_job_types),
-        preferred_industries: normalizeList(profile.preferred_industries),
-        preferred_locations: normalizeList(profile.preferred_locations),
-        expected_salary_range: toStringValue(profile.expected_salary_range),
+        preferred_job_types: normalizeList(profile.preferred_job_types ?? profile.job_type),
+        preferred_industries: normalizeList(profile.preferred_industries ?? profile.Pref_Industries),
+        preferred_locations: normalizeList(profile.preferred_locations ?? profile.Pref_Location),
+        expected_salary_range: toStringValue(profile.expected_salary_range ?? profile.Expected_Salary),
       })
     }
   }, [profile, draftKey, isDirty])
@@ -240,6 +247,7 @@ export default function CreateStudentProfilePage() {
   }
 
   function updatePreference(listKey: 'preferred_job_types' | 'preferred_industries' | 'preferred_locations', index: number, value: string) {
+    setIsDirty(true)
     setFormData((prev) => {
       const next = [...prev[listKey]]
       next[index] = value
@@ -248,10 +256,12 @@ export default function CreateStudentProfilePage() {
   }
 
   function addPreference(listKey: 'preferred_job_types' | 'preferred_industries' | 'preferred_locations') {
+    setIsDirty(true)
     setFormData((prev) => ({ ...prev, [listKey]: [...prev[listKey], ''] }))
   }
 
   function removePreference(listKey: 'preferred_job_types' | 'preferred_industries' | 'preferred_locations', index: number) {
+    setIsDirty(true)
     setFormData((prev) => ({
       ...prev,
       [listKey]: prev[listKey].filter((_, idx) => idx !== index),
@@ -262,6 +272,10 @@ export default function CreateStudentProfilePage() {
     e.preventDefault()
     setError('')
     setMessage('')
+    const preferredJobTypes = formData.preferred_job_types.map((item) => item.trim()).filter(Boolean)
+    const preferredIndustries = formData.preferred_industries.map((item) => item.trim()).filter(Boolean)
+    const preferredLocations = formData.preferred_locations.map((item) => item.trim()).filter(Boolean)
+    const expectedSalaryText = toStringValue(formData.expected_salary_range).trim()
     const payload = {
       ...formData,
       student_number: toStringValue(formData.student_number).trim(),
@@ -273,9 +287,14 @@ export default function CreateStudentProfilePage() {
       work_experience_entries: formData.work_experience_entries.filter((entry) =>
         entry.title || entry.company || entry.start_date || entry.end_date || entry.description
       ),
-      preferred_job_types: formData.preferred_job_types.map((item) => item.trim()).filter(Boolean),
-      preferred_industries: formData.preferred_industries.map((item) => item.trim()).filter(Boolean),
-      preferred_locations: formData.preferred_locations.map((item) => item.trim()).filter(Boolean),
+      preferred_job_types: preferredJobTypes,
+      preferred_industries: preferredIndustries,
+      preferred_locations: preferredLocations,
+      expected_salary_range: expectedSalaryText,
+      job_type: preferredJobTypes.join(', '),
+      Pref_Industries: preferredIndustries.join(', '),
+      Pref_Location: preferredLocations.join(', '),
+      Expected_Salary: parseSalaryValue(expectedSalaryText),
     }
     const { error: saveError } = await saveProfile(payload)
     if (saveError) {
