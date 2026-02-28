@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 import requests
 from app.ai_module.whisper.transcriber import WhisperTranscriber
+from app.ai_module.phi3 import Phi3FollowupGenerator
 
 logger = logging.getLogger(__name__)
 logger.info("Initializing interview_service module")
@@ -31,6 +32,7 @@ class InterviewService:
             self.api_url = None
             self.headers = None
         self.whisper_transcriber = WhisperTranscriber()
+        self.phi3_followup_generator = Phi3FollowupGenerator()
 
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Dict[str, Any]:
         """Make a request to Supabase REST API"""
@@ -87,6 +89,103 @@ class InterviewService:
                 "error": str(e),
                 "status_code": 500
             }
+
+    @staticmethod
+    def _normalize_question_text(text: Optional[str]) -> str:
+        """Normalize question text for stable dedupe lookup."""
+        return " ".join((text or "").strip().lower().split())
+
+    def _find_question_bank_id_by_text(self, question_text: Optional[str]) -> Optional[str]:
+        """Find existing question bank id by normalized question text."""
+        normalized_question = self._normalize_question_text(question_text)
+        if not normalized_question:
+            return None
+
+        result = self._make_request(
+            "GET",
+            "/interview_question_bank",
+            params={
+                "select": "id",
+                "question_normalized": f"eq.{normalized_question}",
+                "limit": "1",
+            },
+        )
+        if not result.get("success"):
+            return None
+
+        records = result.get("data") or []
+        if not records:
+            return None
+
+        return records[0].get("id")
+
+    def _persist_generated_followup_question(
+        self,
+        *,
+        followup_question: str,
+        category: Optional[str],
+        parent_question_text: Optional[str],
+        source_model: Optional[str],
+        generation_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Persist generated follow-up question into interview_question_bank with dedupe."""
+        normalized_followup = self._normalize_question_text(followup_question)
+        if not normalized_followup:
+            return {
+                "success": False,
+                "error": "Generated follow-up question is empty",
+            }
+
+        existing_id = self._find_question_bank_id_by_text(normalized_followup)
+        if existing_id:
+            return {
+                "success": True,
+                "question_bank_id": existing_id,
+                "deduped": True,
+            }
+
+        parent_question_id = self._find_question_bank_id_by_text(parent_question_text)
+
+        payload = {
+            "question_text": followup_question.strip(),
+            "category": (category or "general").strip() or "general",
+            "source_type": "generated",
+            "source_model": (source_model or "phi-3-mini").strip() or "phi-3-mini",
+            "language_code": "en",
+            "parent_question_id": parent_question_id,
+            "generation_context": generation_context or {},
+            "is_active": True,
+        }
+
+        insert_result = self._make_request(
+            "POST",
+            "/interview_question_bank?select=id,question_text,category,source_type,source_model,parent_question_id,created_at,updated_at",
+            data=payload,
+        )
+
+        if insert_result.get("success"):
+            created_records = insert_result.get("data") or []
+            created_id = created_records[0].get("id") if created_records else None
+            if created_id:
+                return {
+                    "success": True,
+                    "question_bank_id": created_id,
+                    "deduped": False,
+                }
+
+        fallback_id = self._find_question_bank_id_by_text(normalized_followup)
+        if fallback_id:
+            return {
+                "success": True,
+                "question_bank_id": fallback_id,
+                "deduped": True,
+            }
+
+        return {
+            "success": False,
+            "error": insert_result.get("error", "Failed to persist generated follow-up question"),
+            "status_code": insert_result.get("status_code", 500),
+        }
 
     def get_user_interviews(self, user_id: str, status: Optional[str] = None) -> Dict[str, Any]:
         """Get all interviews for a specific user"""
@@ -608,6 +707,174 @@ class InterviewService:
             }
         except Exception as error:
             logger.error(f"Error transcribing segment {segment_id}: {str(error)}")
+            return {
+                "success": False,
+                "error": str(error),
+                "status_code": 500,
+            }
+
+    def generate_followup_question(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate one interview follow-up question using local Phi-3."""
+        try:
+            original_question = (data.get("original_question") or "").strip()
+            candidate_answer = (data.get("candidate_answer") or "").strip()
+            category = (data.get("category") or "").strip() or None
+            ideal_answer = (data.get("ideal_answer") or "").strip() or None
+
+            if not original_question:
+                return {
+                    "success": False,
+                    "error": "Missing required field: original_question",
+                    "status_code": 400,
+                }
+
+            if not candidate_answer:
+                return {
+                    "success": False,
+                    "error": "Missing required field: candidate_answer",
+                    "status_code": 400,
+                }
+
+            generation_result = self.phi3_followup_generator.generate_followup_question(
+                original_question=original_question,
+                candidate_answer=candidate_answer,
+                category=category,
+                ideal_answer=ideal_answer,
+            )
+
+            if not generation_result.get("success"):
+                return {
+                    "success": False,
+                    "error": generation_result.get("error", "Failed to generate follow-up question"),
+                    "status_code": 500,
+                }
+
+            followup_question_text = generation_result.get("question", "")
+            persist_result = self._persist_generated_followup_question(
+                followup_question=followup_question_text,
+                category=category,
+                parent_question_text=original_question,
+                source_model=generation_result.get("source") or "phi-3-mini",
+                generation_context={
+                    "flow": "generate_followup_question",
+                    "original_question": original_question,
+                    "candidate_answer_present": bool(candidate_answer),
+                },
+            )
+
+            persistence_warning = None
+            question_bank_id = None
+            if persist_result.get("success"):
+                question_bank_id = persist_result.get("question_bank_id")
+            else:
+                persistence_warning = persist_result.get("error")
+                logger.warning(
+                    "Generated follow-up persisted failed: %s",
+                    persistence_warning,
+                )
+
+            return {
+                "success": True,
+                "data": {
+                    "followup_question": followup_question_text,
+                    "source": generation_result.get("source", "unknown"),
+                    "question_bank_id": question_bank_id,
+                    "question_bank_persistence_warning": persistence_warning,
+                    "warning": generation_result.get("error"),
+                },
+                "status_code": 200,
+            }
+        except Exception as error:
+            logger.error(f"Error generating follow-up question: {str(error)}")
+            return {
+                "success": False,
+                "error": str(error),
+                "status_code": 500,
+            }
+
+    def decide_next_question(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Decide whether to ask a follow-up or move to the next bank question."""
+        try:
+            current_question = (data.get("current_question") or "").strip()
+            candidate_answer = (data.get("candidate_answer") or "").strip()
+            category = (data.get("category") or "").strip() or None
+            ideal_answer = (data.get("ideal_answer") or "").strip() or None
+            remaining_bank_questions = int(data.get("remaining_bank_questions") or 0)
+            followup_count_for_current = int(data.get("followup_count_for_current") or 0)
+
+            if not current_question:
+                return {
+                    "success": False,
+                    "error": "Missing required field: current_question",
+                    "status_code": 400,
+                }
+
+            if not candidate_answer:
+                return {
+                    "success": False,
+                    "error": "Missing required field: candidate_answer",
+                    "status_code": 400,
+                }
+
+            decision_result = self.phi3_followup_generator.decide_next_step(
+                current_question=current_question,
+                candidate_answer=candidate_answer,
+                remaining_bank_questions=remaining_bank_questions,
+                followup_count_for_current=followup_count_for_current,
+            )
+
+            if not decision_result.get("success"):
+                return {
+                    "success": False,
+                    "error": decision_result.get("error", "Failed to decide next question step"),
+                    "status_code": 500,
+                }
+
+            action = decision_result.get("action", "next_bank_question")
+            response_data: Dict[str, Any] = {
+                "action": action,
+                "reason": decision_result.get("reason"),
+                "source": decision_result.get("source", "unknown"),
+            }
+
+            if action == "follow_up":
+                followup_result = self.phi3_followup_generator.generate_followup_question(
+                    original_question=current_question,
+                    candidate_answer=candidate_answer,
+                    category=category,
+                    ideal_answer=ideal_answer,
+                )
+
+                followup_question_text = followup_result.get("question", "")
+                persist_result = self._persist_generated_followup_question(
+                    followup_question=followup_question_text,
+                    category=category,
+                    parent_question_text=current_question,
+                    source_model=followup_result.get("source") or "phi-3-mini",
+                    generation_context={
+                        "flow": "decide_next_question",
+                        "decision_reason": decision_result.get("reason"),
+                        "remaining_bank_questions": remaining_bank_questions,
+                        "followup_count_for_current": followup_count_for_current,
+                    },
+                )
+
+                response_data["followup_question"] = followup_question_text
+                response_data["followup_source"] = followup_result.get("source", "unknown")
+                response_data["warning"] = followup_result.get("error")
+                response_data["question_bank_id"] = persist_result.get("question_bank_id") if persist_result.get("success") else None
+                if not persist_result.get("success"):
+                    persistence_warning = persist_result.get("error")
+                    response_data["question_bank_persistence_warning"] = persistence_warning
+                    logger.warning("Failed to persist follow-up question from decision flow: %s", persistence_warning)
+
+            return {
+                "success": True,
+                "data": response_data,
+                "status_code": 200,
+            }
+        except Exception as error:
+            logger.error(f"Error deciding next question: {str(error)}")
             return {
                 "success": False,
                 "error": str(error),

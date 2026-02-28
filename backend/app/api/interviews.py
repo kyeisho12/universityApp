@@ -304,3 +304,34 @@ def transcribe_live_audio():
             "success": False,
             "error": str(e)
         }), 500
+
+
+@interviews_bp.route("/follow-up-question", methods=["POST"])
+@require_auth
+def generate_followup_question():
+    """Generate one interview follow-up question using local Phi-3."""
+    try:
+        data = request.get_json(silent=True) or {}
+        result = get_interview_service().generate_followup_question(data)
+        return jsonify(result), result.get("status_code", 200)
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@interviews_bp.route("/next-question-decision", methods=["POST"])
+@interviews_bp.route("/flow/next-question-decision", methods=["POST"])
+@require_auth
+def decide_next_question():
+    """Decide next interview step: follow-up question or next bank question."""
+    try:
+        data = request.get_json(silent=True) or {}
+        result = get_interview_service().decide_next_question(data)
+        return jsonify(result), result.get("status_code", 200)
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500

@@ -43,6 +43,59 @@ export async function getMockInterviewQuestions(limit = 5) {
 	return { data: questions, error: null }
 }
 
+export async function getMockInterviewQuestionsExcluding({ limit = 5, excludeIds = [] } = {}) {
+	const excluded = new Set((excludeIds || []).filter(Boolean))
+	const { data, error } = await supabase
+		.from('interview_question_bank')
+		.select('id, question_text, category')
+		.eq('is_active', true)
+
+	if (error) {
+		return { data: [], error }
+	}
+
+	const normalizedLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 5
+	const filtered = (data || []).filter((item) => !excluded.has(item.id))
+	const shuffled = [...filtered].sort(() => Math.random() - 0.5)
+	const selected = shuffled.slice(0, normalizedLimit)
+
+	const questions = selected.map((item) => ({
+		id: item.id,
+		type: toTitleCase(item.category || 'general'),
+		question: item.question_text,
+		tip: 'Use the STAR method and provide one concrete example in your response.',
+	}))
+
+	return { data: questions, error: null }
+}
+
+export async function getQuestionById(questionId) {
+	if (!questionId) {
+		return { data: null, error: new Error('Missing question id') }
+	}
+
+	const { data, error } = await supabase
+		.from('interview_question_bank')
+		.select('id, question_text, category')
+		.eq('id', questionId)
+		.eq('is_active', true)
+		.single()
+
+	if (error || !data) {
+		return { data: null, error: error || new Error('Question not found') }
+	}
+
+	return {
+		data: {
+			id: data.id,
+			type: toTitleCase(data.category || 'general'),
+			question: data.question_text,
+			tip: 'Use the STAR method and provide one concrete example in your response.',
+		},
+		error: null,
+	}
+}
+
 export async function startInterviewSession({ userId, userEmail, userName, totalQuestions = 5, metadata = {} }) {
 	if (!userId) {
 		return { data: null, error: new Error('Missing user id') }
@@ -279,6 +332,110 @@ export async function transcribeLiveAudioChunk({ audioBlob, language = 'en' }) {
 	return {
 		data: null,
 		error: new Error(lastError?.message || `Live transcription failed for all API URLs: ${baseUrls.join(', ')}`),
+	}
+}
+
+export async function decideNextQuestionStep({
+	currentQuestion,
+	candidateAnswer,
+	category,
+	idealAnswer,
+	remainingBankQuestions = 0,
+	followupCountForCurrent = 0,
+}) {
+	if (!currentQuestion || !candidateAnswer) {
+		return { data: null, error: new Error('Missing currentQuestion or candidateAnswer') }
+	}
+
+	const configuredBaseUrl = (import.meta.env.VITE_API_URL || '').trim()
+	const normalizedConfiguredBaseUrl = configuredBaseUrl.includes('localhost:5000')
+		? configuredBaseUrl.replace('localhost:5000', 'localhost:3001')
+		: configuredBaseUrl
+	const fallbackBaseUrls = ['http://localhost:3001/api', 'http://127.0.0.1:3001/api']
+	const baseUrls = Array.from(new Set([normalizedConfiguredBaseUrl, ...fallbackBaseUrls].filter(Boolean)))
+
+	let lastError = null
+
+	for (const baseUrl of baseUrls) {
+		const decisionEndpoints = [
+			'/interviews/next-question-decision',
+			'/interviews/flow/next-question-decision',
+		]
+
+		try {
+			let decisionRouteUnavailable = false
+
+			for (const endpoint of decisionEndpoints) {
+				const response = await fetch(`${baseUrl}${endpoint}`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						current_question: currentQuestion,
+						candidate_answer: candidateAnswer,
+						category,
+						ideal_answer: idealAnswer,
+						remaining_bank_questions: remainingBankQuestions,
+						followup_count_for_current: followupCountForCurrent,
+					}),
+				})
+
+				const payload = await response.json().catch(() => ({}))
+
+				if (response.status === 404 || response.status === 405) {
+					decisionRouteUnavailable = true
+					continue
+				}
+
+				if (!response.ok || payload?.success === false) {
+					lastError = new Error(payload?.error || `Next question decision failed (${response.status})`)
+					break
+				}
+
+				return { data: payload?.data || payload, error: null }
+			}
+
+			if (!decisionRouteUnavailable) {
+				continue
+			}
+
+			const followupFallbackResponse = await fetch(`${baseUrl}/interviews/follow-up-question`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					original_question: currentQuestion,
+					candidate_answer: candidateAnswer,
+					category,
+					ideal_answer: idealAnswer,
+				}),
+			})
+
+			const followupFallbackPayload = await followupFallbackResponse.json().catch(() => ({}))
+			if (followupFallbackResponse.ok && followupFallbackPayload?.success !== false) {
+				const followupQuestion = followupFallbackPayload?.data?.followup_question || ''
+				if (followupQuestion) {
+					return {
+						data: {
+							action: 'follow_up',
+							followup_question: followupQuestion,
+							source: followupFallbackPayload?.data?.source || 'fallback_followup_endpoint',
+							reason: 'decision_route_unavailable',
+						},
+						error: null,
+					}
+				}
+			}
+		} catch (error) {
+			lastError = error instanceof Error ? error : new Error('Unknown next question decision error')
+		}
+	}
+
+	return {
+		data: null,
+		error: new Error(lastError?.message || `Next question decision failed for all API URLs: ${baseUrls.join(', ')}`),
 	}
 }
 

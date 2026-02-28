@@ -17,8 +17,10 @@ import { useAuth } from "../hooks/useAuth";
 import { useStudentId } from "../hooks/useStudentId";
 import { useStudent } from "../context/StudentContext";
 import {
+  decideNextQuestionStep,
   getLatestQuestionTranscript,
-  getMockInterviewQuestions,
+  getMockInterviewQuestionsExcluding,
+  getQuestionById,
   insertRecordingSegmentMetadata,
   startInterviewSession,
   triggerPendingSessionTranscriptions,
@@ -44,6 +46,8 @@ interface Question {
   type: string;
   question: string;
   tip: string;
+  source?: "fixed" | "bank" | "followup";
+  baseQuestionId?: string;
 }
 
 interface ActiveSegmentMeta {
@@ -55,8 +59,26 @@ interface ActiveSegmentMeta {
   startedAt: number;
 }
 
+interface PersistedMockInterviewState {
+  hasStarted: boolean;
+  isSessionStarted: boolean;
+  isPaused?: boolean;
+  isCompleted: boolean;
+  currentQuestion: number;
+  isCameraOn: boolean;
+  isMicOn: boolean;
+  sessionId?: string | null;
+  storagePrefix?: string | null;
+  savedSegmentCount?: number;
+  questions?: Question[];
+  bankQuestionPool?: Question[];
+  followupCountByBase?: Record<string, number>;
+}
+
 const LIVE_CHUNK_INTERVAL_MS = 2000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
+const OPENING_QUESTION_ID = "890b7831-97c4-4f25-bf26-590ca44fbee7";
+const RANDOM_BANK_QUESTION_COUNT = 5;
 
 function MockInterviewPageContent({
   email,
@@ -91,6 +113,9 @@ function MockInterviewPageContent({
     sessionId: string | null;
     storagePrefix: string | null;
     savedSegmentCount: number;
+    questions: Question[];
+    bankQuestionPool: Question[];
+    followupCountByBase: Record<string, number>;
   } | null>(null);
 
   if (!initialStateRef.current) {
@@ -101,18 +126,7 @@ function MockInterviewPageContent({
         localStorage.getItem(preferredKey) ||
         sessionStorage.getItem(SESSION_BACKUP_KEY);
       if (savedState) {
-        const parsed = JSON.parse(savedState) as {
-          hasStarted: boolean;
-          isSessionStarted: boolean;
-          isPaused?: boolean;
-          isCompleted: boolean;
-          currentQuestion: number;
-          isCameraOn: boolean;
-          isMicOn: boolean;
-          sessionId?: string | null;
-          storagePrefix?: string | null;
-          savedSegmentCount?: number;
-        };
+        const parsed = JSON.parse(savedState) as PersistedMockInterviewState;
         initialStateRef.current = {
           hasStarted: Boolean(parsed.hasStarted),
           isSessionStarted: Boolean(parsed.isSessionStarted),
@@ -124,6 +138,12 @@ function MockInterviewPageContent({
           sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : null,
           storagePrefix: typeof parsed.storagePrefix === "string" ? parsed.storagePrefix : null,
           savedSegmentCount: typeof parsed.savedSegmentCount === "number" ? parsed.savedSegmentCount : 0,
+          questions: Array.isArray(parsed.questions) ? parsed.questions : [],
+          bankQuestionPool: Array.isArray(parsed.bankQuestionPool) ? parsed.bankQuestionPool : [],
+          followupCountByBase:
+            parsed.followupCountByBase && typeof parsed.followupCountByBase === "object"
+              ? parsed.followupCountByBase
+              : {},
         };
       }
     } catch (error) {
@@ -174,7 +194,16 @@ function MockInterviewPageContent({
   const [isPauseTranscriptPending, setIsPauseTranscriptPending] = useState(false);
   const [liveDraftStatus, setLiveDraftStatus] = useState<string | null>(null);
   const [useLiveChunkFallback, setUseLiveChunkFallback] = useState(false);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Question[]>(
+    initialStateRef.current?.questions ?? []
+  );
+  const [bankQuestionPool, setBankQuestionPool] = useState<Question[]>(
+    initialStateRef.current?.bankQuestionPool ?? []
+  );
+  const [followupCountByBase, setFollowupCountByBase] = useState<Record<string, number>>(
+    initialStateRef.current?.followupCountByBase ?? {}
+  );
+  const [isDecidingNextQuestion, setIsDecidingNextQuestion] = useState(false);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -203,6 +232,7 @@ function MockInterviewPageContent({
   const lastHydratedKeyRef = useRef<string | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const activeQuestionIndexRef = useRef(0);
+  const bankQuestionPoolRef = useRef<Question[]>([]);
 
   useEffect(() => {
     if (stateKey === derivedStateKey) return;
@@ -238,18 +268,7 @@ function MockInterviewPageContent({
         lastHydratedKeyRef.current = stateKey;
         return;
       }
-      const parsed = JSON.parse(savedState) as {
-        hasStarted: boolean;
-        isSessionStarted: boolean;
-        isPaused?: boolean;
-        isCompleted: boolean;
-        currentQuestion: number;
-        isCameraOn: boolean;
-        isMicOn: boolean;
-        sessionId?: string | null;
-        storagePrefix?: string | null;
-        savedSegmentCount?: number;
-      };
+      const parsed = JSON.parse(savedState) as PersistedMockInterviewState;
       if (typeof parsed.hasStarted === "boolean") {
         setHasStarted(parsed.hasStarted);
       }
@@ -276,6 +295,15 @@ function MockInterviewPageContent({
       if (typeof parsed.savedSegmentCount === "number") {
         setSavedSegmentCount(parsed.savedSegmentCount);
       }
+      if (Array.isArray(parsed.questions)) {
+        setQuestions(parsed.questions);
+      }
+      if (Array.isArray(parsed.bankQuestionPool)) {
+        setBankQuestionPool(parsed.bankQuestionPool);
+      }
+      if (parsed.followupCountByBase && typeof parsed.followupCountByBase === "object") {
+        setFollowupCountByBase(parsed.followupCountByBase);
+      }
       hasHydratedRef.current = true;
       lastHydratedKeyRef.current = stateKey;
       setIsHydrated(true);
@@ -290,6 +318,10 @@ function MockInterviewPageContent({
   useEffect(() => {
     desiredCameraOnRef.current = isCameraOn;
   }, [isCameraOn]);
+
+  useEffect(() => {
+    bankQuestionPoolRef.current = bankQuestionPool;
+  }, [bankQuestionPool]);
 
   useEffect(() => {
     segmentOrderRef.current = Math.max(savedSegmentCount + 1, 1);
@@ -309,6 +341,9 @@ function MockInterviewPageContent({
         sessionId,
         storagePrefix,
         savedSegmentCount,
+        questions,
+        bankQuestionPool,
+        followupCountByBase,
       };
       const serialized = JSON.stringify(nextState);
       localStorage.setItem(stateKey, serialized);
@@ -317,7 +352,7 @@ function MockInterviewPageContent({
     } catch (error) {
       console.error("Failed to persist mock interview state:", error);
     }
-  }, [hasStarted, isSessionStarted, isPaused, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, stateKey]);
+  }, [hasStarted, isSessionStarted, isPaused, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, questions, bankQuestionPool, followupCountByBase, stateKey]);
 
   const persistSnapshot = useCallback(() => {
     if (!stateKey) return;
@@ -333,6 +368,9 @@ function MockInterviewPageContent({
         sessionId,
         storagePrefix,
         savedSegmentCount,
+        questions,
+        bankQuestionPool,
+        followupCountByBase,
       };
       const serialized = JSON.stringify(nextState);
       localStorage.setItem(stateKey, serialized);
@@ -341,7 +379,7 @@ function MockInterviewPageContent({
     } catch (error) {
       console.error("Failed to persist mock interview state:", error);
     }
-  }, [stateKey, hasStarted, isSessionStarted, isPaused, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount]);
+  }, [stateKey, hasStarted, isSessionStarted, isPaused, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, questions, bankQuestionPool, followupCountByBase]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -373,28 +411,59 @@ function MockInterviewPageContent({
   const fetchQuestions = useCallback(async (): Promise<Question[]> => {
     setQuestionsLoading(true);
     setQuestionsError(null);
-    const { data, error } = await getMockInterviewQuestions(5);
-    if (error) {
+
+    const openingResult = await getQuestionById(OPENING_QUESTION_ID);
+    if (openingResult.error || !openingResult.data) {
       setQuestions([]);
+      setBankQuestionPool([]);
+      bankQuestionPoolRef.current = [];
       setQuestionsError("Failed to load question bank. Please try again.");
       setQuestionsLoading(false);
       return [];
     }
-    if (!data || data.length === 0) {
+
+    const bankResult = await getMockInterviewQuestionsExcluding({
+      limit: RANDOM_BANK_QUESTION_COUNT,
+      excludeIds: [OPENING_QUESTION_ID],
+    });
+
+    if (bankResult.error) {
       setQuestions([]);
-      setQuestionsError("No active questions found in the question bank.");
+      setBankQuestionPool([]);
+      bankQuestionPoolRef.current = [];
+      setQuestionsError("Failed to load question bank. Please try again.");
       setQuestionsLoading(false);
       return [];
     }
-    setQuestions(data);
-    setCurrentQuestion((previous) => {
-      if (data.length === 0) {
-        return 0;
-      }
-      return Math.min(Math.max(previous, 0), data.length - 1);
-    });
+
+    const openingQuestion: Question = {
+      ...openingResult.data,
+      source: "fixed",
+      baseQuestionId: openingResult.data.id,
+    };
+
+    const bankPool = (bankResult.data || []).map((question) => ({
+      ...question,
+      source: "bank" as const,
+      baseQuestionId: question.id,
+    }));
+
+    if (bankPool.length === 0) {
+      setQuestions([openingQuestion]);
+      setBankQuestionPool([]);
+      bankQuestionPoolRef.current = [];
+      setQuestionsError("No active questions found in the question bank.");
+      setQuestionsLoading(false);
+      return [openingQuestion];
+    }
+
+    const initialQuestions = [openingQuestion];
+    setQuestions(initialQuestions);
+    setBankQuestionPool(bankPool);
+    bankQuestionPoolRef.current = bankPool;
+    setFollowupCountByBase({});
     setQuestionsLoading(false);
-    return data;
+    return initialQuestions;
   }, []);
 
   const refreshLiveTranscript = useCallback(async () => {
@@ -468,6 +537,7 @@ function MockInterviewPageContent({
     setLatestWhisperStatus(null);
     setIsPauseTranscriptPending(false);
     setLiveDraftTranscript("");
+    speechFinalTextRef.current = "";
   }, [currentQuestion, isSessionStarted]);
 
   useEffect(() => {
@@ -619,12 +689,23 @@ function MockInterviewPageContent({
         return;
       }
 
+      const chunkSessionId = activeSessionIdRef.current;
+      const chunkQuestionIndex = activeQuestionIndexRef.current;
+
       liveTranscriptionInFlightRef.current = true;
       void (async () => {
         try {
           const { data, error } = await transcribeLiveAudioChunk({
             audioBlob: chunk,
           });
+
+          if (
+            activeSessionIdRef.current !== chunkSessionId ||
+            activeQuestionIndexRef.current !== chunkQuestionIndex
+          ) {
+            return;
+          }
+
           if (error) {
             const errorMessage = error.message || "";
             const isRateLimited = /\b429\b|too many requests/i.test(errorMessage);
@@ -851,7 +932,8 @@ function MockInterviewPageContent({
   const startSegmentRecording = useCallback(
     async (
       questionIndex: number,
-      sessionContext?: { sessionId: string; storagePrefix: string }
+      sessionContext?: { sessionId: string; storagePrefix: string },
+      questionOverride?: Question
     ) => {
       const activeSessionId = sessionContext?.sessionId || sessionId;
       const activeStoragePrefix = sessionContext?.storagePrefix || storagePrefix;
@@ -876,7 +958,7 @@ function MockInterviewPageContent({
         return true;
       }
 
-      const question = questions[questionIndex];
+      const question = questionOverride || questions[questionIndex];
       if (!question) {
         setRecordingError("Question not available for recording.");
         return false;
@@ -971,21 +1053,89 @@ function MockInterviewPageContent({
       return;
     }
 
+    if (isDecidingNextQuestion) {
+      return;
+    }
+
     await stopActiveRecording();
 
-    if (currentQuestion < questions.length - 1) {
-      const nextQuestionIndex = currentQuestion + 1;
+    const activeQuestion = questions[currentQuestion];
+    if (!activeQuestion) {
+      return;
+    }
+
+    const baseQuestionId = activeQuestion.baseQuestionId || activeQuestion.id;
+    const followupCountForCurrent = followupCountByBase[baseQuestionId] || 0;
+    const answerText = (liveTranscriptText || liveDraftTranscript || "").trim();
+    const candidateAnswer = answerText || "No clear answer captured from transcript.";
+
+    setIsDecidingNextQuestion(true);
+
+    const decisionResult = await decideNextQuestionStep({
+      currentQuestion: activeQuestion.question,
+      candidateAnswer,
+      category: activeQuestion.type,
+      remainingBankQuestions: bankQuestionPool.length,
+      followupCountForCurrent,
+    });
+
+    setIsDecidingNextQuestion(false);
+
+    const shouldAskFollowup =
+      !decisionResult.error &&
+      decisionResult.data?.action === "follow_up" &&
+      Boolean(decisionResult.data?.followup_question);
+
+    if (shouldAskFollowup) {
+      const followupQuestion: Question = {
+        id: `followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: "Follow-up",
+        question: decisionResult.data.followup_question,
+        tip: "Answer with concrete details and measurable outcomes.",
+        source: "followup",
+        baseQuestionId,
+      };
+
+      const nextQuestionIndex = questions.length;
       activeQuestionIndexRef.current = nextQuestionIndex;
       setLiveTranscriptText(null);
       setLatestWhisperStatus(null);
       setIsPauseTranscriptPending(false);
       setLiveDraftTranscript("");
+      setQuestions((previous) => [...previous, followupQuestion]);
+      setFollowupCountByBase((previous) => ({
+        ...previous,
+        [baseQuestionId]: (previous[baseQuestionId] || 0) + 1,
+      }));
       setCurrentQuestion(nextQuestionIndex);
+
       if (sessionId) {
         await updateInterviewSessionProgress(sessionId, nextQuestionIndex);
       }
       if (!isPaused) {
-        await startSegmentRecording(nextQuestionIndex);
+        await startSegmentRecording(nextQuestionIndex, undefined, followupQuestion);
+      }
+      return;
+    }
+
+    if (bankQuestionPool.length > 0) {
+      const [nextBankQuestion, ...remainingPool] = bankQuestionPool;
+      const nextQuestionIndex = questions.length;
+      activeQuestionIndexRef.current = nextQuestionIndex;
+      setLiveTranscriptText(null);
+      setLatestWhisperStatus(null);
+      setIsPauseTranscriptPending(false);
+      setLiveDraftTranscript("");
+      setQuestions((previous) => [...previous, nextBankQuestion]);
+      setBankQuestionPool(remainingPool);
+      bankQuestionPoolRef.current = remainingPool;
+      setCurrentQuestion(nextQuestionIndex);
+
+      if (sessionId) {
+        await updateInterviewSessionProgress(sessionId, nextQuestionIndex);
+      }
+      if (!isPaused) {
+        await startSegmentRecording(nextQuestionIndex, undefined, nextBankQuestion);
       }
       return;
     }
@@ -1014,9 +1164,14 @@ function MockInterviewPageContent({
       }
     }
   }, [
+    bankQuestionPool,
     currentQuestion,
+    followupCountByBase,
     getSessionTranscriptMetadata,
+    isDecidingNextQuestion,
     isPaused,
+    liveDraftTranscript,
+    liveTranscriptText,
     questions,
     sessionId,
     startSegmentRecording,
@@ -1034,6 +1189,10 @@ function MockInterviewPageContent({
     setMediaError(null);
     setMicTestError(null);
     setQuestions([]);
+    setBankQuestionPool([]);
+    bankQuestionPoolRef.current = [];
+    setFollowupCountByBase({});
+    setIsDecidingNextQuestion(false);
     setQuestionsError(null);
     setRecordingError(null);
     setLiveDraftTranscript("");
@@ -1408,6 +1567,9 @@ function MockInterviewPageContent({
                     sessionId: null,
                     storagePrefix: null,
                     savedSegmentCount: 0,
+                    questions,
+                    bankQuestionPool,
+                    followupCountByBase,
                   };
                   if (stateKey) {
                     try {
@@ -1711,7 +1873,7 @@ function MockInterviewPageContent({
                   )}
                 </button>
                 <button
-                  disabled={isSessionStarted && (isPaused || isUploadingSegment)}
+                  disabled={isSessionStarted && (isPaused || isUploadingSegment || isDecidingNextQuestion)}
                   className="bg-[#1B2744] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-2"
                   onClick={async () => {
                     if (!isSessionStarted) {
@@ -1733,7 +1895,7 @@ function MockInterviewPageContent({
                         userId,
                         userEmail: email,
                         userName,
-                        totalQuestions: questionSet.length,
+                        totalQuestions: questionSet.length + bankQuestionPoolRef.current.length,
                         metadata: {
                           mode: "mock_interview",
                         },
@@ -1754,13 +1916,15 @@ function MockInterviewPageContent({
                       setIsPauseTranscriptPending(false);
                       setLiveDraftTranscript("");
                       segmentOrderRef.current = 1;
+                      setFollowupCountByBase({});
+                      setIsDecidingNextQuestion(false);
                       setIsSessionStarted(true);
                       setIsPaused(false);
                       setCurrentQuestion(0);
                       await startSegmentRecording(0, {
                         sessionId: sessionResult.data.id,
                         storagePrefix: sessionResult.data.storage_prefix,
-                      });
+                      }, questionSet[0]);
                       return;
                     }
                     await handleNextQuestion();
@@ -1770,6 +1934,8 @@ function MockInterviewPageContent({
                     ? "Loading Questions..."
                     : isUploadingSegment
                     ? "Saving Segment..."
+                    : isDecidingNextQuestion
+                    ? "Deciding Next..."
                     : isSessionStarted
                     ? "Next Question"
                     : "Start Session"}
