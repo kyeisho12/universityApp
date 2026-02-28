@@ -9,6 +9,7 @@ class WhisperTranscriber:
 
 	def __init__(self):
 		self.backend = os.getenv("WHISPER_BACKEND", "hybrid").lower()
+		self.hybrid_preference = os.getenv("WHISPER_HYBRID_PREFERENCE", "local_first").lower()
 
 		self.local_model_name = os.getenv("WHISPER_LOCAL_MODEL", "base")
 		self.local_device = os.getenv("WHISPER_LOCAL_DEVICE", "cpu")
@@ -175,22 +176,42 @@ class WhisperTranscriber:
 				language=language,
 			)
 
-		local_result = self._transcribe_with_local(
-			audio_bytes=audio_bytes,
-			filename=filename,
-			language=language,
-		)
-		if local_result.get("success"):
-			return local_result
+		prefer_openai_first = self.hybrid_preference in {"openai", "openai_first", "quality_first"}
 
-		openai_result = self._transcribe_with_openai(
-			audio_bytes=audio_bytes,
-			filename=filename,
-			mime_type=mime_type,
-			language=language,
-		)
-		if openai_result.get("success"):
-			return openai_result
+		if prefer_openai_first:
+			openai_result = self._transcribe_with_openai(
+				audio_bytes=audio_bytes,
+				filename=filename,
+				mime_type=mime_type,
+				language=language,
+			)
+			if openai_result.get("success"):
+				return openai_result
+
+			local_result = self._transcribe_with_local(
+				audio_bytes=audio_bytes,
+				filename=filename,
+				language=language,
+			)
+			if local_result.get("success"):
+				return local_result
+		else:
+			local_result = self._transcribe_with_local(
+				audio_bytes=audio_bytes,
+				filename=filename,
+				language=language,
+			)
+			if local_result.get("success"):
+				return local_result
+
+			openai_result = self._transcribe_with_openai(
+				audio_bytes=audio_bytes,
+				filename=filename,
+				mime_type=mime_type,
+				language=language,
+			)
+			if openai_result.get("success"):
+				return openai_result
 
 		return {
 			"success": False,

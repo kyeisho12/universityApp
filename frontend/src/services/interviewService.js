@@ -24,14 +24,16 @@ export async function getMockInterviewQuestions(limit = 5) {
 		.from('interview_question_bank')
 		.select('id, question_text, category')
 		.eq('is_active', true)
-		.order('created_at', { ascending: true })
-		.limit(limit)
 
 	if (error) {
 		return { data: [], error }
 	}
 
-	const questions = (data || []).map((item) => ({
+	const normalizedLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 5
+	const shuffled = [...(data || [])].sort(() => Math.random() - 0.5)
+	const selected = shuffled.slice(0, normalizedLimit)
+
+	const questions = selected.map((item) => ({
 		id: item.id,
 		type: toTitleCase(item.category || 'general'),
 		question: item.question_text,

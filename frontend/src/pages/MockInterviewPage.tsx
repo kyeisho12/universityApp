@@ -292,6 +292,10 @@ function MockInterviewPageContent({
   }, [isCameraOn]);
 
   useEffect(() => {
+    segmentOrderRef.current = Math.max(savedSegmentCount + 1, 1);
+  }, [savedSegmentCount]);
+
+  useEffect(() => {
     if (!hasHydratedRef.current || !stateKey) return;
     try {
       const nextState = {
@@ -383,7 +387,12 @@ function MockInterviewPageContent({
       return [];
     }
     setQuestions(data);
-    setCurrentQuestion(0);
+    setCurrentQuestion((previous) => {
+      if (data.length === 0) {
+        return 0;
+      }
+      return Math.min(Math.max(previous, 0), data.length - 1);
+    });
     setQuestionsLoading(false);
     return data;
   }, []);
@@ -779,7 +788,8 @@ function MockInterviewPageContent({
       const safeQuestionNumber = String(segmentMeta.questionIndex + 1).padStart(2, "0");
       const safeSegmentNumber = String(segmentMeta.segmentOrder).padStart(2, "0");
       const extension = segmentBlob.type.includes("webm") ? "webm" : "mp4";
-      const storagePath = `${activeStoragePrefix}/q${safeQuestionNumber}_seg${safeSegmentNumber}.${extension}`;
+      const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const storagePath = `${activeStoragePrefix}/q${safeQuestionNumber}_seg${safeSegmentNumber}_${uniqueSuffix}.${extension}`;
       const durationSeconds = Number(((Date.now() - segmentMeta.startedAt) / 1000).toFixed(2));
 
       setIsUploadingSegment(true);
@@ -965,6 +975,11 @@ function MockInterviewPageContent({
 
     if (currentQuestion < questions.length - 1) {
       const nextQuestionIndex = currentQuestion + 1;
+      activeQuestionIndexRef.current = nextQuestionIndex;
+      setLiveTranscriptText(null);
+      setLatestWhisperStatus(null);
+      setIsPauseTranscriptPending(false);
+      setLiveDraftTranscript("");
       setCurrentQuestion(nextQuestionIndex);
       if (sessionId) {
         await updateInterviewSessionProgress(sessionId, nextQuestionIndex);
@@ -1729,9 +1744,15 @@ function MockInterviewPageContent({
                       }
 
                       setSessionId(sessionResult.data.id);
+                      activeSessionIdRef.current = sessionResult.data.id;
                       setStoragePrefix(sessionResult.data.storage_prefix);
+                      activeQuestionIndexRef.current = 0;
                       setFullSessionTranscript("");
                       fullSessionTranscriptRef.current = "";
+                      setLiveTranscriptText(null);
+                      setLatestWhisperStatus(null);
+                      setIsPauseTranscriptPending(false);
+                      setLiveDraftTranscript("");
                       segmentOrderRef.current = 1;
                       setIsSessionStarted(true);
                       setIsPaused(false);
