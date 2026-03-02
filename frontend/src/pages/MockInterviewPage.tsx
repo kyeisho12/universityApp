@@ -514,37 +514,6 @@ function MockInterviewPageContent({
     return totalScore / questions.length;
   }, [evaluations, questions]);
 
-  const completeSession = useCallback(async (message?: string) => {
-    setIsSessionStarted(false);
-    setIsPaused(false);
-    setIsCompleted(true);
-
-    if (message) {
-      setRecordingError(message);
-    }
-
-    if (sessionId) {
-      await updateInterviewSessionStatus(sessionId, "completed", {
-        ended_at: new Date().toISOString(),
-        metadata: getSessionTranscriptMetadata(),
-      });
-
-      const pendingTranscriptions = await triggerPendingSessionTranscriptions({
-        sessionId,
-        includeFailed: true,
-      });
-      if (pendingTranscriptions.error) {
-        setRecordingError(
-          `Session ended, but failed to retry pending transcriptions: ${pendingTranscriptions.error.message}`
-        );
-      } else if ((pendingTranscriptions.data?.failed || 0) > 0) {
-        setRecordingError(
-          `Session ended. Retried ${pendingTranscriptions.data?.attempted || 0} pending segments, but ${pendingTranscriptions.data?.failed || 0} still failed transcription.`
-        );
-      }
-    }
-  }, [getSessionTranscriptMetadata, sessionId]);
-
   const refreshLiveTranscript = useCallback(async () => {
     const targetSessionId = sessionId;
     const targetQuestionIndex = currentQuestion;
@@ -750,6 +719,37 @@ function MockInterviewPageContent({
       transcript_saved_at: new Date().toISOString(),
     };
   }, []);
+
+  const completeSession = useCallback(async (message?: string) => {
+    setIsSessionStarted(false);
+    setIsPaused(false);
+    setIsCompleted(true);
+
+    if (message) {
+      setRecordingError(message);
+    }
+
+    if (sessionId) {
+      await updateInterviewSessionStatus(sessionId, "completed", {
+        ended_at: new Date().toISOString(),
+        metadata: getSessionTranscriptMetadata(),
+      });
+
+      const pendingTranscriptions = await triggerPendingSessionTranscriptions({
+        sessionId,
+        includeFailed: true,
+      });
+      if (pendingTranscriptions.error) {
+        setRecordingError(
+          `Session ended, but failed to retry pending transcriptions: ${pendingTranscriptions.error.message}`
+        );
+      } else if ((pendingTranscriptions.data?.failed || 0) > 0) {
+        setRecordingError(
+          `Session ended. Retried ${pendingTranscriptions.data?.attempted || 0} pending segments, but ${pendingTranscriptions.data?.failed || 0} still failed transcription.`
+        );
+      }
+    }
+  }, [getSessionTranscriptMetadata, sessionId]);
 
   const stopLiveChunkTranscription = useCallback(() => {
     const recorder = liveTranscriptionRecorderRef.current;

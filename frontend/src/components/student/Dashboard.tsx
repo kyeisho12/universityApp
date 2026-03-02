@@ -94,9 +94,9 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
             setResumesCount(resumesData.length);
           }
 
-          // Fetch user interviews count if user is logged in
+          // Fetch user interview sessions count if user is logged in
           const { data: interviewsData, error: interviewsError } = await supabase
-            .from('interviews')
+            .from('interview_sessions')
             .select('id')
             .eq('user_id', userId);
 

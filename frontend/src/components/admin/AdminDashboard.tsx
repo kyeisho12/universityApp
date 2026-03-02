@@ -63,7 +63,7 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
 
       // Fetch completed interviews
       const { data: interviewsData, error: interviewsError } = await supabase
-        .from('interviews')
+        .from('interview_sessions')
         .select('id')
         .eq('status', 'completed');
 
@@ -80,7 +80,7 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
 
       // Recent interviews
       const { data: recentInterviews } = await supabase
-        .from('interviews')
+        .from('interview_sessions')
         .select('user_id, created_at')
         .order('created_at', { ascending: false })
         .limit(2);
