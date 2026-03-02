@@ -54,7 +54,7 @@ interface Question {
 interface ActiveSegmentMeta {
   sessionId: string;
   storagePrefix: string;
-  questionId: string;
+  questionId: string | null;
   questionIndex: number;
   segmentOrder: number;
   startedAt: number;
@@ -81,6 +81,9 @@ const LIVE_CHUNK_INTERVAL_MS = 4000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
 const OPENING_QUESTION_ID = "890b7831-97c4-4f25-bf26-590ca44fbee7";
 const RANDOM_BANK_QUESTION_COUNT = 5;
+const MIN_SESSION_QUESTION_COUNT = 10;
+const MAX_SESSION_QUESTION_COUNT = 30;
+const STAR_AVERAGE_TARGET_SCORE = 4;
 
 function MockInterviewPageContent({
   email,
@@ -469,6 +472,78 @@ function MockInterviewPageContent({
     setQuestionsLoading(false);
     return initialQuestions;
   }, []);
+
+  const fetchAdditionalBankQuestions = useCallback(async (limit: number): Promise<Question[]> => {
+    const requestedLimit = Math.max(1, Math.floor(limit || 1));
+    const usedQuestionIds = Array.from(
+      new Set(
+        questions
+          .filter((question) => question.source !== "followup")
+          .map((question) => question.id)
+          .filter(Boolean)
+      )
+    );
+
+    const bankResult = await getMockInterviewQuestionsExcluding({
+      limit: requestedLimit,
+      excludeIds: usedQuestionIds,
+    });
+
+    if (bankResult.error) {
+      setQuestionsError("Failed to load additional question bank items. Please try again.");
+      return [];
+    }
+
+    return (bankResult.data || []).map((question) => ({
+      ...question,
+      source: "bank" as const,
+      baseQuestionId: question.id,
+    }));
+  }, [questions]);
+
+  const calculateSessionStarAverage = useCallback(() => {
+    if (questions.length === 0) {
+      return 0;
+    }
+
+    const totalScore = questions.reduce((sum, _question, index) => {
+      const value = Number(evaluations[index]?.score);
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+
+    return totalScore / questions.length;
+  }, [evaluations, questions]);
+
+  const completeSession = useCallback(async (message?: string) => {
+    setIsSessionStarted(false);
+    setIsPaused(false);
+    setIsCompleted(true);
+
+    if (message) {
+      setRecordingError(message);
+    }
+
+    if (sessionId) {
+      await updateInterviewSessionStatus(sessionId, "completed", {
+        ended_at: new Date().toISOString(),
+        metadata: getSessionTranscriptMetadata(),
+      });
+
+      const pendingTranscriptions = await triggerPendingSessionTranscriptions({
+        sessionId,
+        includeFailed: true,
+      });
+      if (pendingTranscriptions.error) {
+        setRecordingError(
+          `Session ended, but failed to retry pending transcriptions: ${pendingTranscriptions.error.message}`
+        );
+      } else if ((pendingTranscriptions.data?.failed || 0) > 0) {
+        setRecordingError(
+          `Session ended. Retried ${pendingTranscriptions.data?.attempted || 0} pending segments, but ${pendingTranscriptions.data?.failed || 0} still failed transcription.`
+        );
+      }
+    }
+  }, [getSessionTranscriptMetadata, sessionId]);
 
   const refreshLiveTranscript = useCallback(async () => {
     const targetSessionId = sessionId;
@@ -1017,10 +1092,11 @@ function MockInterviewPageContent({
         const mimeType = getSupportedRecordingMimeType();
         const mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
         recordingChunksRef.current = [];
+        const persistableQuestionId = question.baseQuestionId || question.id;
         activeSegmentMetaRef.current = {
           sessionId: activeSessionId,
           storagePrefix: activeStoragePrefix,
-          questionId: question.id,
+          questionId: question.source === "followup" ? question.baseQuestionId || null : persistableQuestionId,
           questionIndex,
           segmentOrder: segmentOrderRef.current,
           startedAt: Date.now(),
@@ -1106,6 +1182,20 @@ function MockInterviewPageContent({
       return;
     }
 
+    if (!isPaused) {
+      setRecordingError(
+        "Please click Pause first to save and transcribe your current answer before moving to the next question."
+      );
+      return;
+    }
+
+    if (isPauseTranscriptPending) {
+      setRecordingError(
+        "Transcription is still processing for this paused answer. Please wait a moment, then click Next Question again."
+      );
+      return;
+    }
+
     await stopActiveRecording();
 
     const activeQuestion = questions[currentQuestion];
@@ -1117,6 +1207,25 @@ function MockInterviewPageContent({
     const followupCountForCurrent = followupCountByBase[baseQuestionId] || 0;
     const answerText = (liveTranscriptText || liveDraftTranscript || "").trim();
     const candidateAnswer = answerText || "No clear answer captured from transcript.";
+
+    const askedQuestionCount = questions.length;
+    const sessionStarAverage = calculateSessionStarAverage();
+    const hasReachedMinimumQuestions = askedQuestionCount >= MIN_SESSION_QUESTION_COUNT;
+    const hasReachedStarAverageTarget = sessionStarAverage >= STAR_AVERAGE_TARGET_SCORE;
+
+    if (askedQuestionCount >= MAX_SESSION_QUESTION_COUNT) {
+      await completeSession(
+        `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions. Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`
+      );
+      return;
+    }
+
+    if (hasReachedMinimumQuestions && hasReachedStarAverageTarget) {
+      await completeSession(
+        `Session completed successfully after ${askedQuestionCount} questions. STAR average reached ${sessionStarAverage.toFixed(2)} / 5 (target ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)}).`
+      );
+      return;
+    }
 
     setIsDecidingNextQuestion(true);
 
@@ -1136,6 +1245,13 @@ function MockInterviewPageContent({
       Boolean(decisionResult.data?.followup_question);
 
     if (shouldAskFollowup) {
+      if (questions.length >= MAX_SESSION_QUESTION_COUNT) {
+        await completeSession(
+          `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions.`
+        );
+        return;
+      }
+
       const followupQuestion: Question = {
         id: `followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         type: "Follow-up",
@@ -1160,15 +1276,29 @@ function MockInterviewPageContent({
 
       if (sessionId) {
         await updateInterviewSessionProgress(sessionId, nextQuestionIndex);
+        await updateInterviewSessionStatus(sessionId, "in_progress", {
+          resumed_at: new Date().toISOString(),
+        });
       }
-      if (!isPaused) {
-        await startSegmentRecording(nextQuestionIndex, undefined, followupQuestion);
-      }
+      setIsPaused(false);
+      await startSegmentRecording(nextQuestionIndex, undefined, followupQuestion);
       return;
     }
 
-    if (bankQuestionPool.length > 0) {
-      const [nextBankQuestion, ...remainingPool] = bankQuestionPool;
+    let nextPool = bankQuestionPool;
+    if (nextPool.length === 0 && questions.length < MAX_SESSION_QUESTION_COUNT) {
+      const remainingSlots = MAX_SESSION_QUESTION_COUNT - questions.length;
+      const refillLimit = Math.min(RANDOM_BANK_QUESTION_COUNT, remainingSlots);
+      const refill = await fetchAdditionalBankQuestions(refillLimit);
+      if (refill.length > 0) {
+        nextPool = refill;
+        setBankQuestionPool(refill);
+        bankQuestionPoolRef.current = refill;
+      }
+    }
+
+    if (nextPool.length > 0) {
+      const [nextBankQuestion, ...remainingPool] = nextPool;
       const nextQuestionIndex = questions.length;
       activeQuestionIndexRef.current = nextQuestionIndex;
       setLiveTranscriptText(null);
@@ -1182,42 +1312,29 @@ function MockInterviewPageContent({
 
       if (sessionId) {
         await updateInterviewSessionProgress(sessionId, nextQuestionIndex);
+        await updateInterviewSessionStatus(sessionId, "in_progress", {
+          resumed_at: new Date().toISOString(),
+        });
       }
-      if (!isPaused) {
-        await startSegmentRecording(nextQuestionIndex, undefined, nextBankQuestion);
-      }
+      setIsPaused(false);
+      await startSegmentRecording(nextQuestionIndex, undefined, nextBankQuestion);
       return;
     }
-
-    setIsSessionStarted(false);
-    setIsPaused(false);
-    setIsCompleted(true);
-    if (sessionId) {
-      await updateInterviewSessionStatus(sessionId, "completed", {
-        ended_at: new Date().toISOString(),
-        metadata: getSessionTranscriptMetadata(),
-      });
-
-      const pendingTranscriptions = await triggerPendingSessionTranscriptions({
-        sessionId,
-        includeFailed: true,
-      });
-      if (pendingTranscriptions.error) {
-        setRecordingError(
-          `Session ended, but failed to retry pending transcriptions: ${pendingTranscriptions.error.message}`
-        );
-      } else if ((pendingTranscriptions.data?.failed || 0) > 0) {
-        setRecordingError(
-          `Session ended. Retried ${pendingTranscriptions.data?.attempted || 0} pending segments, but ${pendingTranscriptions.data?.failed || 0} still failed transcription.`
-        );
-      }
-    }
+    const minimumMsg = hasReachedMinimumQuestions
+      ? ""
+      : ` Minimum required is ${MIN_SESSION_QUESTION_COUNT} questions.`;
+    await completeSession(
+      `Session ended because no more questions are available in the bank.${minimumMsg} Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`
+    );
   }, [
     bankQuestionPool,
+    calculateSessionStarAverage,
+    completeSession,
     currentQuestion,
+    fetchAdditionalBankQuestions,
     followupCountByBase,
-    getSessionTranscriptMetadata,
     isDecidingNextQuestion,
+    isPauseTranscriptPending,
     isPaused,
     liveDraftTranscript,
     liveTranscriptText,
@@ -1374,30 +1491,8 @@ function MockInterviewPageContent({
 
   const handleEndSession = useCallback(async () => {
     await stopActiveRecording();
-    setIsPaused(false);
-    setIsSessionStarted(false);
-    setIsCompleted(true);
-    if (sessionId) {
-      await updateInterviewSessionStatus(sessionId, "completed", {
-        ended_at: new Date().toISOString(),
-        metadata: getSessionTranscriptMetadata(),
-      });
-
-      const pendingTranscriptions = await triggerPendingSessionTranscriptions({
-        sessionId,
-        includeFailed: true,
-      });
-      if (pendingTranscriptions.error) {
-        setRecordingError(
-          `Session ended, but failed to retry pending transcriptions: ${pendingTranscriptions.error.message}`
-        );
-      } else if ((pendingTranscriptions.data?.failed || 0) > 0) {
-        setRecordingError(
-          `Session ended. Retried ${pendingTranscriptions.data?.attempted || 0} pending segments, but ${pendingTranscriptions.data?.failed || 0} still failed transcription.`
-        );
-      }
-    }
-  }, [getSessionTranscriptMetadata, sessionId, stopActiveRecording]);
+    await completeSession();
+  }, [completeSession, stopActiveRecording]);
 
   const startCamera = useCallback(async (): Promise<MediaStream | null> => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -1922,7 +2017,7 @@ function MockInterviewPageContent({
                   )}
                 </button>
                 <button
-                  disabled={isSessionStarted && (isPaused || isUploadingSegment || isDecidingNextQuestion)}
+                  disabled={isUploadingSegment || isDecidingNextQuestion}
                   className="bg-[#1B2744] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-2"
                   onClick={async () => {
                     if (!isSessionStarted) {
@@ -1944,9 +2039,12 @@ function MockInterviewPageContent({
                         userId,
                         userEmail: email,
                         userName,
-                        totalQuestions: questionSet.length + bankQuestionPoolRef.current.length,
+                        totalQuestions: MAX_SESSION_QUESTION_COUNT,
                         metadata: {
                           mode: "mock_interview",
+                          min_questions: MIN_SESSION_QUESTION_COUNT,
+                          max_questions: MAX_SESSION_QUESTION_COUNT,
+                          star_average_target: STAR_AVERAGE_TARGET_SCORE,
                         },
                       });
                       if (sessionResult.error || !sessionResult.data?.id) {
@@ -1978,6 +2076,15 @@ function MockInterviewPageContent({
                     }
                     await handleNextQuestion();
                   }}
+                  title={
+                    isSessionStarted && !isPaused
+                      ? "Pause first to save and transcribe your answer"
+                      : isSessionStarted && isPauseTranscriptPending
+                      ? "Waiting for transcription to finish"
+                      : isSessionStarted
+                      ? "Go to next question"
+                      : "Start session"
+                  }
                 >
                   {questionsLoading
                     ? "Loading Questions..."

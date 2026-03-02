@@ -17,7 +17,7 @@ class Phi3FollowupGenerator:
 		self.base_url = os.getenv("PHI3_OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
 		self.timeout_seconds = int(os.getenv("PHI3_TIMEOUT_SECONDS", "60"))
 
-		self.temperature = float(os.getenv("PHI3_TEMPERATURE", "0.4"))
+		self.temperature = float(os.getenv("PHI3_TEMPERATURE", "0.25"))
 		self.top_p = float(os.getenv("PHI3_TOP_P", "0.9"))
 		self.max_tokens = int(os.getenv("PHI3_MAX_TOKENS", "90"))
 

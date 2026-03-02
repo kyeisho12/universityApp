@@ -12,21 +12,32 @@ def build_followup_prompt(
 
 	prompt = (
 		"You are an expert interviewer. Generate exactly ONE follow-up question.\n"
-		"Goal: probe deeper into specific details, impact, trade-offs, and measurable outcomes.\n"
+		"Goal: probe deeper into the candidate's OWN answer only.\n"
 		"Rules:\n"
 		"1) Return only one concise question.\n"
 		"2) Do not include explanations, bullets, labels, or quotes.\n"
 		"3) Keep it conversational and job-interview appropriate.\n"
-		"4) Prefer asking about concrete evidence or decision-making.\n\n"
+		"4) Base the follow-up SOLELY on details explicitly present in the candidate answer.\n"
+		"5) Do NOT introduce new scenarios, tools, metrics, roles, or facts not mentioned by the candidate.\n"
+		"6) Ask about one specific detail the candidate already mentioned (decision, action, challenge, or outcome).\n"
+		"7) If the answer is vague, ask for clarification of the candidate's existing statement instead of shifting topics.\n"
+		"8) The question must stay on the same topic as the original question and the candidate answer.\n\n"
 		f"Interview category: {interview_category}\n"
 		f"Original question: {original_question.strip()}\n"
 		f"Candidate answer: {candidate_answer.strip()}\n"
 	)
 
 	if ideal_context:
-		prompt += f"Ideal-answer guidance: {ideal_context}\n"
+		prompt += (
+			"Ideal-answer guidance (use only as evaluation lens; do not add new facts): "
+			f"{ideal_context}\n"
+		)
 
-	prompt += "\nGenerate one follow-up question now:"
+	prompt += (
+		"\nBefore writing the question, check: Is every part grounded in the candidate answer text? "
+		"If not, rewrite it.\n"
+		"Generate one follow-up question now:"
+	)
 	return prompt
 
 

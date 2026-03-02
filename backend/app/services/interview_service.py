@@ -346,7 +346,7 @@ class InterviewService:
                 "status": "in_progress",
                 "total_questions": int(data.get("total_questions", 5)),
                 "current_question_index": int(data.get("current_question_index", 0)),
-                "storage_prefix": data.get("storage_prefix") or f"interview-recordings/{user_id}/{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                "storage_prefix": data.get("storage_prefix") or f"{user_id}/{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
                 "started_at": datetime.utcnow().isoformat(),
                 "metadata": data.get("metadata", {}),
             }
@@ -545,7 +545,19 @@ class InterviewService:
                 "status_code": 500,
             }
 
-        object_url = f"{self.supabase_url}/storage/v1/object/{bucket_name}/{storage_path}"
+        normalized_storage_path = (storage_path or "").strip().lstrip("/")
+        bucket_prefix = f"{bucket_name}/"
+        if normalized_storage_path.startswith(bucket_prefix):
+            normalized_storage_path = normalized_storage_path[len(bucket_prefix):]
+
+        if not normalized_storage_path:
+            return {
+                "success": False,
+                "error": "Segment storage_path is empty",
+                "status_code": 400,
+            }
+
+        object_url = f"{self.supabase_url}/storage/v1/object/{bucket_name}/{normalized_storage_path}"
         headers = {
             "apikey": self.supabase_key,
             "Authorization": f"Bearer {self.supabase_key}",
