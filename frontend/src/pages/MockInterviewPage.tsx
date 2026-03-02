@@ -12,6 +12,7 @@ import {
   Play,
   Square,
 } from "lucide-react";
+import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudentId } from "../hooks/useStudentId";
@@ -75,7 +76,8 @@ interface PersistedMockInterviewState {
   followupCountByBase?: Record<string, number>;
 }
 
-const LIVE_CHUNK_INTERVAL_MS = 2000;
+// Increase live chunk interval to reduce live transcription request rate (avoid 429)
+const LIVE_CHUNK_INTERVAL_MS = 4000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
 const OPENING_QUESTION_ID = "890b7831-97c4-4f25-bf26-590ca44fbee7";
 const RANDOM_BANK_QUESTION_COUNT = 5;
@@ -190,6 +192,8 @@ function MockInterviewPageContent({
   const [liveDraftTranscript, setLiveDraftTranscript] = useState("");
   const [fullSessionTranscript, setFullSessionTranscript] = useState("");
   const [liveTranscriptText, setLiveTranscriptText] = useState<string | null>(null);
+  const [evaluations, setEvaluations] = useState<Record<number, any>>({});
+  const lastEvaluatedTranscriptRef = useRef<Record<number, string>>({});
   const [latestWhisperStatus, setLatestWhisperStatus] = useState<string | null>(null);
   const [isPauseTranscriptPending, setIsPauseTranscriptPending] = useState(false);
   const [liveDraftStatus, setLiveDraftStatus] = useState<string | null>(null);
@@ -500,11 +504,56 @@ function MockInterviewPageContent({
     setLatestWhisperStatus(whisperStatus);
     setLiveTranscriptText(transcriptText);
 
+    // If transcript is complete and we have text, run automatic evaluation once
+    try {
+      const qIndex = targetQuestionIndex;
+      const hasText = Boolean(transcriptText);
+      const alreadyEvaluated = evaluations[qIndex];
+      const lastSeen = lastEvaluatedTranscriptRef.current[qIndex];
+
+      if (whisperStatus === "completed" && hasText) {
+        if (!alreadyEvaluated || lastSeen !== transcriptText) {
+          // record so we don't re-evaluate the same transcript repeatedly
+          lastEvaluatedTranscriptRef.current = {
+            ...lastEvaluatedTranscriptRef.current,
+            [qIndex]: transcriptText,
+          };
+
+          const questionText = questions[qIndex]?.question || "";
+          const result = await evaluateAnswer(questionText, transcriptText);
+          setEvaluations((prev) => {
+            const next = { ...(prev || {}), [qIndex]: { ...result, evaluatedAt: new Date().toISOString() } };
+            // persist per-stateKey so results survive reloads for this mock interview
+            try {
+              if (stateKey) {
+                localStorage.setItem(`${stateKey}_evaluations`, JSON.stringify(next));
+              }
+            } catch {}
+            return next;
+          });
+        }
+      }
+    } catch (err) {
+      // swallow evaluation errors to keep UI stable
+      // console.error("Evaluation failed", err);
+    }
+
     return {
       hasTranscript: Boolean(transcriptText),
       whisperStatus,
     };
   }, [currentQuestion, sessionId]);
+
+  // Load persisted evaluations when stateKey changes
+  useEffect(() => {
+    if (!stateKey) return;
+    try {
+      const raw = localStorage.getItem(`${stateKey}_evaluations`);
+      if (raw) {
+        setEvaluations(JSON.parse(raw));
+      }
+    } catch {}
+  }, [stateKey]);
 
   const refreshTranscriptAfterPause = useCallback(async () => {
     const maxAttempts = 10;
@@ -2012,31 +2061,61 @@ function MockInterviewPageContent({
                 Live Transcription
               </h4>
               <div className="flex-1 bg-gray-50 rounded-lg p-4 overflow-y-auto">
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  {liveDraftTranscript
-                    ? liveDraftTranscript
-                    : liveDraftStatus
-                    ? liveDraftStatus
-                    : liveTranscriptText
-                    ? liveTranscriptText
-                    : isSessionStarted
-                    ? (isPaused
-                      ? isPauseTranscriptPending
-                        ? "Please wait a second, the transcribed text will show shortly."
+                <div className="text-gray-600 text-sm leading-relaxed">
+                  <p>
+                    {liveDraftTranscript
+                      ? liveDraftTranscript
+                      : liveDraftStatus
+                      ? liveDraftStatus
+                      : liveTranscriptText
+                      ? liveTranscriptText
+                      : isSessionStarted
+                      ? (isPaused
+                        ? isPauseTranscriptPending
+                          ? "Please wait a second, the transcribed text will show shortly."
+                          : latestWhisperStatus === "failed"
+                          ? "Transcription could not be generated for this pause. Please answer again, then click Pause once more."
+                          : latestWhisperStatus === "completed"
+                          ? "No speech was detected in the last paused segment."
+                          : "Please wait a second, the transcribed text will show shortly."
+                        : isUploadingSegment
+                        ? "Saving current recording segment..."
                         : latestWhisperStatus === "failed"
-                        ? "Transcription could not be generated for this pause. Please answer again, then click Pause once more."
+                        ? "Transcription failed for the latest segment. Continue speaking and save the next segment to retry."
                         : latestWhisperStatus === "completed"
-                        ? "No speech was detected in the last paused segment."
-                        : "Please wait a second, the transcribed text will show shortly."
-                      : isUploadingSegment
-                      ? "Saving current recording segment..."
-                      : latestWhisperStatus === "failed"
-                      ? "Transcription failed for the latest segment. Continue speaking and save the next segment to retry."
-                      : latestWhisperStatus === "completed"
-                      ? "Latest segment was processed, but no speech text was detected."
-                      : "Listening for your response... Click Pause after answering to generate transcript for this question.")
-                    : "Session not started yet. Start the session to begin transcription."}
-                </p>
+                        ? "Latest segment was processed, but no speech text was detected."
+                        : "Listening for your response... Click Pause after answering to generate transcript for this question.")
+                      : "Session not started yet. Start the session to begin transcription."}
+                  </p>
+
+                  {/* Evaluation panel for current question if available */}
+                  {evaluations && evaluations[currentQuestion] && (
+                    <div className="mt-4 bg-white border rounded-md p-3">
+                      <h5 className="font-semibold text-gray-800">Evaluation Results</h5>
+                      <div className="mt-2 text-sm text-gray-700">
+                        <p>
+                          <strong>Source:</strong> {evaluations[currentQuestion].source}
+                        </p>
+                        <p>
+                          <strong>Score:</strong> {evaluations[currentQuestion].score} / 5
+                        </p>
+                        <p>
+                          <strong>Similarity:</strong> {evaluations[currentQuestion].similarity ?? 0}
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {evaluations[currentQuestion].breakdown &&
+                            Object.entries(evaluations[currentQuestion].breakdown).map(([k, v]) => (
+                              <div key={k} className="text-xs">
+                                <div className="text-gray-600">{k}</div>
+                                <div className="font-medium">{v} / 5</div>
+                              </div>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">Evaluated at: {evaluations[currentQuestion].evaluatedAt}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
