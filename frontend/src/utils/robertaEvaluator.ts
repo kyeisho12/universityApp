@@ -1,431 +1,373 @@
-import robertaDataset, { DatasetItem } from "../data/robertaDataset";
+// ---------------------------------------------------------------------------
+// robertaEvaluator.ts
+//
+// Two-path evaluation system:
+//
+//   Path 1 — RoBERTa via Vite proxy → HF Inference API
+//             Calls /hf-api/... which Vite proxies to router.huggingface.co
+//             This bypasses the browser CORS restriction entirely.
+//             Blended: 55% RoBERTa + 25% dataset anchor + 20% STAR.
+//
+//   Path 2 — ZSL STAR Heuristic (local fallback, no network required)
+//             Blended: 65% STAR + 35% dataset anchor when match exists.
+//
+// Dataset contribution (both paths):
+//   All 806 HR-scored answers across 27 questions are searched via nearest-
+//   neighbor (Jaccard similarity) to compute a calibrated score anchor.
+//
+// STAR is applied to ALL questions. Patterns cover both behavioral questions
+// ("give an example") and open-ended questions ("tell me about yourself",
+// "are you a team player") through expanded keyword coverage.
+//
+// Key fixes from v1:
+//   1. Task/Action/Result patterns expanded to cover goal statements,
+//      stance/value language, and growth/outcome language — not just
+//      literal STAR verbs. Prevents intro/opinion answers scoring 1/1/1.
+//   2. RoBERTa confidence floor: any answer >50 words with confidence >0.02
+//      is floored to score 2, preventing low-confidence on self-descriptions
+//      from destroying the final score.
+//   3. score is always exactly the average of breakdown dimensions (invariant).
+// ---------------------------------------------------------------------------
+
+import robertaDataset, { DatasetItem, STARBreakdown } from '../data/robertaDataset';
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
 const HF_API_TOKEN = import.meta.env.VITE_HF_TOKEN as string | undefined;
-const HF_TIMEOUT_MS = 8000;
+const HF_TIMEOUT_MS = 10000;
 
-// RoBERTa model fine-tuned on SQuAD — extracts answers and scores relevance
-// between a question and a passage (your candidate answer).
-const HF_ROBERTA_URL =
-  "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2";
+// Proxied through Vite → router.huggingface.co (avoids CORS)
+const HF_ROBERTA_URL = '/hf-api/hf-inference/models/deepset/roberta-base-squad2';
+
+const DATASET_MATCH_THRESHOLD = 0.25;
+const TOP_K_ANSWERS = 5;
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface STARBreakdown {
-  situation: number;  // 1–5
-  task: number;       // 1–5
-  action: number;     // 1–5
-  result: number;     // 1–5
-  reflection: number; // 1–5
-}
-
 export interface EvaluationResult {
-  source: "roberta_hf" | "zsl_star" | "zsl_star_fallback";
+  source: 'roberta_hf' | 'zsl_star_fallback';
   matchedQuestion: string | null;
-  baseScore: number | null;
-  similarity: number;
-  score: number;        // 1–5 final blended score
+  questionAvgScore: number | null;
+  datasetAnchorScore: number | null;
+  datasetSimilarity: number;
+  roberta_confidence: number;
+  score: number;
   breakdown: STARBreakdown;
-  hfRaw?: number;       // raw RoBERTa confidence, for debugging
-  error?: string;       // set when RoBERTa failed and fallback was used
-  hrLabel?: string;     // human-readable HR rating label for the score
+  hrLabel: string;
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------
-// HR Score labels — maps 1–5 to your official HR rubric labels
+// HR Rubric Labels
 // ---------------------------------------------------------------------------
 
 const HR_LABELS: Record<number, string> = {
-  5: "Excellent — Exceeds Standard",
-  4: "Very Good — Above Standard",
-  3: "Good — Meets Standard",
-  2: "Fair — Below Standard",
-  1: "Needs Improvement — Unsatisfactory",
+  5: 'Excellent — Exceeds Standard',
+  4: 'Very Good — Above Standard',
+  3: 'Good — Meets Standard',
+  2: 'Fair — Below Standard',
+  1: 'Needs Improvement — Unsatisfactory',
 };
-
 function getHRLabel(score: number): string {
-  return HR_LABELS[Math.max(1, Math.min(5, score))] ?? "Unscored";
+  return HR_LABELS[Math.max(1, Math.min(5, Math.round(score)))] ?? 'Unscored';
 }
 
 // ---------------------------------------------------------------------------
-// Text normalization helpers
+// Text helpers
 // ---------------------------------------------------------------------------
 
 function normalizeText(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/["'`.,()]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
+  return s.toLowerCase()
+    .replace(/["'`.,()—\-]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
-
 function tokenSet(s: string): Set<string> {
-  return new Set(normalizeText(s).split(" ").filter(Boolean));
+  return new Set(normalizeText(s).split(' ').filter(Boolean));
 }
-
 function jaccard(a: Set<string>, b: Set<string>): number {
-  const ia = Array.from(a).filter((x) => b.has(x));
-  if (ia.length === 0) return 0;
-  return ia.length / (a.size + b.size - ia.length);
+  const ia = Array.from(a).filter(x => b.has(x));
+  return ia.length ? ia.length / (a.size + b.size - ia.length) : 0;
 }
 
 // ---------------------------------------------------------------------------
-// Dataset lookup — finds closest question in robertaDataset
+// Dataset lookup — nearest-neighbor across all 806 answers
 // ---------------------------------------------------------------------------
 
-export function findBestMatch(question: string): { item: DatasetItem | null; score: number } {
-  const qTokens = tokenSet(question);
-  let best: DatasetItem | null = null;
-  let bestScore = 0;
+export interface DatasetLookupResult {
+  item: DatasetItem | null;
+  questionSimilarity: number;
+  anchorScore: number | null;
+  bestAnswerSimilarity: number;
+}
 
+export function lookupDataset(question: string, candidateAnswer: string): DatasetLookupResult {
+  const qTokens = tokenSet(question);
+  const aTokens = tokenSet(candidateAnswer);
+
+  let bestItem: DatasetItem | null = null;
+  let bestQSim = 0;
   for (const it of robertaDataset) {
-    const s = jaccard(qTokens, tokenSet(it.question));
-    if (s > bestScore) {
-      bestScore = s;
-      best = it;
-    }
+    const sim = jaccard(qTokens, tokenSet(it.question));
+    if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
+  }
+  if (!bestItem || bestQSim < DATASET_MATCH_THRESHOLD) {
+    return { item: null, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0 };
   }
 
-  return { item: best, score: bestScore };
+  const scored = bestItem.answers
+    .map(ans => ({ similarity: jaccard(aTokens, tokenSet(ans.text)), avgScore: ans.avgScore }))
+    .sort((a, b) => b.similarity - a.similarity);
+
+  const topK = scored.slice(0, TOP_K_ANSWERS).filter(s => s.similarity > 0);
+  if (!topK.length) {
+    return { item: bestItem, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0 };
+  }
+
+  const totalWeight = topK.reduce((s, x) => s + x.similarity, 0);
+  const anchorScore = parseFloat(
+    (topK.reduce((s, x) => s + x.avgScore * x.similarity, 0) / totalWeight).toFixed(2)
+  );
+  return { item: bestItem, questionSimilarity: bestQSim, anchorScore, bestAnswerSimilarity: topK[0].similarity };
 }
 
 // ---------------------------------------------------------------------------
-// Path 1 — RoBERTa via HF Inference API
-//
-// Sends the interview question + candidate answer to deepset/roberta-base-squad2.
-// RoBERTa treats the answer as a passage and extracts the most relevant span,
-// returning a confidence score (0–1) that the span answers the question.
-// That confidence maps to your 1–5 HR rubric scale.
+// Path 1 — RoBERTa via Vite proxy
 // ---------------------------------------------------------------------------
 
-async function callRoBERTa(
-  interviewQuestion: string,
-  candidateAnswer: string
-): Promise<{ score: number; rawConfidence: number; extractedAnswer: string }> {
-  if (!HF_API_TOKEN) throw new Error("VITE_HF_TOKEN is not set in your .env file.");
-
+async function callRoBERTa(question: string, answer: string): Promise<number> {
+  if (!HF_API_TOKEN) throw new Error('VITE_HF_TOKEN is not set.');
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
-
+  const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
   try {
-    const response = await fetch(HF_ROBERTA_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${HF_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        inputs: {
-          question: interviewQuestion,
-          context: candidateAnswer,
-        },
-      }),
+    const res = await fetch(HF_ROBERTA_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${HF_API_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inputs: { question, context: answer } }),
       signal: controller.signal,
     });
-
-    if (!response.ok) {
-      if (response.status === 503) {
-        throw new Error("RoBERTa model is loading on HF servers. Retry in ~20 seconds.");
-      }
-      const body = await response.text().catch(() => "");
-      throw new Error(`RoBERTa HF API error ${response.status}: ${body}`);
+    if (!res.ok) {
+      if (res.status === 503) throw new Error('RoBERTa model loading. Retry in ~20s.');
+      if (res.status === 401) throw new Error('Invalid HF token. Check VITE_HF_TOKEN.');
+      throw new Error(`RoBERTa API ${res.status}: ${await res.text().catch(() => '')}`);
     }
-
-    // RoBERTa QA response: { answer: string, score: number, start: number, end: number }
-    const data = await response.json();
-    const rawConfidence: number = typeof data.score === "number" ? data.score : 0;
-    const extractedAnswer: string = typeof data.answer === "string" ? data.answer : "";
-    const score = confidenceToScore(rawConfidence);
-
-    return { score, rawConfidence, extractedAnswer };
+    const data = await res.json();
+    return Math.max(0, Math.min(1, typeof data.score === 'number' ? data.score : 0));
   } finally {
-    window.clearTimeout(timeoutId);
+    window.clearTimeout(tid);
   }
 }
 
-// Maps RoBERTa confidence (0–1) to HR rubric score (1–5)
-function confidenceToScore(confidence: number): number {
-  if (confidence >= 0.8) return 5;
-  if (confidence >= 0.6) return 4;
-  if (confidence >= 0.4) return 3;
-  if (confidence >= 0.2) return 2;
-  return 1;
+// RoBERTa confidence → 1–5 scale.
+// Floor rule: answers >50 words with any detected content (confidence >0.02)
+// score at least 2. This prevents open-ended/intro answers from scoring 1
+// just because RoBERTa (a QA extractor) couldn't find a specific answer span.
+function confidenceToScore(c: number, wordCount: number): number {
+  const floor = (wordCount > 50 && c > 0.02) ? 2 : 1;
+  if (c >= 0.80) return 5;
+  if (c >= 0.60) return 4;
+  if (c >= 0.40) return 3;
+  if (c >= 0.20) return Math.max(floor, 2);
+  return floor;
 }
 
 // ---------------------------------------------------------------------------
-// Path 2 — ZSL STAR Heuristic
+// STAR Scoring — applied to all 27 questions
 //
-// Scores the answer locally against your official HR rubric (1–5) across
-// all five STAR dimensions. No network required — always available as fallback.
-//
-// Each dimension is scored independently using signal detection:
-//   Strong signals  → higher dimension score
-//   Weak/no signals → lower dimension score
-//
-// Final per-dimension scores map directly to the HR rubric descriptors:
-//   5 — Clearly described, specific, measurable, with reflection
-//   4 — Clear with minor gaps, organized
-//   3 — General, partial, vague result
-//   2 — Unclear, vague, no result
-//   1 — Absent, off-topic, disorganized
+// Dimension mapping (works for both STAR and open-ended questions):
+//   Situation  = background / context / framing
+//   Task       = goal / role / purpose / what they stand for
+//   Action     = concrete evidence / specific things done
+//   Result     = outcome / growth / impact / what changed
+//   Reflection = self-awareness / learning / identity
 // ---------------------------------------------------------------------------
 
-// Situation signals — maps to HR rubric:
-//   5: clearly described with relevant context
-//   4: clear with minor missing details
-//   3: described but somewhat general
-//   2: unclear or overly broad
-//   1: no situation provided
-function scoreSituation(norm: string): number {
-  // Strong: specific time + place + context
-  if (
-    /\b(when i was|during my|while i was|in my (previous|current|last)|at my (internship|job|work|school)|last (year|semester|month))\b/.test(norm)
-  ) return 5;
-
-  // Good: some context but less specific
-  if (/\b(when|during|while|in a|at that time|one time|there was)\b/.test(norm)) return 4;
-
-  // General: very broad situation words
-  if (/\b(sometimes|usually|often|we had|our team|my group)\b/.test(norm)) return 3;
-
-  // Vague: no real context given
-  if (/\b(i think|maybe|sort of|kind of)\b/.test(norm)) return 2;
-
-  // Nothing
+function scoreSituation(n: string): number {
+  if (/\b(during my (ojt|internship|thesis|student teaching|practicum|clinical|rotation|field|capstone|community)|when i was (a|an|in|doing|working|studying|handling|leading|assigned|tasked)|in my (first|second|third|fourth|last|final) year|one time (during|when|in|at)|at my (ojt|internship|previous|former)|while i was (doing|working|studying|handling|leading)|in (engineering|nursing|accounting|hospitality|teaching|farming|our rotation|our class|our group|our team|our thesis|our capstone|our department))\b/.test(n)) return 5;
+  if (/\b(when|during|while|in a|at that time|there was a time|one time|i remember when|back when|in my (experience|background|case)|from my (experience|background))\b/.test(n)) return 4;
+  if (/\b(sometimes|usually|often|generally|in school|in our|for me|personally|in my opinion|from what i)\b/.test(n)) return 3;
+  if (/\b(i think|i believe|i feel|i guess|i suppose|maybe|kind of|sort of)\b/.test(n)) return 2;
   return 1;
 }
 
-// Task signals — maps to HR rubric:
-//   5: explicitly stated and owned by applicant
-//   4: identified but may lack depth
-//   3: partially explained
-//   2: not clearly defined
-//   1: no task mentioned
-function scoreTask(norm: string): number {
-  // Strong: clear ownership + responsibility statement
-  if (
-    /\b(i was (responsible|in charge|assigned|tasked)|my (role|responsibility|job) was|i had to ensure|it was my task)\b/.test(norm)
-  ) return 5;
-
-  // Good: task mentioned but less ownership
-  if (/\b(responsible|task|assigned|was to|needed to|had to|my role)\b/.test(norm)) return 4;
-
-  // Partial: implied but not stated
-  if (/\b(i (needed|wanted|tried) to|we were supposed to|i (helped|assisted))\b/.test(norm)) return 3;
-
-  // Weak: very vague
-  if (/\b(i did|i do|my part|something)\b/.test(norm)) return 2;
-
-  // Nothing
+function scoreTask(n: string): number {
+  // Explicit role/responsibility OR clear goal/purpose/aspiration
+  if (/\b(i was (responsible for|in charge of|assigned to|tasked to|appointed|designated|chosen|selected as|the one who|asked to|expected to|supposed to)|my (role|responsibility|job|task|goal|mission|purpose|duty) (was|is|has been|has always been)|it was my (job|task|responsibility|duty|role) to|i am here (to|because|for)|my (goal|aim|objective|purpose|mission|intention|aspiration) (is|was|has always been|has been))\b/.test(n)) return 5;
+  // Goal-oriented / intent / personal decision
+  if (/\b(i (want|wanted|aim|plan|hope|intend|aspire|strive) to (become|be|contribute|help|build|develop|grow|improve|achieve|succeed|work|serve)|i believe in |i value |i prioritize |i (chose|took up|studied|enrolled|graduated|committed|dedicated))\b/.test(n)) return 4;
+  // General personal direction
+  if (/\b(i (am|was|have been|keep|try|do|make|focus)|i (like|enjoy|prefer|appreciate|care about)|its (important|essential|key|necessary)|to (make|do|get|achieve|reach|meet|finish|complete))\b/.test(n)) return 3;
+  if (/\b(i (did|joined|applied|went|came|showed up|participated|helped)|my part|okay|fine|sure|yes|yeah)\b/.test(n)) return 2;
   return 1;
 }
 
-// Action signals — maps to HR rubric:
-//   5: specific, structured, demonstrate initiative
-//   4: described with reasonable clarity
-//   3: mentioned but lack depth
-//   2: vague (e.g. "I did my best")
-//   1: no actions described
-function scoreAction(norm: string): number {
-  // Strong: specific structured verbs showing initiative
-  if (
-    /\b(i (implemented|developed|designed|led|created|built|organized|restructured|coordinated|initiated|spearheaded|established|launched|resolved|streamlined|proposed|presented))\b/.test(norm)
-  ) return 5;
-
-  // Good: clear action verbs
-  if (
-    /\b(i (communicated|scheduled|managed|handled|worked|planned|collaborated|discussed|trained|monitored|delegated|completed|finished|prepared))\b/.test(norm)
-  ) return 4;
-
-  // Partial: generic action words
-  if (/\b(i (did|made|tried|helped|assisted|supported|used|applied))\b/.test(norm)) return 3;
-
-  // Vague: "I did my best", "I tried hard"
-  if (/\b(did my best|tried hard|gave my all|did what i could)\b/.test(norm)) return 2;
-
-  // Nothing
+function scoreAction(n: string): number {
+  // Strong initiative verbs
+  if (/\b(i (suggested|proposed|initiated|implemented|developed|designed|led|created|built|organized|restructured|coordinated|established|resolved|streamlined|introduced|facilitated|volunteered|launched|started|set up|came up with|stepped up|pushed for|advocated|coached|mentored|trained|spearheaded|took (on|over|charge|initiative|lead)|overhauled|rewrote|redesigned|formulated|devised|drafted|directed|supervised|headed|ran|executed|deployed|automated|simplified|standardized|integrated|revamped|transformed))\b/.test(n)) return 5;
+  // Concrete evidence / specific past actions
+  if (/\b(for example|for instance|i (once|actually|remember)|i (worked|handled|managed|completed|finished|submitted|delivered|presented|prepared|collaborated|planned|tracked|reviewed|reached out|communicated|discussed|documented|reported|checked|updated|spent|put in))\b/.test(n)) return 4;
+  // General doing verbs
+  if (/\b(i (did|made|tried|helped|used|applied|participated|contributed|took|got|gave|read|watched|studied|learned|practiced|attended|went|called|met|saw|wrote|sent|asked))\b/.test(n)) return 3;
+  if (/\b(did my best|tried hard|gave my all|i was (just|there))\b/.test(n)) return 2;
   return 1;
 }
 
-// Result signals — maps to HR rubric:
-//   5: measurable or clearly defined result
-//   4: stated but not strongly quantified
-//   3: vague (e.g. "it went well")
-//   2: no clear result described
-//   1: no result at all
-function scoreResult(norm: string): number {
-  // Strong: measurable/quantified result
-  if (
-    /\b(\d+\s*%|\d+\s*percent|increased by|decreased by|reduced by|improved by|ahead of (schedule|deadline)|finished (early|on time|ahead)|completed within|saved \d+|zero (errors|complaints|issues))\b/.test(norm)
-  ) return 5;
-
-  // Good: result stated but not quantified
-  if (
-    /\b(successfully (completed|delivered|resolved|finished)|the (project|task|issue) was (completed|resolved|done)|we (achieved|met|reached|delivered)|as a result|the outcome was)\b/.test(norm)
-  ) return 4;
-
-  // Vague: "it went well", "it was good"
-  if (
-    /\b(it (went well|was (good|successful|fine|okay|ok))|things (worked out|got better)|positive (feedback|response)|everyone was (happy|satisfied))\b/.test(norm)
-  ) return 3;
-
-  // Weak: result implied but unclear
-  if (/\b(i think it (helped|worked)|probably|might have|could have)\b/.test(norm)) return 2;
-
-  // Nothing
+function scoreResult(n: string): number {
+  // Quantified outcome
+  if (/\b(\d+\s*(%|percent)|increased (by|the)|decreased|reduced|improved by|ahead of (schedule|deadline)|finished (early|on time|ahead)|saved \d+|doubled|tripled|halved|cut (the )?time)\b/.test(n)) return 5;
+  // Clear concrete outcome
+  if (/\b(i (passed|graduated|completed|finished|succeeded|managed to|was able to|ended up|earned|achieved|received|won|became|grew|improved|developed|launched|published)|they (adopted|used|kept|continued|accepted|approved)|my (supervisor|professor|adviser|ci|instructor|manager|teacher|mentor) (commended|praised|mentioned|thanked|approved|said|told me|noted|recognized)|as a result|in the end|eventually|it (worked out|paid off|helped|led|resulted|went well|made a difference)|that (worked|helped|changed|shaped|taught|showed|gave|led)|which (led|helped|resulted|meant|made)|we (achieved|met|reached|passed|delivered|submitted|finished|completed)|i now (have|know|can|am able to)|i (still|carry that|apply that|use that|remember that|value that|think about that)|so (i|we|it|that) (learned|realized|grew|changed|improved|became|succeeded|managed|finished|passed)|going forward|i have (since|become|grown|improved|developed|learned)|i (carry|apply|use|remember|value|take away|still) (that|this|it))\b/.test(n)) return 4;
+  // Vague positive outcome
+  if (/\b((it|things|everything) (went well|got better|worked out|was okay|was good|was fine|was great)|positive (feedback|result|response)|everyone (was happy|liked it|appreciated)|i felt (better|good|proud|confident|relieved))\b/.test(n)) return 3;
+  if (/\b(i think it (helped|worked)|probably|hopefully|might have|could have|im not sure|i dont know)\b/.test(n)) return 2;
   return 1;
 }
 
-// Reflection signals — maps to HR rubric:
-//   5: reflects on lessons learned or professional growth
-//   4: some reflection provided
-//   3: limited reflection
-//   2: no reflection or learning insight
-//   1: absent
-function scoreReflection(norm: string): number {
-  // Strong: explicit growth/learning statement
-  if (
-    /\b(i (learned|realized|understood|discovered|grew|developed) (that|how|the importance|from)|this (experience|taught|showed|helped) me|i (gained|improved) my|it made me (better|more|realize)|professionally (grew|developed|matured))\b/.test(norm)
-  ) return 5;
-
-  // Good: some reflection but brief
-  if (
-    /\b(i (learned|realized|improved|grew)|it was a (learning|valuable|great) experience|i (take away|took away)|going forward|in the future i (will|would))\b/.test(norm)
-  ) return 4;
-
-  // Partial: implied but vague
-  if (/\b(i (think|feel) i (improved|grew|did better)|i (understand|know) now|next time)\b/.test(norm)) return 3;
-
-  // Weak: nothing meaningful
-  if (/\b(it was (fine|okay|good)|no (complaints|issues)|happy with it)\b/.test(norm)) return 2;
-
-  // Nothing
+function scoreReflection(n: string): number {
+  // Explicit learning / self-awareness / identity
+  if (/\b(i (learned|realized|understood|discovered|recognized|now understand|now know|now see|now believe|now value) (that|how|the importance|from|why|what)|this (experience|shows|taught|reminded|helped|shaped|changed|made|showed|gave|led) me|i (am|have become|have grown|have developed|have improved) (more|better|stronger|wiser|more aware|more confident|more patient)|i (still|carry|apply|use|remember|value|think about) (that|this|it)|im the type (of person)? (who|that)|im someone who|thats (who|what|how|where|why) i am|thats (who|what|how) i (try to be|want to be|strive to be|became))\b/.test(n)) return 5;
+  // Growth orientation
+  if (/\b(i (have learned|have realized|have grown|have improved|have developed|have become|have gained)|i (try to be|consider myself|see myself as|know myself|push myself|challenge myself|hold myself)|i (am not perfect|am still learning|am still improving|am still growing|am still working on|need to work on)|going forward|i (will|want to) (keep|continue|improve|grow|develop|learn|do better|work on))\b/.test(n)) return 4;
+  // Tentative self-awareness
+  if (/\b(i (think i|feel i|believe i|hope i) (am|can|do|will|have|could|should|would|try|work|improve|grow)|i (am|try to be|tend to be|sometimes|often) (someone who|the type who|careful|honest|direct|calm|patient|competitive|hardworking|dedicated|reliable|flexible|adaptable))\b/.test(n)) return 3;
+  if (/\b(i (think|believe|feel|guess|hope|suppose)|sometimes|usually|generally|kind of|sort of|a bit)\b/.test(n)) return 2;
   return 1;
 }
 
-// Organization/confidence bonus — adjusts final score based on HR rubric
-// descriptors: "concise, logical, confident" (5) vs "disorganized" (1)
-function scoreOrganization(norm: string, wordCount: number): number {
-  // Too short — likely disorganized or incomplete (HR rubric score 1–2)
-  if (wordCount < 20) return 1;
-  if (wordCount < 40) return 2;
-
-  // Connective words signal logical structure (HR rubric: "concise and logical")
-  const hasConnectives = /\b(first(ly)?|second(ly)?|then|after (that|which)|finally|as a result|therefore|because|however|additionally|furthermore|in conclusion)\b/.test(norm);
-  if (hasConnectives && wordCount >= 60) return 5;
-  if (hasConnectives) return 4;
-
-  // Decent length but no explicit connectives
-  if (wordCount >= 60) return 3;
+function scoreOrg(n: string, wc: number): number {
+  if (wc < 15) return 1;
+  if (wc < 30) return 2;
+  const conn = /\b(first(ly)?|second(ly)?|then|after (that|which)|finally|as a result|therefore|because|however|additionally|furthermore|also|and then|but then|so i|which (meant|helped|led|resulted))\b/.test(n);
+  if (conn && wc >= 60) return 5;
+  if (conn || wc >= 80) return 4;
+  if (wc >= 40) return 3;
   return 2;
 }
 
-export function evaluateWithSTAR(answer: string): {
-  score: number;
-  breakdown: STARBreakdown;
-} {
-  const norm = normalizeText(answer);
-  const wordCount = norm.split(" ").filter(Boolean).length;
-
-  const breakdown: STARBreakdown = {
-    situation: scoreSituation(norm),
-    task: scoreTask(norm),
-    action: scoreAction(norm),
-    result: scoreResult(norm),
-    reflection: scoreReflection(norm),
-  };
-
-  // Organization acts as a modifier — clamps down scores for very short/disorganized answers
-  const orgScore = scoreOrganization(norm, wordCount);
-
-  // If answer is very short or disorganized, cap the maximum possible score
-  // This reflects HR rubric: "Response is disorganized" → score 2 or below
-  const cappedBreakdown: STARBreakdown = {
-    situation: Math.min(breakdown.situation, orgScore === 1 ? 2 : orgScore === 2 ? 3 : 5),
-    task: Math.min(breakdown.task, orgScore === 1 ? 2 : orgScore === 2 ? 3 : 5),
-    action: Math.min(breakdown.action, orgScore === 1 ? 2 : orgScore === 2 ? 3 : 5),
-    result: Math.min(breakdown.result, orgScore === 1 ? 2 : orgScore === 2 ? 3 : 5),
-    reflection: Math.min(breakdown.reflection, orgScore === 1 ? 2 : orgScore === 2 ? 3 : 5),
-  };
-
-  const avg =
-    (cappedBreakdown.situation +
-      cappedBreakdown.task +
-      cappedBreakdown.action +
-      cappedBreakdown.result +
-      cappedBreakdown.reflection) /
-    5;
-
+function computeBreakdown(n: string, wc: number): STARBreakdown {
+  const org = scoreOrg(n, wc);
+  const cap = org <= 1 ? 2 : org <= 2 ? 3 : 5;
   return {
-    score: Math.max(1, Math.min(5, Math.round(avg))),
-    breakdown: cappedBreakdown,
+    situation:  Math.min(scoreSituation(n),  cap),
+    task:       Math.min(scoreTask(n),       cap),
+    action:     Math.min(scoreAction(n),     cap),
+    result:     Math.min(scoreResult(n),     cap),
+    reflection: Math.min(scoreReflection(n), cap),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Blend / scale helpers
+// ---------------------------------------------------------------------------
+
+function blendBreakdowns(a: STARBreakdown, b: STARBreakdown, bWeight: number): STARBreakdown {
+  const aw = 1 - bWeight;
+  return {
+    situation:  parseFloat((a.situation  * aw + b.situation  * bWeight).toFixed(2)),
+    task:       parseFloat((a.task       * aw + b.task       * bWeight).toFixed(2)),
+    action:     parseFloat((a.action     * aw + b.action     * bWeight).toFixed(2)),
+    result:     parseFloat((a.result     * aw + b.result     * bWeight).toFixed(2)),
+    reflection: parseFloat((a.reflection * aw + b.reflection * bWeight).toFixed(2)),
+  };
+}
+
+function breakdownToScore(bd: STARBreakdown): number {
+  return parseFloat(((bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5).toFixed(2));
+}
+
+// Scale all dims proportionally so their average == targetScore.
+// Invariant: score always equals breakdownToScore(breakdown).
+function scaleBDToTarget(bd: STARBreakdown, targetScore: number): STARBreakdown {
+  const avg = (bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5;
+  const ratio = avg > 0 ? targetScore / avg : 1;
+  return {
+    situation:  parseFloat(Math.min(5, Math.max(1, bd.situation  * ratio)).toFixed(2)),
+    task:       parseFloat(Math.min(5, Math.max(1, bd.task       * ratio)).toFixed(2)),
+    action:     parseFloat(Math.min(5, Math.max(1, bd.action     * ratio)).toFixed(2)),
+    result:     parseFloat(Math.min(5, Math.max(1, bd.result     * ratio)).toFixed(2)),
+    reflection: parseFloat(Math.min(5, Math.max(1, bd.reflection * ratio)).toFixed(2)),
   };
 }
 
 // ---------------------------------------------------------------------------
 // Public evaluate function
-//
-// Strategy:
-//   1. Call RoBERTa via HF API (Path 1) — real semantic relevance score.
-//      Blended 70% RoBERTa + 30% STAR.
-//   2. If RoBERTa fails → fall back to ZSL STAR heuristic (Path 2).
-//      Scored entirely against your official HR rubric descriptors.
-//
-// Both paths return:
-//   - score (1–5) mapped to HR rubric
-//   - full STAR breakdown across all five dimensions
-//   - hrLabel showing the official HR rating string
 // ---------------------------------------------------------------------------
 
 export async function evaluateAnswer(
   question: string,
   answer: string
 ): Promise<EvaluationResult> {
-  // Always compute STAR — instant, no network, used as fallback + breakdown
-  const star = evaluateWithSTAR(answer);
+  const norm = normalizeText(answer);
+  const wordCount = norm.split(' ').filter(Boolean).length;
 
-  // Find closest dataset question for reference metadata
-  const { item: datasetMatch } = findBestMatch(question);
+  // Step 1: Dataset nearest-neighbor lookup
+  const lookup = lookupDataset(question, answer);
+  const hasDataset = lookup.item !== null && lookup.anchorScore !== null;
 
-  // ── Path 1: RoBERTa via HF API ────────────────────────────────────────────
+  // Step 2: STAR breakdown, blended with dataset question breakdown if match found
+  const rawBD = computeBreakdown(norm, wordCount);
+  const blendedBD: STARBreakdown =
+    hasDataset && lookup.bestAnswerSimilarity > 0.1
+      ? blendBreakdowns(rawBD, lookup.item!.breakdown, Math.min(0.35, lookup.bestAnswerSimilarity * 0.5))
+      : rawBD;
+
+  const localScore = breakdownToScore(blendedBD);
+
+  // ── Path 1: RoBERTa via Vite proxy ──────────────────────────────────────
   try {
-    const roberta = await callRoBERTa(question, answer);
+    const confidence = await callRoBERTa(question, answer);
+    const robertaScore = confidenceToScore(confidence, wordCount);
 
-    // Blend: 70% RoBERTa semantic score + 30% HR-rubric STAR score
-    const blended = Math.round(roberta.score * 0.7 + star.score * 0.3);
-    const finalScore = Math.max(1, Math.min(5, blended));
+    const targetScore = Math.max(1, Math.min(5,
+      hasDataset && lookup.anchorScore !== null
+        ? robertaScore * 0.55 + lookup.anchorScore * 0.25 + localScore * 0.20
+        : robertaScore * 0.70 + localScore * 0.30
+    ));
+
+    const scaledBD = scaleBDToTarget(blendedBD, targetScore);
+    const finalScore = breakdownToScore(scaledBD);
 
     return {
-      source: "roberta_hf",
-      matchedQuestion: datasetMatch?.question ?? null,
-      baseScore: roberta.score,
-      similarity: Number(roberta.rawConfidence.toFixed(3)),
+      source: 'roberta_hf',
+      matchedQuestion: lookup.item?.question ?? null,
+      questionAvgScore: lookup.item?.questionAvgScore ?? null,
+      datasetAnchorScore: lookup.anchorScore,
+      datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
+      roberta_confidence: parseFloat(confidence.toFixed(3)),
       score: finalScore,
-      breakdown: star.breakdown,
-      hfRaw: roberta.rawConfidence,
+      breakdown: scaledBD,
       hrLabel: getHRLabel(finalScore),
     };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.warn("[evaluateAnswer] RoBERTa API failed, falling back to ZSL STAR:", errorMessage);
+    console.warn('[evaluateAnswer] RoBERTa failed, using ZSL STAR:', err instanceof Error ? err.message : err);
   }
 
-  // ── Path 2: ZSL STAR heuristic (local fallback) ───────────────────────────
+  // ── Path 2: ZSL STAR + dataset anchor fallback ───────────────────────────
+  const targetScore = Math.max(1, Math.min(5,
+    hasDataset && lookup.anchorScore !== null
+      ? localScore * 0.65 + lookup.anchorScore * 0.35
+      : localScore
+  ));
+
+  const scaledBD = scaleBDToTarget(blendedBD, targetScore);
+  const finalScore = breakdownToScore(scaledBD);
+
   return {
-    source: "zsl_star_fallback",
-    matchedQuestion: null,
-    baseScore: null,
-    similarity: 0,
-    score: star.score,
-    breakdown: star.breakdown,
-    hrLabel: getHRLabel(star.score),
-    error: "RoBERTa API unavailable. Score computed locally using HR-calibrated ZSL STAR heuristic.",
+    source: 'zsl_star_fallback',
+    matchedQuestion: lookup.item?.question ?? null,
+    questionAvgScore: lookup.item?.questionAvgScore ?? null,
+    datasetAnchorScore: lookup.anchorScore,
+    datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
+    roberta_confidence: 0,
+    score: finalScore,
+    breakdown: scaledBD,
+    hrLabel: getHRLabel(finalScore),
+    error: 'RoBERTa API unavailable. Score computed using ZSL STAR + dataset anchor.',
   };
 }
 
