@@ -10,6 +10,7 @@ import {
   Volume2,
   Pause,
   Play,
+  RotateCcw,
   Square,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
@@ -211,6 +212,7 @@ function MockInterviewPageContent({
     initialStateRef.current?.followupCountByBase ?? {}
   );
   const [isDecidingNextQuestion, setIsDecidingNextQuestion] = useState(false);
+  const [isAdvancingNextQuestion, setIsAdvancingNextQuestion] = useState(false);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -240,6 +242,7 @@ function MockInterviewPageContent({
   const activeSessionIdRef = useRef<string | null>(null);
   const activeQuestionIndexRef = useRef(0);
   const bankQuestionPoolRef = useRef<Question[]>([]);
+  const nextQuestionInFlightRef = useRef(false);
 
   useEffect(() => {
     if (stateKey === derivedStateKey) return;
@@ -1174,6 +1177,14 @@ function MockInterviewPageContent({
   }, [stopLiveChunkTranscription, stopLiveDraftTranscription]);
 
   const handleNextQuestion = useCallback(async () => {
+    if (nextQuestionInFlightRef.current) {
+      return;
+    }
+
+    nextQuestionInFlightRef.current = true;
+    setIsAdvancingNextQuestion(true);
+
+    try {
     if (questions.length === 0) {
       return;
     }
@@ -1182,18 +1193,24 @@ function MockInterviewPageContent({
       return;
     }
 
-    if (!isPaused) {
-      setRecordingError(
-        "Please click Pause first to save and transcribe your current answer before moving to the next question."
-      );
-      return;
-    }
-
     if (isPauseTranscriptPending) {
       setRecordingError(
         "Transcription is still processing for this paused answer. Please wait a moment, then click Next Question again."
       );
       return;
+    }
+
+    if (!isPaused) {
+      setRecordingError("Saving and transcribing your current answer before moving to the next question...");
+      await stopActiveRecording();
+      setIsPaused(true);
+      if (sessionId) {
+        await updateInterviewSessionStatus(sessionId, "paused", {
+          paused_at: new Date().toISOString(),
+        });
+      }
+      await refreshTranscriptAfterPause();
+      setRecordingError(null);
     }
 
     await stopActiveRecording();
@@ -1205,7 +1222,7 @@ function MockInterviewPageContent({
 
     const baseQuestionId = activeQuestion.baseQuestionId || activeQuestion.id;
     const followupCountForCurrent = followupCountByBase[baseQuestionId] || 0;
-    const answerText = (liveTranscriptText || liveDraftTranscript || "").trim();
+    const answerText = (liveDraftTranscript || liveTranscriptText || "").trim();
     const candidateAnswer = answerText || "No clear answer captured from transcript.";
 
     const askedQuestionCount = questions.length;
@@ -1229,15 +1246,18 @@ function MockInterviewPageContent({
 
     setIsDecidingNextQuestion(true);
 
-    const decisionResult = await decideNextQuestionStep({
-      currentQuestion: activeQuestion.question,
-      candidateAnswer,
-      category: activeQuestion.type,
-      remainingBankQuestions: bankQuestionPool.length,
-      followupCountForCurrent,
-    });
-
-    setIsDecidingNextQuestion(false);
+    let decisionResult;
+    try {
+      decisionResult = await decideNextQuestionStep({
+        currentQuestion: activeQuestion.question,
+        candidateAnswer,
+        category: activeQuestion.type,
+        remainingBankQuestions: bankQuestionPool.length,
+        followupCountForCurrent,
+      });
+    } finally {
+      setIsDecidingNextQuestion(false);
+    }
 
     const shouldAskFollowup =
       !decisionResult.error &&
@@ -1326,6 +1346,10 @@ function MockInterviewPageContent({
     await completeSession(
       `Session ended because no more questions are available in the bank.${minimumMsg} Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`
     );
+    } finally {
+      nextQuestionInFlightRef.current = false;
+      setIsAdvancingNextQuestion(false);
+    }
   }, [
     bankQuestionPool,
     calculateSessionStarAverage,
@@ -1334,13 +1358,74 @@ function MockInterviewPageContent({
     fetchAdditionalBankQuestions,
     followupCountByBase,
     isDecidingNextQuestion,
+    isAdvancingNextQuestion,
     isPauseTranscriptPending,
     isPaused,
     liveDraftTranscript,
     liveTranscriptText,
     questions,
+    refreshTranscriptAfterPause,
     sessionId,
     startSegmentRecording,
+    stopActiveRecording,
+  ]);
+
+  const handleRestartCurrentAnswer = useCallback(async () => {
+    if (!isSessionStarted) {
+      return;
+    }
+
+    if (!isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion) {
+      return;
+    }
+
+    await stopActiveRecording();
+    setLiveTranscriptText(null);
+    setLatestWhisperStatus(null);
+    setIsPauseTranscriptPending(false);
+    setLiveDraftTranscript("");
+    speechFinalTextRef.current = "";
+
+    const nextLastEvaluated = { ...lastEvaluatedTranscriptRef.current };
+    delete nextLastEvaluated[currentQuestion];
+    lastEvaluatedTranscriptRef.current = nextLastEvaluated;
+
+    setEvaluations((previous) => {
+      if (!previous || !(currentQuestion in previous)) {
+        return previous;
+      }
+      const next = { ...previous };
+      delete next[currentQuestion];
+      try {
+        if (stateKey) {
+          localStorage.setItem(`${stateKey}_evaluations`, JSON.stringify(next));
+        }
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+
+    if (sessionId) {
+      await updateInterviewSessionStatus(sessionId, "in_progress", {
+        resumed_at: new Date().toISOString(),
+      });
+    }
+
+    setRecordingError("Current answer restarted. Record your response again, then click Pause.");
+    setIsPaused(false);
+    await startSegmentRecording(currentQuestion);
+  }, [
+    currentQuestion,
+    isAdvancingNextQuestion,
+    isDecidingNextQuestion,
+    isPauseTranscriptPending,
+    isPaused,
+    isSessionStarted,
+    isUploadingSegment,
+    sessionId,
+    startSegmentRecording,
+    stateKey,
     stopActiveRecording,
   ]);
 
@@ -1359,6 +1444,7 @@ function MockInterviewPageContent({
     bankQuestionPoolRef.current = [];
     setFollowupCountByBase({});
     setIsDecidingNextQuestion(false);
+    setIsAdvancingNextQuestion(false);
     setQuestionsError(null);
     setRecordingError(null);
     setLiveDraftTranscript("");
@@ -1372,6 +1458,7 @@ function MockInterviewPageContent({
     mediaRecorderRef.current = null;
     recordingChunksRef.current = [];
     activeSegmentMetaRef.current = null;
+    nextQuestionInFlightRef.current = false;
     stopLiveDraftTranscription();
     stopLiveChunkTranscription();
     stopCamera();
@@ -2005,9 +2092,9 @@ function MockInterviewPageContent({
                 </button>
                 <button
                   onClick={handleTogglePause}
-                  disabled={!isSessionStarted}
+                  disabled={!isSessionStarted || isAdvancingNextQuestion}
                   className={
-                    !isSessionStarted
+                    !isSessionStarted || isAdvancingNextQuestion
                       ? "p-2 text-gray-400 cursor-not-allowed"
                       : isPaused
                       ? "p-2 text-cyan-600 hover:text-cyan-700"
@@ -2022,7 +2109,28 @@ function MockInterviewPageContent({
                   )}
                 </button>
                 <button
-                  disabled={isUploadingSegment || isDecidingNextQuestion}
+                  onClick={handleRestartCurrentAnswer}
+                  disabled={!isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
+                  className={
+                    !isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion
+                      ? "px-4 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed flex items-center gap-2"
+                      : "px-4 py-2 rounded-lg font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors flex items-center gap-2"
+                  }
+                  title={
+                    !isSessionStarted
+                      ? "Start session first"
+                      : !isPaused
+                      ? "Pause to review transcript before restarting answer"
+                      : isPauseTranscriptPending
+                      ? "Wait for transcript processing to complete"
+                      : "Restart this question answer"
+                  }
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restart Answer
+                </button>
+                <button
+                  disabled={isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
                   className="bg-[#1B2744] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-2"
                   onClick={async () => {
                     if (!isSessionStarted) {
@@ -2070,6 +2178,7 @@ function MockInterviewPageContent({
                       segmentOrderRef.current = 1;
                       setFollowupCountByBase({});
                       setIsDecidingNextQuestion(false);
+                      setIsAdvancingNextQuestion(false);
                       setIsSessionStarted(true);
                       setIsPaused(false);
                       setCurrentQuestion(0);
@@ -2082,8 +2191,10 @@ function MockInterviewPageContent({
                     await handleNextQuestion();
                   }}
                   title={
-                    isSessionStarted && !isPaused
-                      ? "Pause first to save and transcribe your answer"
+                    isSessionStarted && isAdvancingNextQuestion
+                      ? "Processing your current answer"
+                      : isSessionStarted && !isPaused
+                      ? "Save and transcribe your answer, then go to next question"
                       : isSessionStarted && isPauseTranscriptPending
                       ? "Waiting for transcription to finish"
                       : isSessionStarted
@@ -2093,6 +2204,8 @@ function MockInterviewPageContent({
                 >
                   {questionsLoading
                     ? "Loading Questions..."
+                    : isAdvancingNextQuestion && !isDecidingNextQuestion
+                    ? "Preparing..."
                     : isUploadingSegment
                     ? "Saving Segment..."
                     : isDecidingNextQuestion
@@ -2104,9 +2217,9 @@ function MockInterviewPageContent({
                 </button>
                 <button
                   onClick={handleEndSession}
-                  disabled={!isSessionStarted}
+                  disabled={!isSessionStarted || isAdvancingNextQuestion}
                   className={
-                    !isSessionStarted
+                    !isSessionStarted || isAdvancingNextQuestion
                       ? "px-4 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed"
                       : "px-4 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-2"
                   }
