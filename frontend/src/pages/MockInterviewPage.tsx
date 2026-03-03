@@ -1837,31 +1837,36 @@ function MockInterviewPageContent({
                 </div>
               </div>
 
-              {/* Evaluation Metrics */}
+              {/* Evaluation Metrics (STAR method) */}
               <div className="mb-8">
                 <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                  Evaluation Metrics
+                  Evaluation Metrics (STAR)
                 </h3>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <MetricCard
-                    label="Clarity"
+                    label="Situation clarity"
                     percentage={null}
-                    description="Clear and articulate delivery"
+                    description="Clearly describes the situation or context"
                   />
                   <MetricCard
-                    label="Relevance"
+                    label="Task ownership"
                     percentage={null}
-                    description="Response addresses the question directly"
+                    description="States the task and shows ownership/responsibility"
                   />
                   <MetricCard
-                    label="Confidence"
+                    label="Action specificity"
                     percentage={null}
-                    description="Confident tone and presentation"
+                    description="Provides specific actions taken with detail"
                   />
                   <MetricCard
-                    label="Structure"
+                    label="Result measurability"
                     percentage={null}
-                    description="Well-organized response flow"
+                    description="Describes measurable outcomes or impact"
+                  />
+                  <MetricCard
+                    label="Reflection & learning"
+                    percentage={null}
+                    description="Shows learning and reflection from the experience"
                   />
                 </div>
               </div>
