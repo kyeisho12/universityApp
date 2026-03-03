@@ -116,12 +116,6 @@ export const AdminNavbar = ({
           active={activeNav === "admin/manage_students"}
           onClick={() => handleNavClick("admin/manage_students")}
         />
-        <NavItem
-          icon={<Settings className="w-5 h-5" />}
-          label="Settings"
-          active={activeNav === "admin/settings"}
-          onClick={() => handleNavClick("admin/settings")}
-        />
       </nav>
 
       {/* Footer */}

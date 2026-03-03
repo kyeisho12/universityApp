@@ -20,7 +20,6 @@ import StudentAnalytics from './components/admin/StudentAnalytics'
 import AdminMockInterview from './components/admin/AdminMockInterview'
 import ManageStudents from './components/admin/ManageStudents'
 import AdminCareerEvents from './components/admin/AdminCareerEvents'
-import Settings from './pages/Settings'
 
 // Simple test components that don't require auth
 function TestEventsPage() {
@@ -402,14 +401,6 @@ export default function App() {
             element={
               <RequireAdmin>
                 <ManageStudents />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/settings"
-            element={
-              <RequireAdmin>
-                <Settings />
               </RequireAdmin>
             }
           />
