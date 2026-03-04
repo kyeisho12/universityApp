@@ -18,6 +18,7 @@ import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudentId } from "../hooks/useStudentId";
 import { useStudent } from "../context/StudentContext";
+import { supabase } from "../lib/supabaseClient";
 import {
   decideNextQuestionStep,
   getLatestQuestionTranscript,
@@ -75,6 +76,17 @@ interface PersistedMockInterviewState {
   questions?: Question[];
   bankQuestionPool?: Question[];
   followupCountByBase?: Record<string, number>;
+}
+
+interface SessionHistoryItem {
+  id: string;
+  status: string;
+  totalQuestions: number;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  score: number | null;
+  evaluatedCount: number | null;
 }
 
 // Increase live chunk interval to reduce live transcription request rate (avoid 429)
@@ -202,6 +214,9 @@ function MockInterviewPageContent({
   const [isPauseTranscriptPending, setIsPauseTranscriptPending] = useState(false);
   const [liveDraftStatus, setLiveDraftStatus] = useState<string | null>(null);
   const [useLiveChunkFallback, setUseLiveChunkFallback] = useState(false);
+  const [showHistoryView, setShowHistoryView] = useState(true);
+  const [historySessions, setHistorySessions] = useState<SessionHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [questions, setQuestions] = useState<Question[]>(
     initialStateRef.current?.questions ?? []
   );
@@ -243,6 +258,71 @@ function MockInterviewPageContent({
   const activeQuestionIndexRef = useRef(0);
   const bankQuestionPoolRef = useRef<Question[]>([]);
   const nextQuestionInFlightRef = useRef(false);
+
+  const fetchSessionHistory = useCallback(async () => {
+    if (!userId) {
+      setHistorySessions([]);
+      return;
+    }
+
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("interview_sessions")
+        .select("id, status, total_questions, started_at, ended_at, created_at, metadata")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error("Failed to load interview history:", error);
+        setHistorySessions([]);
+        return;
+      }
+
+      const mapped: SessionHistoryItem[] = (data || []).map((session: any) => {
+        const metadata = session?.metadata && typeof session.metadata === "object" ? session.metadata : {};
+        const scoreSummary =
+          metadata?.score_summary && typeof metadata.score_summary === "object"
+            ? metadata.score_summary
+            : null;
+
+        const scoreCandidates = [
+          Number(scoreSummary?.overall_average),
+          Number(metadata?.overall_average),
+          Number(metadata?.session_score),
+        ];
+        const score = scoreCandidates.find((value) => Number.isFinite(value));
+
+        const evaluatedCountCandidate = Number(scoreSummary?.evaluated_count);
+        const evaluatedCount = Number.isFinite(evaluatedCountCandidate) ? evaluatedCountCandidate : null;
+
+        return {
+          id: session.id,
+          status: session.status || "unknown",
+          totalQuestions: Number(session.total_questions || 0),
+          startedAt: session.started_at || null,
+          endedAt: session.ended_at || null,
+          createdAt: session.created_at,
+          score: typeof score === "number" ? score : null,
+          evaluatedCount,
+        };
+      });
+
+      setHistorySessions(mapped);
+    } catch (error) {
+      console.error("Unexpected error loading interview history:", error);
+      setHistorySessions([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!hasStarted && !isCompleted && showHistoryView) {
+      void fetchSessionHistory();
+    }
+  }, [fetchSessionHistory, hasStarted, isCompleted, showHistoryView]);
 
   useEffect(() => {
     if (stateKey === derivedStateKey) return;
@@ -782,9 +862,21 @@ function MockInterviewPageContent({
     }
 
     if (sessionId) {
+      const sessionStats = computeSessionSTARStats();
       await updateInterviewSessionStatus(sessionId, "completed", {
         ended_at: new Date().toISOString(),
-        metadata: getSessionTranscriptMetadata(),
+        metadata: {
+          ...getSessionTranscriptMetadata(),
+          score_summary: {
+            overall_average: Number(sessionStats.overallAverage.toFixed(2)),
+            situation: Number(sessionStats.situation.toFixed(2)),
+            task: Number(sessionStats.task.toFixed(2)),
+            action: Number(sessionStats.action.toFixed(2)),
+            result: Number(sessionStats.result.toFixed(2)),
+            reflection: Number(sessionStats.reflection.toFixed(2)),
+            evaluated_count: sessionStats.evaluatedCount,
+          },
+        },
       });
 
       const pendingTranscriptions = await triggerPendingSessionTranscriptions({
@@ -801,7 +893,7 @@ function MockInterviewPageContent({
         );
       }
     }
-  }, [getSessionTranscriptMetadata, sessionId]);
+  }, [computeSessionSTARStats, getSessionTranscriptMetadata, sessionId]);
 
   const stopLiveChunkTranscription = useCallback(() => {
     const recorder = liveTranscriptionRecorderRef.current;
@@ -1760,6 +1852,113 @@ function MockInterviewPageContent({
   }
 
   if (!hasStarted) {
+    if (showHistoryView) {
+      const completedSessions = historySessions.filter((session) => session.status === "completed").length;
+      const sessionsWithScore = historySessions.filter((session) => typeof session.score === "number");
+      const averageScore =
+        sessionsWithScore.length > 0
+          ? sessionsWithScore.reduce((sum, session) => sum + (session.score || 0), 0) / sessionsWithScore.length
+          : null;
+
+      return (
+        <div className="flex h-screen bg-gray-50">
+          <Sidebar
+            userName={userName}
+            userID={userID}
+            onLogout={onLogout}
+            onNavigate={onNavigate}
+            activeNav="student/interview"
+          />
+
+          <div className="flex-1 overflow-auto">
+            <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+              <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
+            </div>
+
+            <div className="p-8 space-y-8">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
+                <p className="text-gray-500 mt-1">Review your past interview attempts and scores.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="text-3xl font-semibold text-gray-900 mb-1">{historySessions.length}</div>
+                  <div className="text-sm text-gray-600">Total Sessions</div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="text-3xl font-semibold text-gray-900 mb-1">{completedSessions}</div>
+                  <div className="text-sm text-gray-600">Completed Sessions</div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="text-3xl font-semibold text-gray-900 mb-1">
+                    {averageScore !== null ? averageScore.toFixed(2) : "—"}
+                  </div>
+                  <div className="text-sm text-gray-600">Average Score (1-5)</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Past Sessions</h3>
+                  <button
+                    onClick={() => setShowHistoryView(false)}
+                    className="bg-[#1B2744] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors"
+                  >
+                    Take Mock Interview Again
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b border-gray-200">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Date</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Questions</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {historyLoading ? (
+                        <tr>
+                          <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={4}>
+                            Loading sessions...
+                          </td>
+                        </tr>
+                      ) : historySessions.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={4}>
+                            No interview sessions yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        historySessions.map((session) => (
+                          <tr key={session.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-700">
+                              {new Date(session.startedAt || session.createdAt).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 capitalize">{session.status.replace("_", " ")}</td>
+                            <td className="px-4 py-3 text-gray-700">{session.totalQuestions || "—"}</td>
+                            <td className="px-4 py-3 text-gray-700">
+                              {typeof session.score === "number" ? `${session.score.toFixed(2)} / 5` : "Not available"}
+                              {session.evaluatedCount !== null ? (
+                                <span className="text-xs text-gray-500 ml-2">({session.evaluatedCount} answers)</span>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}

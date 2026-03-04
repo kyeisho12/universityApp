@@ -9,6 +9,7 @@ import {
   Video,
   Play,
   Menu,
+  Search,
 } from "lucide-react";
 import { supabase } from '../../lib/supabaseClient'
 import evaluateAnswer from '../../utils/robertaEvaluator'
@@ -35,9 +36,29 @@ export default function AdminMockInterview() {
 
   const [sessions, setSessions] = React.useState<any[]>([])
   const [loadingSessions, setLoadingSessions] = React.useState<boolean>(true)
+  const [searchQuery, setSearchQuery] = React.useState<string>("")
   const [selectedSession, setSelectedSession] = React.useState<any | null>(null)
   const [segmentsByQuestion, setSegmentsByQuestion] = React.useState<Record<string, any[]>>({})
   const [loadingSegments, setLoadingSegments] = React.useState<boolean>(false)
+
+  const filteredSessions = React.useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    if (!query) return sessions
+
+    return sessions.filter((session) => {
+      const student = String(session.user_name || session.user_id || "").toLowerCase()
+      const status = String(session.status || "").toLowerCase()
+      const questions = String(session.total_questions ?? "").toLowerCase()
+      const date = session.started_at ? new Date(session.started_at).toLocaleString().toLowerCase() : ""
+
+      return (
+        student.includes(query) ||
+        status.includes(query) ||
+        questions.includes(query) ||
+        date.includes(query)
+      )
+    })
+  }, [sessions, searchQuery])
 
   async function handleLogout() {
     try {
@@ -254,7 +275,19 @@ export default function AdminMockInterview() {
 
             {/* Recent Interviews Table */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-hidden">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Recent Interviews</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Interviews</h3>
+                <div className="relative w-full sm:max-w-sm">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search student, status, date..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  />
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="border-b border-gray-200">
@@ -279,8 +312,14 @@ export default function AdminMockInterview() {
                           No interview sessions yet.
                         </td>
                       </tr>
+                    ) : filteredSessions.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={5}>
+                          No sessions match your search.
+                        </td>
+                      </tr>
                     ) : (
-                      sessions.map((session) => (
+                      filteredSessions.map((session) => (
                         <tr key={session.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium text-gray-900">{session.user_name || session.user_id}</td>
                           <td className="px-4 py-3 text-gray-600">{session.started_at ? new Date(session.started_at).toLocaleString() : '—'}</td>
