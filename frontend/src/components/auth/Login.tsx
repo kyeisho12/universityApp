@@ -335,7 +335,7 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
 }
 
 export default function Login() {
-  const { user, signIn, signUp } = useAuth()
+  const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
   const [view, setView] = useState<View>('login')
 
@@ -345,10 +345,17 @@ export default function Login() {
     navigate(redirectPath)
   }
 
-  const handleSignUp = async (email: string, password: string, _fullName: string) => {
-    await signUp(email, password)
-    const redirectPath = email.endsWith(ADMIN_DOMAIN) ? '/admin' : '/'
-    navigate(redirectPath)
+  const handleSignUp = async (email: string, password: string, fullName: string) => {
+    const role = email.endsWith(ADMIN_DOMAIN) ? 'admin' : 'student'
+
+    await signUp(email, password, {
+      full_name: fullName.trim(),
+      role,
+    })
+
+    alert('Registration successful! Please check your email to verify your account.')
+    setView('login')
+    navigate('/login')
   }
 
   return (
