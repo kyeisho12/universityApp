@@ -149,14 +149,77 @@ export async function updateInterviewSessionProgress(sessionId, currentQuestionI
 		return { data: null, error: new Error('Missing session id') }
 	}
 
+	const normalizedQuestionIndex = Number.isFinite(currentQuestionIndex)
+		? Math.max(0, Math.floor(currentQuestionIndex))
+		: 0
+	const attemptedQuestionCount = normalizedQuestionIndex + 1
+
 	const { data, error } = await supabase
 		.from('interview_sessions')
-		.update({ current_question_index: currentQuestionIndex })
+		.update({
+			current_question_index: normalizedQuestionIndex,
+			total_questions: attemptedQuestionCount,
+		})
 		.eq('id', sessionId)
 		.select('*')
 		.single()
 
 	return { data, error }
+}
+
+export async function voidInterviewSession({ sessionId, storagePrefix, bucket = 'interview-recordings' }) {
+	if (!sessionId) {
+		return { data: null, error: new Error('Missing session id') }
+	}
+
+	let storageError = null
+
+	if (storagePrefix) {
+		try {
+			const { data: objects, error: listError } = await supabase
+				.storage
+				.from(bucket)
+				.list(storagePrefix, { limit: 1000, offset: 0 })
+
+			if (listError) {
+				storageError = listError
+			} else if (objects && objects.length > 0) {
+				const paths = objects
+					.filter((item) => item && item.name)
+					.map((item) => `${storagePrefix}/${item.name}`)
+
+				if (paths.length > 0) {
+					const { error: removeError } = await supabase
+						.storage
+						.from(bucket)
+						.remove(paths)
+
+					if (removeError) {
+						storageError = removeError
+					}
+				}
+			}
+		} catch (error) {
+			storageError = error instanceof Error ? error : new Error('Failed to clean up storage files')
+		}
+	}
+
+	const { data, error } = await supabase
+		.from('interview_sessions')
+		.delete()
+		.eq('id', sessionId)
+		.select('*')
+		.single()
+
+	if (error) {
+		return { data: null, error }
+	}
+
+	if (storageError) {
+		return { data, error: storageError }
+	}
+
+	return { data, error: null }
 }
 
 export async function uploadInterviewRecordingSegment({ bucket = 'interview-recordings', storagePath, segmentBlob, contentType = 'video/webm' }) {

@@ -60,12 +60,7 @@ export async function checkIfApplied(
       .eq("student_id", studentId)
       .eq("job_id", jobId)
       .neq("status", "withdrawn")
-      .single();
-
-    if (error && error.code === "PGRST116") {
-      // No rows returned
-      return { hasApplied: false };
-    }
+      .maybeSingle();
 
     if (error) {
       console.error("Error checking application:", error);

@@ -32,6 +32,7 @@ import {
   updateInterviewSessionProgress,
   updateInterviewSessionStatus,
   uploadInterviewRecordingSegment,
+  voidInterviewSession,
 } from "../services/interviewService";
 
 type NavigateHandler = (route: string) => void;
@@ -258,6 +259,15 @@ function MockInterviewPageContent({
   const activeQuestionIndexRef = useRef(0);
   const bankQuestionPoolRef = useRef<Question[]>([]);
   const nextQuestionInFlightRef = useRef(false);
+  const isApplyingPopstateRef = useRef(false);
+  const hasInitializedHistoryStateRef = useRef(false);
+
+  const currentViewStep = React.useMemo(() => {
+    if (showHistoryView) return "history";
+    if (!hasStarted) return "ready";
+    if (isCompleted) return "completed";
+    return "session";
+  }, [hasStarted, isCompleted, showHistoryView]);
 
   const fetchSessionHistory = useCallback(async () => {
     if (!userId) {
@@ -269,7 +279,7 @@ function MockInterviewPageContent({
     try {
       const { data, error } = await supabase
         .from("interview_sessions")
-        .select("id, status, total_questions, started_at, ended_at, created_at, metadata")
+        .select("id, status, total_questions, current_question_index, started_at, ended_at, created_at, metadata")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -297,10 +307,23 @@ function MockInterviewPageContent({
         const evaluatedCountCandidate = Number(scoreSummary?.evaluated_count);
         const evaluatedCount = Number.isFinite(evaluatedCountCandidate) ? evaluatedCountCandidate : null;
 
+        const metadataQuestionCountCandidate = Number(metadata?.questions_attempted);
+        const metadataQuestionCount = Number.isFinite(metadataQuestionCountCandidate)
+          ? Math.max(0, Math.floor(metadataQuestionCountCandidate))
+          : null;
+        const progressQuestionCount = Number.isFinite(Number(session.current_question_index))
+          ? Number(session.current_question_index) + 1
+          : null;
+        const configuredQuestionCount = Number(session.total_questions || 0);
+        const derivedQuestionCount =
+          metadataQuestionCount ??
+          progressQuestionCount ??
+          (Number.isFinite(configuredQuestionCount) ? configuredQuestionCount : 0);
+
         return {
           id: session.id,
           status: session.status || "unknown",
-          totalQuestions: Number(session.total_questions || 0),
+          totalQuestions: Math.max(0, derivedQuestionCount),
           startedAt: session.started_at || null,
           endedAt: session.ended_at || null,
           createdAt: session.created_at,
@@ -732,8 +755,14 @@ function MockInterviewPageContent({
   }, [stateKey]);
 
   const refreshTranscriptAfterPause = useCallback(async () => {
-    const maxAttempts = 10;
+    const maxAttempts = 20;
+    const draftTranscript = (liveDraftTranscript || "").trim();
     setIsPauseTranscriptPending(true);
+
+    if (draftTranscript) {
+      setLiveTranscriptText(draftTranscript);
+      setLatestWhisperStatus("in_progress");
+    }
 
     try {
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -742,16 +771,20 @@ function MockInterviewPageContent({
           return;
         }
 
+        if (draftTranscript && attempt >= 2) {
+          return;
+        }
+
         if (attempt < maxAttempts - 1) {
           await new Promise((resolve) => {
-            window.setTimeout(resolve, 800);
+            window.setTimeout(resolve, 1000);
           });
         }
       }
     } finally {
       setIsPauseTranscriptPending(false);
     }
-  }, [refreshLiveTranscript]);
+  }, [liveDraftTranscript, refreshLiveTranscript]);
 
   useEffect(() => {
     if (!isSessionStarted) {
@@ -863,10 +896,16 @@ function MockInterviewPageContent({
 
     if (sessionId) {
       const sessionStats = computeSessionSTARStats();
+      const askedQuestionCount = questions.length > 0
+        ? Math.max(1, Math.min(questions.length, currentQuestion + 1))
+        : 0;
       await updateInterviewSessionStatus(sessionId, "completed", {
         ended_at: new Date().toISOString(),
+        total_questions: askedQuestionCount,
+        current_question_index: Math.max(0, askedQuestionCount - 1),
         metadata: {
           ...getSessionTranscriptMetadata(),
+          questions_attempted: askedQuestionCount,
           score_summary: {
             overall_average: Number(sessionStats.overallAverage.toFixed(2)),
             situation: Number(sessionStats.situation.toFixed(2)),
@@ -893,7 +932,7 @@ function MockInterviewPageContent({
         );
       }
     }
-  }, [computeSessionSTARStats, getSessionTranscriptMetadata, sessionId]);
+  }, [computeSessionSTARStats, currentQuestion, getSessionTranscriptMetadata, questions.length, sessionId]);
 
   const stopLiveChunkTranscription = useCallback(() => {
     const recorder = liveTranscriptionRecorderRef.current;
@@ -1606,6 +1645,82 @@ function MockInterviewPageContent({
     void stopMicLoopback();
   };
 
+  useEffect(() => {
+    const initialState = window.history.state || {};
+    if (!hasInitializedHistoryStateRef.current) {
+      window.history.replaceState(
+        {
+          ...initialState,
+          __mockInterviewFlow: true,
+          mockInterviewStep: currentViewStep,
+        },
+        ""
+      );
+      hasInitializedHistoryStateRef.current = true;
+      return;
+    }
+
+    if (isApplyingPopstateRef.current) {
+      isApplyingPopstateRef.current = false;
+      return;
+    }
+
+    const previousStep = window.history.state?.mockInterviewStep;
+    if (previousStep === currentViewStep) {
+      return;
+    }
+
+    window.history.pushState(
+      {
+        ...(window.history.state || {}),
+        __mockInterviewFlow: true,
+        mockInterviewStep: currentViewStep,
+      },
+      ""
+    );
+  }, [currentViewStep]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const step = event.state?.mockInterviewStep;
+      if (!event.state?.__mockInterviewFlow || !step) {
+        return;
+      }
+
+      isApplyingPopstateRef.current = true;
+
+      if (step === "history") {
+        handlePracticeAgain();
+        setShowHistoryView(true);
+        return;
+      }
+
+      if (step === "ready") {
+        handlePracticeAgain();
+        setShowHistoryView(false);
+        return;
+      }
+
+      if (step === "session") {
+        setShowHistoryView(false);
+        setHasStarted(true);
+        setIsCompleted(false);
+        return;
+      }
+
+      if (step === "completed") {
+        setShowHistoryView(false);
+        setHasStarted(true);
+        setIsCompleted(true);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [handlePracticeAgain]);
+
   const stopCamera = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
@@ -1719,8 +1834,37 @@ function MockInterviewPageContent({
 
   const handleEndSession = useCallback(async () => {
     await stopActiveRecording();
+
+    const askedQuestionCount = questions.length > 0
+      ? Math.max(1, Math.min(questions.length, currentQuestion + 1))
+      : 0;
+
+    if (askedQuestionCount < MIN_SESSION_QUESTION_COUNT) {
+      let voidErrorMessage: string | null = null;
+
+      if (sessionId) {
+        const voidResult = await voidInterviewSession({
+          sessionId,
+          storagePrefix,
+        });
+        if (voidResult.error) {
+          console.error("Failed to fully void interview session:", voidResult.error);
+          voidErrorMessage = voidResult.error.message;
+        }
+      }
+
+      handlePracticeAgain();
+      setShowHistoryView(true);
+      setRecordingError(
+        voidErrorMessage
+          ? `Session ended early and attempted to void. Cleanup error: ${voidErrorMessage}`
+          : `Session voided. You attempted ${askedQuestionCount} question${askedQuestionCount === 1 ? "" : "s"}; minimum is ${MIN_SESSION_QUESTION_COUNT}.`
+      );
+      return;
+    }
+
     await completeSession();
-  }, [completeSession, stopActiveRecording]);
+  }, [completeSession, currentQuestion, handlePracticeAgain, questions.length, sessionId, stopActiveRecording, storagePrefix]);
 
   const startCamera = useCallback(async (): Promise<MediaStream | null> => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -1872,7 +2016,7 @@ function MockInterviewPageContent({
 
           <div className="flex-1 overflow-auto">
             <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-              <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
+                <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
             </div>
 
             <div className="p-8 space-y-8">
