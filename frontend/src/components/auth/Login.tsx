@@ -168,7 +168,7 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
 
         <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-600">
           Don't have an account?{' '}
-          <button onClick={onSignUpClick} className="text-[#1B2744] font-semibold hover:underline">
+          <button type="button" onClick={onSignUpClick} className="text-[#1B2744] font-semibold hover:underline">
             Sign Up
           </button>
         </div>
@@ -348,12 +348,16 @@ export default function Login() {
   const handleSignUp = async (email: string, password: string, fullName: string) => {
     const role = email.endsWith(ADMIN_DOMAIN) ? 'admin' : 'student'
 
-    await signUp(email, password, {
+    const result = await signUp(email, password, {
       full_name: fullName.trim(),
       role,
     })
 
-    alert('Registration successful! Please check your email to verify your account.')
+    if (result?.session) {
+      alert('Registration successful! Your account is ready.')
+    } else {
+      alert('Registration successful! Please check your email to verify your account.')
+    }
     setView('login')
     navigate('/login')
   }
