@@ -2370,9 +2370,6 @@ function MockInterviewPageContent({
                       <h5 className="font-semibold text-gray-800">Evaluation Results</h5>
                       <div className="mt-2 text-sm text-gray-700">
                         <p>
-                          <strong>Source:</strong> {evaluations[currentQuestion].source}
-                        </p>
-                        <p>
                           <strong>Score:</strong> {evaluations[currentQuestion].score} / 5
                         </p>
                         <p>
