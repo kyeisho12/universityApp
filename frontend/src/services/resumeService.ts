@@ -82,6 +82,25 @@ export async function uploadResume(file: File, userId: string) {
 
   if (uploadError) return { data: null as ResumeWithUrl | null, error: uploadError }
 
+  // Call backend resume parsing API
+  let skills: string[] = [];
+  let ratings: any = {};
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch('/api/resume/parse', {
+      method: 'POST',
+      body: formData,
+    });
+    if (resp.ok) {
+      const result = await resp.json();
+      skills = Array.isArray(result.skills) ? result.skills : [];
+      ratings = result.ratings || {};
+    }
+  } catch (e) {
+    console.warn('Resume parsing failed:', e);
+  }
+
   const { data, error } = await supabase
     .from('resumes')
     .insert({
@@ -91,6 +110,8 @@ export async function uploadResume(file: File, userId: string) {
       file_size: file.size,
       file_type: file.type || `.${ext}`,
       status: 'active',
+      skills,
+      ratings,
     })
     .select()
     .single()
@@ -117,6 +138,51 @@ export async function deleteResume(id: string, filePath: string, userId: string)
   }
 
   return { data: true, error: null }
+}
+
+export async function createResumeFromBlob(
+  pdfBlob: Blob,
+  fileName: string,
+  userId: string,
+  extractedSkills: string[] = [],
+  extractedRatings: any = {}
+) {
+  if (!userId) return { data: null as ResumeWithUrl | null, error: new Error('User not authenticated') }
+  
+  const ext = fileName.split('.').pop()?.toLowerCase() || 'pdf'
+  const safeName = sanitizeFileName(fileName) || `resume.${ext}`
+  const objectPath = `${userId}/${Date.now()}-${safeName}`
+
+  const { error: uploadError } = await supabase.storage.from(RESUME_BUCKET).upload(objectPath, pdfBlob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: 'application/pdf',
+  })
+
+  if (uploadError) return { data: null as ResumeWithUrl | null, error: uploadError }
+
+  const { data, error } = await supabase
+    .from('resumes')
+    .insert({
+      user_id: userId,
+      file_name: fileName,
+      file_path: objectPath,
+      file_size: pdfBlob.size,
+      file_type: 'application/pdf',
+      status: 'active',
+      skills: extractedSkills,
+      ratings: extractedRatings,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    await supabase.storage.from(RESUME_BUCKET).remove([objectPath])
+    return { data: null as ResumeWithUrl | null, error }
+  }
+
+  const signedUrl = await getSignedUrl(objectPath)
+  return { data: { ...data, signed_url: signedUrl }, error: null }
 }
 
 export async function getDownloadUrl(filePath: string) {
