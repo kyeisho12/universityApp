@@ -505,17 +505,66 @@ function MockInterviewPageContent({
   }, [questions]);
 
   const calculateSessionStarAverage = useCallback(() => {
-    if (questions.length === 0) {
-      return 0;
-    }
+    // Compute per-evaluation STAR average from breakdown when available,
+    // fall back to `evaluations[index].score` if breakdown missing.
+    const evalEntries = Object.entries(evaluations || {}).map(([k, v]) => ({ idx: Number(k), val: v }));
+    if (!evalEntries.length) return 0;
 
-    const totalScore = questions.reduce((sum, _question, index) => {
-      const value = Number(evaluations[index]?.score);
-      return sum + (Number.isFinite(value) ? value : 0);
+    const total = evalEntries.reduce((sum, entry) => {
+      const bd = entry.val?.breakdown;
+      if (bd && typeof bd === "object") {
+        const dims = [bd.situation, bd.task, bd.action, bd.result, bd.reflection].map(Number);
+        const validDims = dims.filter(Number.isFinite);
+        if (validDims.length === 5) {
+          const per = validDims.reduce((s, x) => s + x, 0) / 5;
+          return sum + per;
+        }
+      }
+      const fallback = Number(entry.val?.score);
+      return sum + (Number.isFinite(fallback) ? fallback : 0);
     }, 0);
 
-    return totalScore / questions.length;
-  }, [evaluations, questions]);
+    return total / evalEntries.length;
+  }, [evaluations]);
+
+  const computeSessionSTARStats = useCallback(() => {
+    // Returns per-dimension averages and overall average across evaluated answers
+    const evalEntries = Object.values(evaluations || {}).filter(Boolean);
+    const count = evalEntries.length;
+    if (count === 0) {
+      return {
+        overallAverage: 0,
+        situation: 0,
+        task: 0,
+        action: 0,
+        result: 0,
+        reflection: 0,
+        evaluatedCount: 0,
+      };
+    }
+
+    const sums = evalEntries.reduce(
+      (acc, ev) => {
+        const bd = ev.breakdown || {};
+        acc.situation += Number(bd.situation) || 0;
+        acc.task += Number(bd.task) || 0;
+        acc.action += Number(bd.action) || 0;
+        acc.result += Number(bd.result) || 0;
+        acc.reflection += Number(bd.reflection) || 0;
+        return acc;
+      },
+      { situation: 0, task: 0, action: 0, result: 0, reflection: 0 }
+    );
+
+    const situation = sums.situation / count;
+    const task = sums.task / count;
+    const action = sums.action / count;
+    const result = sums.result / count;
+    const reflection = sums.reflection / count;
+
+    const overallAverage = (situation + task + action + result + reflection) / 5;
+    return { overallAverage, situation, task, action, result, reflection, evaluatedCount: count };
+  }, [evaluations]);
 
   const refreshLiveTranscript = useCallback(async () => {
     const targetSessionId = sessionId;
@@ -1839,6 +1888,8 @@ function MockInterviewPageContent({
 
   // Interview Completion Screen
   if (isCompleted) {
+    const sessionStats = computeSessionSTARStats();
+    const overallPercent = Math.max(0, Math.min(100, (sessionStats.overallAverage / 5) * 100));
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar */}
@@ -1908,18 +1959,18 @@ function MockInterviewPageContent({
                       stroke="#1B2744"
                       strokeWidth="8"
                       fill="none"
-                      strokeDasharray={`${(0 / 100) * 339.29} 339.29`}
+                      strokeDasharray={`${(overallPercent / 100) * 339.29} 339.29`}
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-bold text-gray-900">--</span>
+                    <span className="text-3xl font-bold text-gray-900">{sessionStats.overallAverage.toFixed(2)}</span>
                   </div>
                 </div>
                 <div>
                   <p className="text-gray-600 text-sm mb-1">Overall Score</p>
                   <h2 className="text-2xl font-bold text-gray-900">
-                    Evaluation not available
+                    {sessionStats.overallAverage.toFixed(2)} / 5 ({sessionStats.evaluatedCount} answers)
                   </h2>
                 </div>
               </div>
@@ -1932,27 +1983,27 @@ function MockInterviewPageContent({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <MetricCard
                     label="Situation clarity"
-                    percentage={null}
+                    percentage={Math.round((sessionStats.situation / 5) * 100)}
                     description="Clearly describes the situation or context"
                   />
                   <MetricCard
                     label="Task ownership"
-                    percentage={null}
+                    percentage={Math.round((sessionStats.task / 5) * 100)}
                     description="States the task and shows ownership/responsibility"
                   />
                   <MetricCard
                     label="Action specificity"
-                    percentage={null}
+                    percentage={Math.round((sessionStats.action / 5) * 100)}
                     description="Provides specific actions taken with detail"
                   />
                   <MetricCard
                     label="Result measurability"
-                    percentage={null}
+                    percentage={Math.round((sessionStats.result / 5) * 100)}
                     description="Describes measurable outcomes or impact"
                   />
                   <MetricCard
                     label="Reflection & learning"
-                    percentage={null}
+                    percentage={Math.round((sessionStats.reflection / 5) * 100)}
                     description="Shows learning and reflection from the experience"
                   />
                 </div>

@@ -268,11 +268,11 @@ function computeBreakdown(n: string, wc: number): STARBreakdown {
 function blendBreakdowns(a: STARBreakdown, b: STARBreakdown, bWeight: number): STARBreakdown {
   const aw = 1 - bWeight;
   return {
-    situation:  parseFloat((a.situation  * aw + b.situation  * bWeight).toFixed(2)),
-    task:       parseFloat((a.task       * aw + b.task       * bWeight).toFixed(2)),
-    action:     parseFloat((a.action     * aw + b.action     * bWeight).toFixed(2)),
-    result:     parseFloat((a.result     * aw + b.result     * bWeight).toFixed(2)),
-    reflection: parseFloat((a.reflection * aw + b.reflection * bWeight).toFixed(2)),
+    situation:  Math.round(a.situation  * aw + b.situation  * bWeight),
+    task:       Math.round(a.task       * aw + b.task       * bWeight),
+    action:     Math.round(a.action     * aw + b.action     * bWeight),
+    result:     Math.round(a.result     * aw + b.result     * bWeight),
+    reflection: Math.round(a.reflection * aw + b.reflection * bWeight),
   };
 }
 
@@ -281,16 +281,17 @@ function breakdownToScore(bd: STARBreakdown): number {
 }
 
 // Scale all dims proportionally so their average == targetScore.
+// Breakdown dimensions are whole numbers (1-5); the average stays decimal.
 // Invariant: score always equals breakdownToScore(breakdown).
 function scaleBDToTarget(bd: STARBreakdown, targetScore: number): STARBreakdown {
   const avg = (bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5;
   const ratio = avg > 0 ? targetScore / avg : 1;
   return {
-    situation:  parseFloat(Math.min(5, Math.max(1, bd.situation  * ratio)).toFixed(2)),
-    task:       parseFloat(Math.min(5, Math.max(1, bd.task       * ratio)).toFixed(2)),
-    action:     parseFloat(Math.min(5, Math.max(1, bd.action     * ratio)).toFixed(2)),
-    result:     parseFloat(Math.min(5, Math.max(1, bd.result     * ratio)).toFixed(2)),
-    reflection: parseFloat(Math.min(5, Math.max(1, bd.reflection * ratio)).toFixed(2)),
+    situation:  Math.min(5, Math.max(1, Math.round(bd.situation  * ratio))),
+    task:       Math.min(5, Math.max(1, Math.round(bd.task       * ratio))),
+    action:     Math.min(5, Math.max(1, Math.round(bd.action     * ratio))),
+    result:     Math.min(5, Math.max(1, Math.round(bd.result     * ratio))),
+    reflection: Math.min(5, Math.max(1, Math.round(bd.reflection * ratio))),
   };
 }
 
