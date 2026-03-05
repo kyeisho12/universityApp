@@ -2729,7 +2729,7 @@ function MockInterviewPageContent({
                           <strong>Score:</strong> {evaluations[currentQuestion].score} / 5
                         </p>
                         <p>
-                          <strong>Similarity:</strong> {evaluations[currentQuestion].similarity ?? 0}
+                          <strong>Similarity:</strong> {((evaluations[currentQuestion].datasetSimilarity ?? 0) * 100).toFixed(0)}%
                         </p>
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           {evaluations[currentQuestion].breakdown &&
