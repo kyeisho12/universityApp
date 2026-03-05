@@ -107,6 +107,12 @@ export interface DatasetLookupResult {
 }
 
 export function lookupDataset(question: string, candidateAnswer: string): DatasetLookupResult {
+  // Guard: dataset failed to load (wrong import path or build error)
+  if (!robertaDataset || !Array.isArray(robertaDataset) || robertaDataset.length === 0) {
+    console.error(`[lookupDataset] robertaDataset is empty or undefined. Check import path: "../data/robertaDataset". Dataset length: ${robertaDataset?.length ?? "N/A"}`);
+    return { item: null, questionSimilarity: 0, anchorScore: null, bestAnswerSimilarity: 0 };
+  }
+
   const qTokens = tokenSet(question);
   const aTokens = tokenSet(candidateAnswer);
 
@@ -116,7 +122,11 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
     const sim = jaccard(qTokens, tokenSet(it.question));
     if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
   }
+
+  console.debug(`[lookupDataset] question="${question.slice(0,40)}" bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0,40) ?? "none"}"`);
+
   if (!bestItem || bestQSim < DATASET_MATCH_THRESHOLD) {
+    console.warn(`[lookupDataset] No question match (bestQSim=${bestQSim.toFixed(3)} < threshold=${DATASET_MATCH_THRESHOLD})`);
     return { item: null, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0 };
   }
 
@@ -125,7 +135,11 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
     .sort((a, b) => b.similarity - a.similarity);
 
   const topK = scored.slice(0, TOP_K_ANSWERS).filter(s => s.similarity > 0);
+
+  console.debug(`[lookupDataset] topK answers: ${topK.length}, top similarity: ${topK[0]?.similarity?.toFixed(3) ?? "none"}`);
+
   if (!topK.length) {
+    console.warn(`[lookupDataset] All answer similarities were 0. Candidate answer may be too short or tokenizes to stop-words only.`);
     return { item: bestItem, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0 };
   }
 
