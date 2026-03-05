@@ -709,11 +709,12 @@ function MockInterviewPageContent({
       const qIndex = targetQuestionIndex;
       const hasText = Boolean(transcriptText);
       const alreadyEvaluated = evaluations[qIndex];
-      const lastSeen = lastEvaluatedTranscriptRef.current[qIndex];
 
       if (whisperStatus === "completed" && hasText) {
-        if (!alreadyEvaluated || lastSeen !== transcriptText) {
-          // record so we don't re-evaluate the same transcript repeatedly
+        const alreadyRecorded = lastEvaluatedTranscriptRef.current[qIndex];
+        if (!alreadyEvaluated && alreadyRecorded !== transcriptText) {
+          // Mark immediately — prevents any subsequent poll from re-entering
+          // before the async evaluateAnswer resolves (fixes repeated lookupDataset calls)
           lastEvaluatedTranscriptRef.current = {
             ...lastEvaluatedTranscriptRef.current,
             [qIndex]: transcriptText,
@@ -2585,6 +2586,10 @@ function MockInterviewPageContent({
                       setIsSessionStarted(true);
                       setIsPaused(false);
                       setCurrentQuestion(0);
+                      // Clear any evaluation results from the previous session
+                      setEvaluations({});
+                      lastEvaluatedTranscriptRef.current = {};
+                      try { if (stateKey) localStorage.removeItem(`${stateKey}_evaluations`); } catch {}
                       await startSegmentRecording(0, {
                         sessionId: sessionResult.data.id,
                         storagePrefix: sessionResult.data.storage_prefix,
