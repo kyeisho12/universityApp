@@ -4,6 +4,10 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowJs": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./.tsbuild/node",
     "allowSyntheticDefaultImports": true
   },
   "include": ["vite.config.js"]

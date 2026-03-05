@@ -5,7 +5,6 @@ import {
   ChartColumn,
   MessageSquare,
   Users,
-  Settings,
   LogOut,
   User,
   Calendar,

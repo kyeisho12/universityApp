@@ -6,11 +6,8 @@ import { supabase } from "../../lib/supabaseClient";
 import {
   X,
   Search,
-  Bell,
   Menu,
   User,
-  CheckCircle,
-  Clock,
   ShieldCheck,
   ShieldX,
 } from "lucide-react";
@@ -23,7 +20,6 @@ interface StudentProfile {
   major: string | null;
   graduation_year: number | null;
   Year_Level: number | null;
-  Interviews: number | null;
   Student_ID: number | null;
   college: string | null;
   is_active: boolean;
@@ -56,7 +52,7 @@ export default function ManageStudents() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, full_name, role, major, graduation_year, Year_Level, Interviews, Student_ID, college, is_active, is_verified, created_at"
+        "id, email, full_name, role, major, graduation_year, Year_Level, Student_ID, college, is_active, is_verified, created_at"
       )
       .eq("role", "student")
       .order("created_at", { ascending: false });
@@ -151,13 +147,9 @@ export default function ManageStudents() {
   const pendingStudents = students.filter((s) => !s.is_verified);
 
   const totalStudents = verifiedStudents.length;
-  const totalDone = verifiedStudents.filter((s) => (s.Interviews ?? 0) > 0).length;
-  const totalPending = totalStudents - totalDone;
 
   const stats = [
     { label: "Total Students", value: totalStudents.toString() },
-    { label: "Interview Done", value: totalDone.toString() },
-    { label: "Interview Pending", value: totalPending.toString() },
     {
       label: "Awaiting Verification",
       value: pendingStudents.length.toString(),
@@ -221,15 +213,6 @@ export default function ManageStudents() {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
             </div>
-            {/* Bell with badge if there are pending verifications */}
-            <div className="relative">
-              <Bell className="w-6 h-6 text-gray-600" />
-              {pendingStudents.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {pendingStudents.length}
-                </span>
-              )}
-            </div>
           </div>
         </div>
 
@@ -242,7 +225,7 @@ export default function ManageStudents() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
             {stats.map((item) => (
               <div
                 key={item.label}
@@ -332,7 +315,6 @@ export default function ManageStudents() {
                     <th className="px-6 py-3 text-left text-xs font-semibold">Student ID</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold">Major</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold">Year Level</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold">Interview Status</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold">Action</th>
                   </tr>
@@ -340,20 +322,19 @@ export default function ManageStudents() {
                 <tbody className="divide-y">
                   {loading && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-6 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-6 text-center text-gray-500">
                         Loading students...
                       </td>
                     </tr>
                   )}
                   {!loading && filteredVerified.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-6 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-6 text-center text-gray-500">
                         No verified students found
                       </td>
                     </tr>
                   )}
                   {filteredVerified.map((student) => {
-                    const interviewDone = (student.Interviews ?? 0) > 0;
                     return (
                       <tr key={student.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -372,22 +353,6 @@ export default function ManageStudents() {
                         <td className="px-6 py-4">{student.Student_ID ?? "—"}</td>
                         <td className="px-6 py-4">{student.major ?? "—"}</td>
                         <td className="px-6 py-4">{student.Year_Level ?? "—"}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-                              interviewDone
-                                ? "bg-green-50 text-green-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {interviewDone ? (
-                              <CheckCircle className="w-4 h-4" />
-                            ) : (
-                              <Clock className="w-4 h-4" />
-                            )}
-                            {interviewDone ? "Done" : "Pending"}
-                          </span>
-                        </td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
