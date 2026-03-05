@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Bell,
   Users,
   Building2,
   MessageSquare,
@@ -86,11 +85,34 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
         .limit(2);
 
       if (recentInterviews) {
+        const userIds = [...new Set(recentInterviews
+          .map((interview) => interview.user_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0))];
+
+        let studentNameById: Record<string, string> = {};
+        if (userIds.length > 0) {
+          const { data: studentProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', userIds);
+
+          if (studentProfiles) {
+            studentNameById = Object.fromEntries(
+              studentProfiles
+                .filter((profile) => profile.full_name)
+                .map((profile) => [profile.id, profile.full_name])
+            );
+          }
+        }
+
         recentInterviews.forEach((interview) => {
           const created = new Date(interview.created_at);
           const now = new Date();
           const diffMs = now.getTime() - created.getTime();
           const diffMins = Math.floor(diffMs / 60000);
+          const displayName = interview.user_id
+            ? (studentNameById[interview.user_id] || interview.user_id.substring(0, 8))
+            : 'Unknown';
           
           let timeAgo = 'Just now';
           if (diffMins < 60) {
@@ -101,7 +123,7 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
 
           recentActivities.push({
             type: 'interview',
-            text: `Student ${interview.user_id?.substring(0, 8) || 'Unknown'} completed mock interview`,
+            text: `Student ${displayName} completed mock interview`,
             time_ago: timeAgo,
             timestamp: interview.created_at,
           });
@@ -246,7 +268,6 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
             </div>
-            <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900" />
           </div>
         </div>
 

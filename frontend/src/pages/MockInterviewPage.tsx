@@ -379,6 +379,7 @@ function MockInterviewPageContent({
       if (!savedState) {
         hasHydratedRef.current = true;
         lastHydratedKeyRef.current = stateKey;
+        setIsHydrated(true);
         return;
       }
       const parsed = JSON.parse(savedState) as PersistedMockInterviewState;
@@ -1646,38 +1647,42 @@ function MockInterviewPageContent({
   };
 
   useEffect(() => {
-    const initialState = window.history.state || {};
-    if (!hasInitializedHistoryStateRef.current) {
-      window.history.replaceState(
+    try {
+      const initialState = window.history.state || {};
+      if (!hasInitializedHistoryStateRef.current) {
+        window.history.replaceState(
+          {
+            ...initialState,
+            __mockInterviewFlow: true,
+            mockInterviewStep: currentViewStep,
+          },
+          ""
+        );
+        hasInitializedHistoryStateRef.current = true;
+        return;
+      }
+
+      if (isApplyingPopstateRef.current) {
+        isApplyingPopstateRef.current = false;
+        return;
+      }
+
+      const previousStep = window.history.state?.mockInterviewStep;
+      if (previousStep === currentViewStep) {
+        return;
+      }
+
+      window.history.pushState(
         {
-          ...initialState,
+          ...(window.history.state || {}),
           __mockInterviewFlow: true,
           mockInterviewStep: currentViewStep,
         },
         ""
       );
-      hasInitializedHistoryStateRef.current = true;
-      return;
+    } catch (error) {
+      console.warn("Failed to sync mock interview history state:", error);
     }
-
-    if (isApplyingPopstateRef.current) {
-      isApplyingPopstateRef.current = false;
-      return;
-    }
-
-    const previousStep = window.history.state?.mockInterviewStep;
-    if (previousStep === currentViewStep) {
-      return;
-    }
-
-    window.history.pushState(
-      {
-        ...(window.history.state || {}),
-        __mockInterviewFlow: true,
-        mockInterviewStep: currentViewStep,
-      },
-      ""
-    );
   }, [currentViewStep]);
 
   useEffect(() => {
@@ -1992,7 +1997,11 @@ function MockInterviewPageContent({
   ]);
 
   if (!isHydrated) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-600">
+        Loading mock interview...
+      </div>
+    );
   }
 
   if (!hasStarted) {
@@ -2686,6 +2695,10 @@ function MockInterviewPageContent({
                       ? liveDraftTranscript
                       : liveDraftStatus
                       ? liveDraftStatus
+                      : isSessionStarted && !isPaused
+                      ? isUploadingSegment
+                        ? "Saving current recording segment..."
+                        : "Listening for your response... Click Pause after answering to generate transcript for this question."
                       : liveTranscriptText
                       ? liveTranscriptText
                       : isSessionStarted

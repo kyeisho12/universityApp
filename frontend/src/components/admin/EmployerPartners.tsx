@@ -2,7 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { AdminNavbar } from '../common/AdminNavbar'
-import { X, Search, Plus, Bell, Menu, Edit, ExternalLink, Trash2, Building2, Globe, Briefcase, MapPin, Calendar, AlertCircle } from 'lucide-react'
+import { X, Search, Plus, Menu, Edit, ExternalLink, Trash2, Building2, Globe, Briefcase, MapPin, Calendar, AlertCircle } from 'lucide-react'
 import EmployerService, { Employer } from '../../services/employerService'
 import { getAllJobs, createJob, updateJob, deleteJob, type Job } from '../../services/jobService'
 
@@ -427,11 +427,6 @@ const EmployerPartners = () => {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
             </div>
-
-            <button className="p-2 hover:bg-gray-100 rounded-lg relative">
-              <Bell className="w-6 h-6 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-500 rounded-full"></span>
-            </button>
           </div>
         </header>
 

@@ -6,7 +6,6 @@ import { supabase } from "../../lib/supabaseClient";
 import {
   X,
   Search,
-  Bell,
   Menu,
   User,
   ShieldCheck,
@@ -213,15 +212,6 @@ export default function ManageStudents() {
               >
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
-            </div>
-            {/* Bell with badge if there are pending verifications */}
-            <div className="relative">
-              <Bell className="w-6 h-6 text-gray-600" />
-              {pendingStudents.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {pendingStudents.length}
-                </span>
-              )}
             </div>
           </div>
         </div>

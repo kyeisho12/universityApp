@@ -4,7 +4,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
 import {
   X,
-  Bell,
   Eye,
   Video,
   Play,
@@ -244,11 +243,6 @@ export default function AdminMockInterview() {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
             </div>
-
-            <button className="p-2 hover:bg-gray-100 rounded-lg relative">
-              <Bell className="w-6 h-6 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-500 rounded-full" />
-            </button>
           </div>
         </div>
 
