@@ -131,17 +131,19 @@ export async function updateInterviewSessionStatus(sessionId, status, extraField
 		return { data: null, error: new Error('Missing session id') }
 	}
 
-	const { data, error } = await supabase
+	const { error } = await supabase
 		.from('interview_sessions')
 		.update({
 			status,
 			...extraFields,
 		})
 		.eq('id', sessionId)
-		.select('*')
-		.single()
 
-	return { data, error }
+	if (error) {
+		return { data: null, error }
+	}
+
+	return { data: { id: sessionId }, error: null }
 }
 
 export async function updateInterviewSessionProgress(sessionId, currentQuestionIndex) {
@@ -154,17 +156,26 @@ export async function updateInterviewSessionProgress(sessionId, currentQuestionI
 		: 0
 	const attemptedQuestionCount = normalizedQuestionIndex + 1
 
-	const { data, error } = await supabase
+	const { error } = await supabase
 		.from('interview_sessions')
 		.update({
 			current_question_index: normalizedQuestionIndex,
 			total_questions: attemptedQuestionCount,
 		})
 		.eq('id', sessionId)
-		.select('*')
-		.single()
 
-	return { data, error }
+	if (error) {
+		return { data: null, error }
+	}
+
+	return {
+		data: {
+			id: sessionId,
+			current_question_index: normalizedQuestionIndex,
+			total_questions: attemptedQuestionCount,
+		},
+		error: null,
+	}
 }
 
 export async function voidInterviewSession({ sessionId, storagePrefix, bucket = 'interview-recordings' }) {
@@ -204,22 +215,20 @@ export async function voidInterviewSession({ sessionId, storagePrefix, bucket = 
 		}
 	}
 
-	const { data, error } = await supabase
+	const { error } = await supabase
 		.from('interview_sessions')
 		.delete()
 		.eq('id', sessionId)
-		.select('*')
-		.single()
 
 	if (error) {
 		return { data: null, error }
 	}
 
 	if (storageError) {
-		return { data, error: storageError }
+		return { data: { id: sessionId }, error: storageError }
 	}
 
-	return { data, error: null }
+	return { data: { id: sessionId }, error: null }
 }
 
 export async function uploadInterviewRecordingSegment({ bucket = 'interview-recordings', storagePath, segmentBlob, contentType = 'video/webm' }) {
@@ -250,6 +259,7 @@ export async function insertRecordingSegmentMetadata({
 	fileSizeBytes,
 	status = 'uploaded',
 	whisperStatus = 'pending',
+	transcriptText,
 	metadata = {},
 }) {
 	if (!sessionId) {
@@ -267,16 +277,31 @@ export async function insertRecordingSegmentMetadata({
 		file_size_bytes: fileSizeBytes,
 		status,
 		whisper_status: whisperStatus,
+		transcript_text: typeof transcriptText === 'string' ? transcriptText : null,
 		metadata,
 	}
 
-	const { data, error } = await supabase
+	const { error } = await supabase
 		.from('interview_recording_segments')
 		.insert(payload)
-		.select('*')
-		.single()
 
-	return { data, error }
+	if (error) {
+		return { data: null, error }
+	}
+
+	const { data: insertedRow } = await supabase
+		.from('interview_recording_segments')
+		.select('id')
+		.eq('session_id', sessionId)
+		.eq('segment_order', segmentOrder)
+		.eq('question_index', questionIndex)
+		.eq('storage_path', storagePath)
+		.order('created_at', { ascending: false })
+		.limit(1)
+
+	const createdId = Array.isArray(insertedRow) && insertedRow[0] ? insertedRow[0].id : null
+
+	return { data: { id: createdId }, error: null }
 }
 
 export async function getLatestQuestionTranscript({ sessionId, questionIndex }) {
