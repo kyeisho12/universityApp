@@ -11,6 +11,7 @@ import { queryCache } from "../utils/queryCache";
 import {
   ALLOWED_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
+  createResumeFromBlob,
   deleteResume,
   getDownloadUrl,
   listResumes,
@@ -512,9 +513,20 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
       const safeName = resumeName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
       const fileName = `${safeName || "resume"}.pdf`;
-      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
 
-      const { data, error } = await uploadResume(file, userId);
+      // Extract skills from form (comma or newline separated)
+      const extractedSkills = skills
+        .split(/[\n,]/g)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      // Use new function that stores skills directly
+      const { data, error } = await createResumeFromBlob(
+        pdfBlob,
+        fileName,
+        userId,
+        extractedSkills
+      );
       if (error || !data) {
         setErrorMessage(error?.message || "Failed to save résumé. Please try again.");
       } else {
