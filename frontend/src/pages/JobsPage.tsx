@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -69,6 +69,21 @@ function extractSkills(rawSkills) {
     .flatMap((item) => tokenize(item));
 }
 
+interface JobApplicationDraft {
+  coverLetter: string;
+  selectedResume: string | null;
+  updatedAt: string;
+}
+
+type JobApplicationDraftMap = Record<string, JobApplicationDraft>;
+
+interface JobsPageViewState {
+  selectedJobId: string | null;
+  modalJobId: string | null;
+  showApplyModal: boolean;
+  updatedAt: string;
+}
+
 function JobsPageContent({ email, onLogout, onNavigate }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -83,6 +98,97 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
+  const hasRestoredViewState = useRef(false);
+
+  const getDraftStorageKey = () => (user?.id ? `job-application-drafts-${user.id}` : null);
+
+  const readDrafts = (): JobApplicationDraftMap => {
+    const storageKey = getDraftStorageKey();
+    if (!storageKey) return {};
+
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (err) {
+      console.error("Failed to read application drafts:", err);
+      return {};
+    }
+  };
+
+  const writeDrafts = (drafts: JobApplicationDraftMap) => {
+    const storageKey = getDraftStorageKey();
+    if (!storageKey) return;
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(drafts));
+    } catch (err) {
+      console.error("Failed to save application drafts:", err);
+    }
+  };
+
+  const clearDraftForJob = (jobId: string) => {
+    const drafts = readDrafts();
+    if (!drafts[jobId]) return;
+    delete drafts[jobId];
+    writeDrafts(drafts);
+  };
+
+  const getViewStateStorageKey = () => (user?.id ? `jobs-page-view-state-${user.id}` : null);
+
+  const readViewState = (): JobsPageViewState | null => {
+    const storageKey = getViewStateStorageKey();
+    if (!storageKey) return null;
+
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+
+      return {
+        selectedJobId: parsed.selectedJobId || null,
+        modalJobId: parsed.modalJobId || null,
+        showApplyModal: Boolean(parsed.showApplyModal),
+        updatedAt: parsed.updatedAt || new Date().toISOString(),
+      };
+    } catch (err) {
+      console.error("Failed to read jobs page view state:", err);
+      return null;
+    }
+  };
+
+  const writeViewState = (state: JobsPageViewState) => {
+    const storageKey = getViewStateStorageKey();
+    if (!storageKey) return;
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(state));
+    } catch (err) {
+      console.error("Failed to save jobs page view state:", err);
+    }
+  };
+
+  const openApplyModal = () => {
+    if (!currentJob?.id) return;
+
+    const draft = readDrafts()[currentJob.id];
+    if (draft) {
+      setCoverLetter(draft.coverLetter || "");
+      setSelectedResume(draft.selectedResume || null);
+    } else {
+      setCoverLetter("");
+    }
+
+    setApplyMessage(null);
+    setShowApplyModal(true);
+  };
+
+  const closeApplyModal = () => {
+    setShowApplyModal(false);
+    setApplyMessage(null);
+  };
 
   // Fetch user profile data with caching
   const { data: userData } = useCachedQuery(
@@ -184,6 +290,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         setAppliedJobs(new Set(appliedJobs).add(currentJob.id));
         setShowApplyModal(false);
         setCoverLetter('');
+        clearDraftForJob(currentJob.id);
         
         // Invalidate jobs and applications cache to reflect new application
         queryCache.invalidate(`jobs-list-${user.id}`);
@@ -368,6 +475,70 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)
     : filteredJobs[0];
+
+  // Restore selected job and modal-open state when returning to this page.
+  useEffect(() => {
+    if (!user?.id || hasRestoredViewState.current) return;
+    if (!jobs.length) return;
+
+    const savedViewState = readViewState();
+    if (!savedViewState) {
+      hasRestoredViewState.current = true;
+      return;
+    }
+
+    const jobExists = (jobId: string | null) =>
+      !!jobId && jobs.some((job) => job.id === jobId);
+
+    const restoredSelectedJobId =
+      jobExists(savedViewState.modalJobId)
+        ? savedViewState.modalJobId
+        : jobExists(savedViewState.selectedJobId)
+          ? savedViewState.selectedJobId
+          : null;
+
+    if (restoredSelectedJobId) {
+      setSelectedJob(restoredSelectedJobId);
+    }
+
+    if (savedViewState.showApplyModal && jobExists(savedViewState.modalJobId)) {
+      setShowApplyModal(true);
+    }
+
+    hasRestoredViewState.current = true;
+  }, [user?.id, jobs]);
+
+  // Persist selected job and modal-open state so the UI can be restored exactly.
+  useEffect(() => {
+    if (!user?.id || !hasRestoredViewState.current) return;
+
+    writeViewState({
+      selectedJobId: selectedJob,
+      modalJobId: showApplyModal ? (currentJob?.id || selectedJob || null) : null,
+      showApplyModal,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [user?.id, selectedJob, showApplyModal, currentJob?.id]);
+
+  // Persist in-progress application per job so drafts survive navigation/tab switches.
+  useEffect(() => {
+    if (!showApplyModal || !currentJob?.id || !user?.id) return;
+
+    const drafts = readDrafts();
+    const hasProgress = Boolean(coverLetter.trim()) || Boolean(selectedResume);
+
+    if (hasProgress) {
+      drafts[currentJob.id] = {
+        coverLetter,
+        selectedResume,
+        updatedAt: new Date().toISOString(),
+      };
+    } else if (drafts[currentJob.id]) {
+      delete drafts[currentJob.id];
+    }
+
+    writeDrafts(drafts);
+  }, [showApplyModal, coverLetter, selectedResume, currentJob?.id, user?.id]);
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
@@ -621,10 +792,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                       </button>
                     ) : (
                       <button 
-                        onClick={() => {
-                          setCoverLetter('');
-                          setShowApplyModal(true);
-                        }}
+                        onClick={openApplyModal}
                         className="flex-1 bg-[#2C3E5C] text-white py-3 rounded-lg font-medium hover:bg-[#1B2744] transition-colors flex items-center justify-center gap-2 text-base"
                       >
                         Apply Now <ArrowRight className="w-4 h-4" />
@@ -716,10 +884,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Apply for {currentJob.title}</h3>
               <button
-                onClick={() => {
-                  setShowApplyModal(false);
-                  setCoverLetter('');
-                }}
+                onClick={closeApplyModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-5 h-5" />
@@ -736,7 +901,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     <p className="text-gray-500 mb-2">No resumes uploaded yet</p>
                     <button
                       onClick={() => {
-                        setShowApplyModal(false);
+                        closeApplyModal();
                         onNavigate('student/resumes');
                       }}
                       className="text-[#00B4D8] hover:underline text-sm"
@@ -782,10 +947,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               {userResumes.length > 0 && (
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={() => {
-                      setShowApplyModal(false);
-                      setCoverLetter('');
-                    }}
+                    onClick={closeApplyModal}
                     className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
                   >
                     Cancel

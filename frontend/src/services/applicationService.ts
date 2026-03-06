@@ -60,10 +60,15 @@ export async function checkIfApplied(
       .eq("student_id", studentId)
       .eq("job_id", jobId)
       .neq("status", "withdrawn")
+      .limit(1)
       .maybeSingle();
 
     if (error) {
       console.error("Error checking application:", error);
+      return { hasApplied: false };
+    }
+
+    if (!data) {
       return { hasApplied: false };
     }
 
