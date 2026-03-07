@@ -2725,30 +2725,7 @@ function MockInterviewPageContent({
                       : "Session not started yet. Start the session to begin transcription."}
                   </p>
 
-                  {/* Evaluation panel for current question if available */}
-                  {evaluations && evaluations[currentQuestion] && (
-                    <div className="mt-4 bg-white border rounded-md p-3">
-                      <h5 className="font-semibold text-gray-800">Evaluation Results</h5>
-                      <div className="mt-2 text-sm text-gray-700">
-                        <p>
-                          <strong>Score:</strong> {evaluations[currentQuestion].score} / 5
-                        </p>
-                        <p>
-                          <strong>Similarity:</strong> {((evaluations[currentQuestion].datasetSimilarity ?? 0) * 100).toFixed(0)}%
-                        </p>
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                          {evaluations[currentQuestion].breakdown &&
-                            Object.entries(evaluations[currentQuestion].breakdown).map(([k, v]) => (
-                              <div key={k} className="text-xs">
-                                <div className="text-gray-600">{k}</div>
-                                <div className="font-medium">{v} / 5</div>
-                              </div>
-                            ))}
-                        </div>
-                        <p className="mt-2 text-xs text-gray-500">Evaluated at: {evaluations[currentQuestion].evaluatedAt}</p>
-                      </div>
-                    </div>
-                  )}
+                  {/* Evaluation runs silently in background — results appear in session summary */}
                 </div>
               </div>
             </div>
