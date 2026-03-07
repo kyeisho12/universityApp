@@ -63,6 +63,26 @@ interface ActiveSegmentMeta {
   baselineLiveChars: number;
 }
 
+type ExcludingQuestionsArgs = {
+  limit?: number;
+  excludeIds?: string[];
+};
+
+type DecideNextQuestionArgs = {
+  currentQuestion: string;
+  candidateAnswer: string;
+  category?: string;
+  idealAnswer?: string;
+  remainingBankQuestions?: number;
+  followupCountForCurrent?: number;
+};
+
+const getMockInterviewQuestionsExcludingTyped =
+  getMockInterviewQuestionsExcluding as (args?: ExcludingQuestionsArgs) => Promise<any>;
+
+const decideNextQuestionStepTyped =
+  decideNextQuestionStep as (args: DecideNextQuestionArgs) => Promise<any>;
+
 type PreparedNextAction =
   | {
       kind: "followup";
@@ -641,7 +661,7 @@ function MockInterviewPageContent({
 
     const [openingResult, bankResult] = await Promise.all([
       getQuestionById(OPENING_QUESTION_ID),
-      getMockInterviewQuestionsExcluding({
+      getMockInterviewQuestionsExcludingTyped({
         limit: RANDOM_BANK_QUESTION_COUNT,
         excludeIds: [OPENING_QUESTION_ID],
       }),
@@ -671,7 +691,7 @@ function MockInterviewPageContent({
       baseQuestionId: openingResult.data.id,
     };
 
-    const bankPool = (bankResult.data || []).map((question) => ({
+    const bankPool = (bankResult.data || []).map((question: Question) => ({
       ...question,
       source: "bank" as const,
       baseQuestionId: question.id,
@@ -727,7 +747,7 @@ function MockInterviewPageContent({
       )
     );
 
-    const bankResult = await getMockInterviewQuestionsExcluding({
+    const bankResult = await getMockInterviewQuestionsExcludingTyped({
       limit: requestedLimit,
       excludeIds: usedQuestionIds,
     });
@@ -737,7 +757,7 @@ function MockInterviewPageContent({
       return [];
     }
 
-    return (bankResult.data || []).map((question) => ({
+    return (bankResult.data || []).map((question: Question) => ({
       ...question,
       source: "bank" as const,
       baseQuestionId: question.id,
@@ -1858,7 +1878,7 @@ function MockInterviewPageContent({
       setIsDecidingNextQuestion(true);
       let decisionResult;
       try {
-        decisionResult = await decideNextQuestionStep({
+        decisionResult = await decideNextQuestionStepTyped({
           currentQuestion: activeQuestion.question,
           candidateAnswer,
           category: activeQuestion.type,

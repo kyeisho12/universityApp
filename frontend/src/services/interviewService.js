@@ -58,6 +58,9 @@ export async function getMockInterviewQuestions(limit = 5) {
 	return { data: questions, error: null }
 }
 
+/**
+ * @param {{ limit?: number, excludeIds?: string[] }} [options]
+ */
 export async function getMockInterviewQuestionsExcluding({ limit = 5, excludeIds = [] } = {}) {
 	const excluded = new Set((excludeIds || []).filter(Boolean))
 	const { data, error } = await supabase
@@ -468,11 +471,21 @@ export async function transcribeLiveAudioChunk({ audioBlob, language = 'en' }) {
 	}
 }
 
+/**
+ * @param {{
+ *   currentQuestion: string,
+ *   candidateAnswer: string,
+ *   category?: string,
+ *   idealAnswer?: string | null,
+ *   remainingBankQuestions?: number,
+ *   followupCountForCurrent?: number,
+ * }} params
+ */
 export async function decideNextQuestionStep({
 	currentQuestion,
 	candidateAnswer,
 	category,
-	idealAnswer,
+	idealAnswer = null,
 	remainingBankQuestions = 0,
 	followupCountForCurrent = 0,
 }) {
