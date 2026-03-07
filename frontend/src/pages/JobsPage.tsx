@@ -382,20 +382,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       ...resumeKeywords,
     ]);
 
-    // Debug logging
-    console.log('[Job Matching Debug - Enhanced]', {
-      profileSkills: Array.from(new Set(profileSkills)),
-      educationKeywords: Array.from(new Set(educationKeywords)),
-      workKeywords: Array.from(new Set(workKeywords)),
-      resumeSkills,
-      allKeywords: Array.from(keywordSet),
-      userPreferences: {
-        preferredJobType: userData?.preferred_job_type,
-        preferredLocation: userData?.preferred_location,
-        preferredCategory: userData?.preferred_category,
-      }
-    });
-
     const preferredJobType = userData?.preferred_job_type;
     const preferredLocation = userData?.preferred_location;
     const preferredCategory = userData?.preferred_category;

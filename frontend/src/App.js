@@ -1,2 +1,2 @@
-// Legacy shim; real component lives in App.jsx
-export { default } from './App.jsx'
+// Legacy shim; real component lives in App.tsx.
+export { default } from './App.tsx'

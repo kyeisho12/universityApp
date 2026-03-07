@@ -19,7 +19,6 @@ import {
   validateResumeFile,
   type ResumeWithUrl,
 } from "../services/resumeService";
-import { generateCoverLetterPDF, generateResumePDF } from "../utils/pdfGenerator";
 
 type NavigateHandler = (route: string) => void;
 
@@ -502,6 +501,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
     try {
       // Generate PDF using the template
+      const { generateResumePDF } = await import("../utils/pdfGenerator");
       const pdfBlob = generateResumePDF({
         personalInfo,
         skills,
@@ -588,6 +588,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setErrorMessage(null);
 
     try {
+      const { generateCoverLetterPDF } = await import("../utils/pdfGenerator");
       const pdfBlob = generateCoverLetterPDF(coverLetterForm);
       const safeName = coverLetterName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
       const fileName = `cover_letter_${safeName || "document"}.pdf`;

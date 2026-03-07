@@ -245,7 +245,7 @@ export default function AdminCareerEvents() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
       {/* Sidebar (hidden on small screens) */}
       <div className="hidden md:block">
         <AdminNavbar
@@ -289,7 +289,7 @@ export default function AdminCareerEvents() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center justify-between px-6 py-4">
@@ -305,15 +305,15 @@ export default function AdminCareerEvents() {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto">
-          <div className="p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Career Events</h1>
                 <p className="text-gray-600">Manage job fairs, workshops, seminars, and announcements</p>
               </div>
-              <button className="bg-[#1B2744] text-white px-6 py-3 rounded-lg hover:bg-[#15203a] transition-colors flex items-center gap-2 font-semibold" onClick={handleAddEvent}>
+              <button className="w-full md:w-auto bg-[#1B2744] text-white px-6 py-3 rounded-lg hover:bg-[#15203a] transition-colors flex items-center justify-center gap-2 font-semibold" onClick={handleAddEvent}>
                 <Plus className="w-5 h-5" />
                 Add Event
               </button>
@@ -356,7 +356,7 @@ export default function AdminCareerEvents() {
                 <div className="p-8 text-center text-gray-500">No events found. Click "Add Event" to create one.</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="min-w-[980px] w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="text-left px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Event</th>

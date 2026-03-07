@@ -116,7 +116,8 @@ export async function startInterviewSession({ userId, userEmail, userName, total
 		return { data: null, error: new Error('Missing user id') }
 	}
 
-	const sessionTimestamp = new Date().toISOString().replace(/[-:.TZ]/g, '')
+	// Keep timestamp filesystem-safe without using a regex literal that confuses Tailwind scanner.
+	const sessionTimestamp = Date.now().toString()
 	const safeName = toStorageSafeName(userName) || toStorageSafeName(userEmail?.split('@')[0]) || userId
 	const storagePrefix = `${userId}/${safeName}_${sessionTimestamp}`
 

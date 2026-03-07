@@ -1,5 +1,4 @@
 import React from 'react'
-import * as XLSX from 'xlsx'
 
 const ReportsAnalytics = () => {
   const metrics = [
@@ -8,7 +7,8 @@ const ReportsAnalytics = () => {
     { label: 'Placements', value: '—', hint: 'Offers, starts, and acceptance rates' },
   ]
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    const XLSX = await import('xlsx')
     const worksheet = XLSX.utils.json_to_sheet(metrics)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Reports')

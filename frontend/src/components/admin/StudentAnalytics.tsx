@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
-import * as XLSX from 'xlsx';
 import {
     fetchStudentAnalyticsData,
     type MonthlyTrendPoint,
@@ -16,7 +15,6 @@ import {
     ClipboardList,
     TrendingUp,
     Calendar,
-    Download,
     Menu,
 } from "lucide-react";
 
@@ -51,64 +49,6 @@ export default function StudentAnalytics() {
     function handleNavigate(route: string) {
         navigate(`/${route}`);
     }
-
-    const handleExport = () => {
-        const statsData = stats.map(stat => ({
-            Label: stat.label,
-            Value: stat.value
-        }));
-                const monthlyTrendData = monthlyTrends.map((item) => ({
-                        Month: item.month,
-                        Interviews: item.interviews,
-                        Applications: item.applications,
-                }));
-
-                const scoreDistributionData = scoreDistribution.map((item) => ({
-                        "Score Range": item.label,
-                        Count: item.count,
-                }));
-
-                const activityData = monthlyActivityTrends.map((item) => ({
-                        Month: item.month,
-                        "New Students": item.newStudents,
-                        Registrations: item.registrations,
-                }));
-
-                const appStatusData = applicationStatus.map((item) => ({
-                        Status: item.label,
-                        Count: item.count,
-                }));
-
-                const eventTypeData = eventsByType.map((item) => ({
-                        Type: item.label,
-                        Count: item.count,
-                }));
-
-                const topEventsData = topEvents.map((item) => ({
-                        Event: item.title,
-                        Type: item.eventType,
-                        Registrations: item.registrations,
-                }));
-
-        const workbook = XLSX.utils.book_new();
-        const statsSheet = XLSX.utils.json_to_sheet(statsData);
-                const monthlyTrendSheet = XLSX.utils.json_to_sheet(monthlyTrendData);
-                const scoreDistSheet = XLSX.utils.json_to_sheet(scoreDistributionData);
-                const activitySheet = XLSX.utils.json_to_sheet(activityData);
-                const appStatusSheet = XLSX.utils.json_to_sheet(appStatusData);
-                const eventTypeSheet = XLSX.utils.json_to_sheet(eventTypeData);
-                const topEventsSheet = XLSX.utils.json_to_sheet(topEventsData);
-
-        XLSX.utils.book_append_sheet(workbook, statsSheet, 'Stats');
-                XLSX.utils.book_append_sheet(workbook, monthlyTrendSheet, 'Monthly Trends');
-                XLSX.utils.book_append_sheet(workbook, scoreDistSheet, 'Score Distribution');
-                XLSX.utils.book_append_sheet(workbook, activitySheet, 'Activity Trends');
-                XLSX.utils.book_append_sheet(workbook, appStatusSheet, 'Application Status');
-                XLSX.utils.book_append_sheet(workbook, eventTypeSheet, 'Events by Type');
-                XLSX.utils.book_append_sheet(workbook, topEventsSheet, 'Top Events');
-
-        XLSX.writeFile(workbook, 'student_analytics.xlsx');
-    };
 
     React.useEffect(() => {
         async function loadAnalytics() {
@@ -229,12 +169,6 @@ export default function StudentAnalytics() {
                             <div>
                                 <h1 className="text-4xl font-bold text-gray-900">Reports &amp; Analytics</h1>
                                 <p className="text-gray-500 mt-1">Student engagement and interview statistics</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button onClick={handleExport} className="inline-flex items-center gap-2 px-4 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#23325a]">
-                                    <Download className="w-4 h-4" />
-                                    Export
-                                </button>
                             </div>
                         </div>
 
