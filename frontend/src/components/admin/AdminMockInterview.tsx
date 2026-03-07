@@ -511,12 +511,13 @@ export default function AdminMockInterview() {
         { Field: "Status", Value: session.status },
         { Field: "Started At", Value: session.started_at ? new Date(session.started_at).toLocaleString() : "—" },
         { Field: "Ended At", Value: session.ended_at ? new Date(session.ended_at).toLocaleString() : "—" },
-        { Field: "Total Questions", Value: session.total_questions ?? questionRows.length },
+        { Field: "Total Questions", Value: String(session.total_questions ?? questionRows.length) },
         { Field: "Overall Avg Score (1–5)", Value: overallScore },
+        { Field: "Note", Value: "Excel will automatically expand rows when you click Wrap Text." },
       ];
 
       const wbSummary = XLSX.utils.json_to_sheet(summaryRows, { skipHeader: false });
-      wbSummary["!cols"] = [{ wch: 28 }, { wch: 45 }];
+      wbSummary["!cols"] = [{ wch: 28 }, { wch: 60 }];
 
       // ── Sheet 2: Question Details ─────────────────────────────────────────
       const wbDetail = XLSX.utils.json_to_sheet(questionRows);
