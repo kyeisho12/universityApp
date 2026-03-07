@@ -366,6 +366,64 @@ export function ApplicationManagement() {
                 </div>
               </div>
 
+              {/* Update Status */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-900">Update Status</h4>
+                <div className="flex gap-3 items-center">
+                  <select
+                    id="status-select"
+                    value={selectedApp.status}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as "pending" | "accepted" | "rejected" | "withdrawn";
+                      setSelectedApp({ ...selectedApp, status: newStatus });
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none bg-white"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="withdrawn">Withdrawn</option>
+                  </select>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { updateApplicationStatus } = await import("../../services/applicationService");
+                        const result = await updateApplicationStatus(
+                          selectedApp.id,
+                          selectedApp.status
+                        );
+                        if (result.success) {
+                          // Update local state
+                          setApplications(prev => 
+                            prev.map(app => 
+                              app.id === selectedApp.id 
+                                ? { ...app, status: selectedApp.status }
+                                : app
+                            )
+                          );
+                          setFilteredApplications(prev => 
+                            prev.map(app => 
+                              app.id === selectedApp.id 
+                                ? { ...app, status: selectedApp.status }
+                                : app
+                            )
+                          );
+                          alert("Status updated successfully!");
+                        } else {
+                          alert("Failed to update status: " + result.error);
+                        }
+                      } catch (err) {
+                        console.error("Error updating status:", err);
+                        alert("Error updating status");
+                      }
+                    }}
+                    className="px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] transition-colors font-medium"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+
               {/* Cover Letter */}
               {selectedApp.cover_letter && (
                 <div>
