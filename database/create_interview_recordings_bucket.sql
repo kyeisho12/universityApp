@@ -35,6 +35,21 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Admins can view all interview recordings" ON storage.objects;
+CREATE POLICY "Admins can view all interview recordings"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'interview-recordings'
+  AND EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND p.role = 'admin'
+  )
+);
+
 DROP POLICY IF EXISTS "Users can update own interview recordings" ON storage.objects;
 CREATE POLICY "Users can update own interview recordings"
 ON storage.objects

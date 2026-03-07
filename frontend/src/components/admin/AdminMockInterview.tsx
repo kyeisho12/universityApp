@@ -331,12 +331,6 @@ export default function AdminMockInterview() {
       // Enrich each segment
       const grouped: Record<string, Segment[]> = {};
       for (const seg of segments) {
-        // Signed URL
-        // The storage_path in DB is the full path as uploaded, e.g.:
-        //   "{userId}/{storagePrefix}/q01_seg01_{ts}_{rand}.webm"
-        // We try the stored path directly. If it fails (400), we also try
-        // stripping a leading userId segment in case the upload service
-        // stored it differently.
         let signedUrl: string | null = null;
         if (seg.storage_path) {
           const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
@@ -355,30 +349,64 @@ export default function AdminMockInterview() {
             }
           };
 
-          const bucket = "interview-recordings";
-          const rawPath = seg.storage_path;
+          const tryPublicUrl = (bucket: string, path: string): string | null => {
+            try {
+              const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+              return data?.publicUrl ?? null;
+            } catch {
+              return null;
+            }
+          };
 
-          // PRIMARY: getPublicUrl — works if bucket is set to Public in Supabase dashboard.
-          // This bypasses RLS entirely which is why createSignedUrl was returning 400:
-          // the admin user is different from the student who uploaded the file, so
-          // Supabase RLS masked the permission error as "Object not found".
-          const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(rawPath);
-          if (pubData?.publicUrl) {
-            signedUrl = pubData.publicUrl;
+          const bucketFromMeta =
+            typeof seg.metadata?.storage_bucket === "string"
+              ? seg.metadata.storage_bucket
+              : typeof seg.metadata?.bucket === "string"
+              ? seg.metadata.bucket
+              : null;
+          const bucketCandidates = Array.from(
+            new Set([bucketFromMeta, "interview-recordings"].filter(Boolean) as string[])
+          );
+
+          const rawPath = String(seg.storage_path).trim();
+          const normalizedPaths = Array.from(
+            new Set(
+              [
+                rawPath,
+                rawPath.replace(/^\/+/, ""),
+                rawPath.replace(/^interview-recordings\//, ""),
+                rawPath.replace(/^\/interview-recordings\//, ""),
+              ].filter(Boolean)
+            )
+          );
+
+          // Prefer signed URLs first; public URLs for private buckets return a URL string
+          // but still fail at playback time.
+          for (const bucket of bucketCandidates) {
+            for (const path of normalizedPaths) {
+              // eslint-disable-next-line no-await-in-loop
+              signedUrl = await trySignedUrl(bucket, path);
+              if (signedUrl) break;
+            }
+            if (signedUrl) break;
           }
 
-          // FALLBACK: createSignedUrl — works if bucket is Private but admin has
-          // a storage policy granting SELECT to users with role = 'admin'.
-          // To add that policy: Supabase Dashboard → Storage → Policies →
-          //   New policy on "interview-recordings": allow SELECT for auth.jwt()->>'role' = 'admin'
+          // Fallback to public URL for projects using a public bucket.
           if (!signedUrl) {
-            signedUrl = await trySignedUrl(bucket, rawPath);
+            for (const bucket of bucketCandidates) {
+              for (const path of normalizedPaths) {
+                signedUrl = tryPublicUrl(bucket, path);
+                if (signedUrl) break;
+              }
+              if (signedUrl) break;
+            }
           }
 
           if (!signedUrl) {
-            console.error(`[video] Could not get URL for: "${rawPath}". ` +
-              "Fix: either make the 'interview-recordings' bucket Public in Supabase Dashboard, " +
-              "or add a Storage policy allowing admins to SELECT all objects.");
+            console.error(
+              `[video] Could not get URL for storage_path="${rawPath}". ` +
+                "Check storage bucket policies and whether storage_path includes a bucket prefix."
+            );
           }
         }
 
