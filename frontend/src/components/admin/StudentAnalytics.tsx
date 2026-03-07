@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
 import * as XLSX from 'xlsx';
-import { supabase } from "../../lib/supabaseClient";
+import {
+    fetchStudentAnalyticsData,
+    type MonthlyTrendPoint,
+    type ActivityTrendPoint,
+    type CountPoint,
+    type EventPoint,
+} from "../../services/studentAnalyticsService";
 import {
     X,
     Users,
@@ -14,6 +20,8 @@ import {
     Menu,
 } from "lucide-react";
 
+type StatItem = { label: string; value: string; icon: JSX.Element };
+
 export default function StudentAnalytics() {
     const { user, signOut } = useAuth();
     const navigate = useNavigate();
@@ -21,17 +29,14 @@ export default function StudentAnalytics() {
     const userName = user?.email?.split("@")[0] || "";
     const userID = "2024-00001";
 
-    const [stats, setStats] = React.useState<
-        { label: string; value: string; icon: JSX.Element }[]
-        >([]);
-
-    const departmentPerformance = [
-        { dept: "CCS", students: 450, interviews: 234, score: 4.1, engagement: 0.82 },
-        { dept: "CBA", students: 380, interviews: 189, score: 3.8, engagement: 0.78 },
-        { dept: "COE", students: 320, interviews: 156, score: 3.9, engagement: 0.74 },
-        { dept: "CAS", students: 280, interviews: 98, score: 3.7, engagement: 0.68 },
-        { dept: "COED", students: 210, interviews: 78, score: 4.0, engagement: 0.7 },
-    ];
+    const [stats, setStats] = React.useState<StatItem[]>([]);
+    const [monthlyTrends, setMonthlyTrends] = React.useState<MonthlyTrendPoint[]>([]);
+    const [scoreDistribution, setScoreDistribution] = React.useState<CountPoint[]>([]);
+    const [monthlyActivityTrends, setMonthlyActivityTrends] = React.useState<ActivityTrendPoint[]>([]);
+    const [applicationStatus, setApplicationStatus] = React.useState<CountPoint[]>([]);
+    const [eventsByType, setEventsByType] = React.useState<CountPoint[]>([]);
+    const [topEvents, setTopEvents] = React.useState<EventPoint[]>([]);
+    const [loading, setLoading] = React.useState<boolean>(true);
 
     async function handleLogout() {
         try {
@@ -52,91 +57,110 @@ export default function StudentAnalytics() {
             Label: stat.label,
             Value: stat.value
         }));
-        const departmentData = departmentPerformance.map(dept => ({
-            Department: dept.dept,
-            Students: dept.students,
-            Interviews: dept.interviews,
-            'Avg Score': dept.score,
-            Engagement: dept.engagement
-        }));
+                const monthlyTrendData = monthlyTrends.map((item) => ({
+                        Month: item.month,
+                        Interviews: item.interviews,
+                        Applications: item.applications,
+                }));
+
+                const scoreDistributionData = scoreDistribution.map((item) => ({
+                        "Score Range": item.label,
+                        Count: item.count,
+                }));
+
+                const activityData = monthlyActivityTrends.map((item) => ({
+                        Month: item.month,
+                        "New Students": item.newStudents,
+                        Registrations: item.registrations,
+                }));
+
+                const appStatusData = applicationStatus.map((item) => ({
+                        Status: item.label,
+                        Count: item.count,
+                }));
+
+                const eventTypeData = eventsByType.map((item) => ({
+                        Type: item.label,
+                        Count: item.count,
+                }));
+
+                const topEventsData = topEvents.map((item) => ({
+                        Event: item.title,
+                        Type: item.eventType,
+                        Registrations: item.registrations,
+                }));
 
         const workbook = XLSX.utils.book_new();
         const statsSheet = XLSX.utils.json_to_sheet(statsData);
-        const departmentSheet = XLSX.utils.json_to_sheet(departmentData);
+                const monthlyTrendSheet = XLSX.utils.json_to_sheet(monthlyTrendData);
+                const scoreDistSheet = XLSX.utils.json_to_sheet(scoreDistributionData);
+                const activitySheet = XLSX.utils.json_to_sheet(activityData);
+                const appStatusSheet = XLSX.utils.json_to_sheet(appStatusData);
+                const eventTypeSheet = XLSX.utils.json_to_sheet(eventTypeData);
+                const topEventsSheet = XLSX.utils.json_to_sheet(topEventsData);
 
         XLSX.utils.book_append_sheet(workbook, statsSheet, 'Stats');
-        XLSX.utils.book_append_sheet(workbook, departmentSheet, 'Department Performance');
+                XLSX.utils.book_append_sheet(workbook, monthlyTrendSheet, 'Monthly Trends');
+                XLSX.utils.book_append_sheet(workbook, scoreDistSheet, 'Score Distribution');
+                XLSX.utils.book_append_sheet(workbook, activitySheet, 'Activity Trends');
+                XLSX.utils.book_append_sheet(workbook, appStatusSheet, 'Application Status');
+                XLSX.utils.book_append_sheet(workbook, eventTypeSheet, 'Events by Type');
+                XLSX.utils.book_append_sheet(workbook, topEventsSheet, 'Top Events');
 
         XLSX.writeFile(workbook, 'student_analytics.xlsx');
     };
 
     React.useEffect(() => {
-  async function fetchStats() {
-    try {
-      // Active students
-      const { count: activeStudents } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .eq("role", "student")
-        .eq("is_active", true);
+        async function loadAnalytics() {
+            try {
+                setLoading(true);
+                const data = await fetchStudentAnalyticsData();
 
-      // Interviews count
-      const { count: interviews } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .eq("role", "student")
-        .eq("interview_status", true);
+                setStats([
+                    {
+                        label: "Active Students",
+                        value: data.activeStudents.toString(),
+                        icon: <Users className="w-5 h-5 text-[#00B4D8]" />,
+                    },
+                    {
+                        label: "Interviews",
+                        value: data.interviews.toString(),
+                        icon: <ClipboardList className="w-5 h-5 text-[#00B4D8]" />,
+                    },
+                    {
+                        label: "Avg Score",
+                        value: `${data.avgScore.toFixed(1)}/5`,
+                        icon: <TrendingUp className="w-5 h-5 text-[#00B4D8]" />,
+                    },
+                    {
+                        label: "Events",
+                        value: data.events.toString(),
+                        icon: <Calendar className="w-5 h-5 text-[#00B4D8]" />,
+                    },
+                ]);
 
-      // Average interview score
-      const { data: avgScoreData } = await supabase
-        .from("profiles")
-        .select("interview_score")
-        .not("interview_score", "is", null);
+                setMonthlyTrends(data.monthlyTrends);
+                setScoreDistribution(data.scoreDistribution);
+                setMonthlyActivityTrends(data.monthlyActivityTrends);
+                setApplicationStatus(data.applicationStatus);
+                setEventsByType(data.eventsByType);
+                setTopEvents(data.topEvents);
+            } catch (error) {
+                console.error("Error fetching analytics data:", error);
+                setStats([]);
+                setMonthlyTrends([]);
+                setScoreDistribution([]);
+                setMonthlyActivityTrends([]);
+                setApplicationStatus([]);
+                setEventsByType([]);
+                setTopEvents([]);
+            } finally {
+                setLoading(false);
+            }
+        }
 
-      const avgScore =
-        avgScoreData && avgScoreData.length > 0
-          ? (
-              avgScoreData.reduce(
-                (sum, row) => sum + (row.interview_score ?? 0),
-                0
-              ) / avgScoreData.length
-            ).toFixed(1)
-          : "0.0";
-
-      // Events (registrations)
-      const { count: events } = await supabase
-        .from("event_registrations")
-        .select("*", { count: "exact", head: true });
-
-      setStats([
-        {
-          label: "Active Students",
-          value: activeStudents?.toString() ?? "0",
-          icon: <Users className="w-5 h-5 text-[#00B4D8]" />,
-        },
-        {
-          label: "Interviews",
-          value: interviews?.toString() ?? "0",
-          icon: <ClipboardList className="w-5 h-5 text-[#00B4D8]" />,
-        },
-        {
-          label: "Avg Score",
-          value: `${avgScore}/5`,
-          icon: <TrendingUp className="w-5 h-5 text-[#00B4D8]" />,
-        },
-        {
-          label: "Events",
-          value: events?.toString() ?? "0",
-          icon: <Calendar className="w-5 h-5 text-[#00B4D8]" />,
-        },
-      ]);
-    } catch (error) {
-      console.error("Error fetching analytics stats:", error);
-    }
-  }
-
-  fetchStats();
-}, []);
+        loadAnalytics();
+    }, []);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -222,7 +246,9 @@ export default function StudentAnalytics() {
                                         {item.icon}
                                         <span>{item.label}</span>
                                     </div>
-                                    <div className="text-3xl font-semibold text-gray-900">{item.value}</div>
+                                    <div className="text-3xl font-semibold text-gray-900">
+                                        {loading ? "..." : item.value}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -230,35 +256,43 @@ export default function StudentAnalytics() {
                         {/* Charts */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <ChartCard title="Monthly Trends">
-                                <ChartPlaceholder />
+                                <DualBarChart
+                                    data={monthlyTrends}
+                                    leftKey="interviews"
+                                    rightKey="applications"
+                                    leftLabel="Interviews"
+                                    rightLabel="Applications"
+                                />
                             </ChartCard>
                             <ChartCard title="Score Distribution">
-                                <ChartPlaceholder />
+                                <HorizontalBarChart data={scoreDistribution} />
                             </ChartCard>
                         </div>
 
-                        {/* Additional Analytics (placeholders) */}
+                        {/* Additional Analytics */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <ChartCard title="Monthly Activity Trends">
-                                <ChartPlaceholder />
+                                <DualBarChart
+                                    data={monthlyActivityTrends}
+                                    leftKey="newStudents"
+                                    rightKey="registrations"
+                                    leftLabel="New Students"
+                                    rightLabel="Registrations"
+                                />
                             </ChartCard>
                             <ChartCard title="Application Status Breakdown">
-                                <ChartPlaceholder />
+                                <HorizontalBarChart data={applicationStatus} />
                             </ChartCard>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <ChartCard title="Events by Type">
-                                <ChartPlaceholder />
+                                <HorizontalBarChart data={eventsByType} />
                             </ChartCard>
                             <ChartCard title="Top Events by Registration">
-                                <ListPlaceholder />
+                                <TopEventsList rows={topEvents} />
                             </ChartCard>
                         </div>
 
-                        {/* Department Performance */}
-                        <ChartCard title="Department Performance">
-                            <PerformanceTable rows={departmentPerformance} />
-                        </ChartCard>
                     </div>
                 </main>
             </div>
@@ -275,61 +309,110 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
     );
 }
 
-function ChartPlaceholder() {
+function DualBarChart({
+    data,
+    leftKey,
+    rightKey,
+    leftLabel,
+    rightLabel,
+}: {
+    data: any[];
+    leftKey: string;
+    rightKey: string;
+    leftLabel: string;
+    rightLabel: string;
+}) {
+    if (!data || data.length === 0) {
+        return <EmptyChartState />;
+    }
+
+    const max = Math.max(...data.map((item) => Math.max(Number(item[leftKey]) || 0, Number(item[rightKey]) || 0)), 1);
+
+    return (
+        <div className="h-64 flex flex-col gap-3">
+            <div className="flex items-center gap-4 text-xs text-gray-600">
+                <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#1B2744]" />{leftLabel}</span>
+                <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#00B4D8]" />{rightLabel}</span>
+            </div>
+            <div className="flex-1 grid grid-cols-6 gap-3 items-end">
+                {data.map((item) => {
+                    const leftHeight = ((Number(item[leftKey]) || 0) / max) * 100;
+                    const rightHeight = ((Number(item[rightKey]) || 0) / max) * 100;
+                    return (
+                        <div key={item.month} className="flex flex-col items-center gap-2">
+                            <div className="h-44 w-full flex items-end justify-center gap-1">
+                                <div className="w-3 rounded-t bg-[#1B2744]" style={{ height: `${leftHeight}%` }} />
+                                <div className="w-3 rounded-t bg-[#00B4D8]" style={{ height: `${rightHeight}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-600">{item.month}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function HorizontalBarChart({ data }: { data: CountPoint[] }) {
+    if (!data || data.length === 0) {
+        return <EmptyChartState />;
+    }
+
+    const max = Math.max(...data.map((item) => item.count), 1);
+
+    return (
+        <div className="h-64 overflow-y-auto pr-1 space-y-3">
+            {data.map((item) => {
+                const width = (item.count / max) * 100;
+                return (
+                    <div key={item.label}>
+                        <div className="flex items-center justify-between text-sm text-gray-700 mb-1">
+                            <span>{item.label}</span>
+                            <span className="font-semibold">{item.count}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                            <div className="h-full bg-[#00B4D8] rounded-full" style={{ width: `${width}%` }} />
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function TopEventsList({ rows }: { rows: EventPoint[] }) {
+    if (!rows || rows.length === 0) {
+        return <EmptyChartState />;
+    }
+
+    const max = Math.max(...rows.map((row) => row.registrations), 1);
+
+    return (
+        <div className="h-64 overflow-y-auto pr-1 space-y-3">
+            {rows.map((row) => (
+                <div key={row.id} className="border border-gray-100 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{row.title}</p>
+                        <span className="text-sm font-bold text-[#1B2744]">{row.registrations}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{row.eventType}</p>
+                    <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                            className="h-full bg-[#1B2744]"
+                            style={{ width: `${(row.registrations / max) * 100}%` }}
+                        />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function EmptyChartState() {
     return (
         <div className="h-64 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500 text-sm">
-            Chart placeholder
+            No data available yet
         </div>
     );
 }
 
-function ListPlaceholder() {
-    return (
-        <div className="h-64 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-gray-500 text-sm flex flex-col justify-center gap-3">
-            <div className="h-4 w-3/4 rounded bg-gray-200" />
-            <div className="h-4 w-2/3 rounded bg-gray-200" />
-            <div className="h-4 w-4/5 rounded bg-gray-200" />
-            <div className="h-4 w-1/2 rounded bg-gray-200" />
-        </div>
-    );
-}
-
-function PerformanceTable({
-    rows,
-}: {
-    rows: { dept: string; students: number; interviews: number; score: number; engagement: number }[];
-}) {
-    return (
-        <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-                <thead className="text-gray-500 bg-gray-50">
-                    <tr>
-                        <th className="text-left font-semibold px-4 py-3">Department</th>
-                        <th className="text-left font-semibold px-4 py-3">Students</th>
-                        <th className="text-left font-semibold px-4 py-3">Interviews</th>
-                        <th className="text-left font-semibold px-4 py-3">Avg Score</th>
-                        <th className="text-left font-semibold px-4 py-3">Engagement</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                    {rows.map((row) => (
-                        <tr key={row.dept} className="text-gray-800">
-                            <td className="px-4 py-3 font-medium">{row.dept}</td>
-                            <td className="px-4 py-3">{row.students}</td>
-                            <td className="px-4 py-3">{row.interviews}</td>
-                            <td className="px-4 py-3 text-[#0f9a4d] font-semibold">{row.score.toFixed(1)}</td>
-                            <td className="px-4 py-3">
-                                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                                    <div
-                                        className="h-full bg-[#1B2744]"
-                                        style={{ width: `${Math.round(row.engagement * 100)}%` }}
-                                    />
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-}
