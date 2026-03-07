@@ -520,21 +520,43 @@ export default function AdminMockInterview() {
 
       // ── Sheet 2: Question Details ─────────────────────────────────────────
       const wbDetail = XLSX.utils.json_to_sheet(questionRows);
+
+      // Column widths
       wbDetail["!cols"] = [
-        { wch: 4 },   // Q#
-        { wch: 45 },  // Question
-        { wch: 60 },  // Transcript
-        { wch: 12 },  // Score
-        { wch: 30 },  // HR Label
-        { wch: 11 },  // Situation
-        { wch: 8 },   // Task
-        { wch: 10 },  // Action
-        { wch: 10 },  // Result
-        { wch: 12 },  // Reflection
-        { wch: 18 },  // Similarity
-        { wch: 22 },  // Evaluated At
+        { wch: 4 },
+        { wch: 45 },
+        { wch: 60 },
+        { wch: 12 },
+        { wch: 30 },
+        { wch: 11 },
+        { wch: 8 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 22 }
       ];
 
+      // Apply alignment + wrapping to all cells
+      const range = XLSX.utils.decode_range(wbDetail["!ref"]);
+
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+
+          if (!wbDetail[cellAddress]) continue;
+
+          wbDetail[cellAddress].s = {
+            alignment: {
+              horizontal: "center",
+              vertical: "center",
+              wrapText: true
+            },
+            font: R === 0 ? { bold: true } : {}
+          };
+        }
+      }
+      
       // Build workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, wbSummary, "Summary");
@@ -660,7 +682,11 @@ export default function AdminMockInterview() {
                             <button onClick={() => handleViewSession(session)} className="inline-flex items-center gap-1.5 text-sm text-cyan-600 hover:text-cyan-800 font-medium">
                               <Eye className="w-4 h-4" />View
                             </button>
-                            <button
+                            
+                          </div>
+                        </td>
+                        <td>
+                          <button
                               onClick={() => handleExportSession(session)}
                               disabled={exportingId === session.id}
                               className="inline-flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -670,7 +696,6 @@ export default function AdminMockInterview() {
                                 ? <><Loader2 className="w-4 h-4 animate-spin" />Exporting…</>
                                 : <><Download className="w-4 h-4" />Export</>}
                             </button>
-                          </div>
                         </td>
                       </tr>
                     ))
