@@ -61,6 +61,36 @@ export async function signOut() {
 
 export async function getSession() {
   const { data, error } = await supabase.auth.getSession()
-  if (error) throw error
+  if (error) {
+    const message = String(error?.message || '').toLowerCase()
+    const isStaleRefreshToken =
+      message.includes('refresh token') ||
+      message.includes('invalid refresh token') ||
+      message.includes('refresh token not found')
+
+    if (isStaleRefreshToken) {
+      // Recover from stale local auth state by clearing local session artifacts.
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {
+        // Ignore local sign-out errors and continue cleanup.
+      }
+
+      try {
+        const keys = Object.keys(localStorage)
+        keys.forEach((key) => {
+          if (key.includes('supabase') || key.includes('auth')) {
+            localStorage.removeItem(key)
+          }
+        })
+      } catch {
+        // Ignore localStorage cleanup errors.
+      }
+
+      return null
+    }
+
+    throw error
+  }
   return data.session
 }

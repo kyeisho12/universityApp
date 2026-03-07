@@ -59,12 +59,33 @@ interface ActiveSegmentMeta {
   questionIndex: number;
   segmentOrder: number;
   startedAt: number;
+  baselineDraftChars: number;
+  baselineLiveChars: number;
 }
+
+type PreparedNextAction =
+  | {
+      kind: "followup";
+      question: Question;
+      nextQuestionIndex: number;
+      baseQuestionId: string;
+    }
+  | {
+      kind: "bank";
+      question: Question;
+      nextQuestionIndex: number;
+      remainingPool: Question[];
+    }
+  | {
+      kind: "complete";
+      message: string;
+    };
 
 interface PersistedMockInterviewState {
   hasStarted: boolean;
   isSessionStarted: boolean;
   isPaused?: boolean;
+  isPauseTranscriptPending?: boolean;
   isCompleted: boolean;
   currentQuestion: number;
   isCameraOn: boolean;
@@ -72,6 +93,10 @@ interface PersistedMockInterviewState {
   sessionId?: string | null;
   storagePrefix?: string | null;
   savedSegmentCount?: number;
+  liveDraftTranscript?: string;
+  liveTranscriptText?: string | null;
+  latestWhisperStatus?: string | null;
+  preparedNextAction?: PreparedNextAction | null;
   questions?: Question[];
   bankQuestionPool?: Question[];
   followupCountByBase?: Record<string, number>;
@@ -100,13 +125,14 @@ const AUTO_SILENCE_RMS_THRESHOLD = 0.015;
 const AUTO_SILENCE_DURATION_MS = 1700;
 const AUTO_MIN_SPEECH_MS = 800;
 const AUTO_NOISE_FLOOR_ALPHA = 0.05;
-const AUTO_SPEECH_MULTIPLIER = 2.2;
+const AUTO_SPEECH_MULTIPLIER = 1.8;
 const AUTO_MAX_ANSWER_MS = 120000;
-const AUTO_NO_SPEECH_TIMEOUT_MS = 12000;
+const AUTO_NO_SPEECH_TIMEOUT_MS = 8000;
+const AUTO_NO_SPEECH_MIN_TRANSCRIPT_DELTA_CHARS = 12;
 const FINISH_PROMPT_COOLDOWN_MS = 10000;
 const TRANSCRIPT_FAST_POLL_MS = 800;
 const TRANSCRIPT_NORMAL_POLL_MS = 2500;
-const AUTO_CAPTURE_ARM_DELAY_MS = 7000;
+const AUTO_CAPTURE_ARM_DELAY_MS = 3000;
 
 function MockInterviewPageContent({
   email,
@@ -134,6 +160,7 @@ function MockInterviewPageContent({
     hasStarted: boolean;
     isSessionStarted: boolean;
     isPaused: boolean;
+    isPauseTranscriptPending: boolean;
     isCompleted: boolean;
     currentQuestion: number;
     isCameraOn: boolean;
@@ -141,6 +168,10 @@ function MockInterviewPageContent({
     sessionId: string | null;
     storagePrefix: string | null;
     savedSegmentCount: number;
+    liveDraftTranscript: string;
+    liveTranscriptText: string | null;
+    latestWhisperStatus: string | null;
+    preparedNextAction: PreparedNextAction | null;
     questions: Question[];
     bankQuestionPool: Question[];
     followupCountByBase: Record<string, number>;
@@ -159,6 +190,10 @@ function MockInterviewPageContent({
           hasStarted: Boolean(parsed.hasStarted),
           isSessionStarted: Boolean(parsed.isSessionStarted),
           isPaused: typeof parsed.isPaused === "boolean" ? parsed.isPaused : false,
+          isPauseTranscriptPending:
+            typeof parsed.isPauseTranscriptPending === "boolean"
+              ? parsed.isPauseTranscriptPending
+              : false,
           isCompleted: Boolean(parsed.isCompleted),
           currentQuestion: typeof parsed.currentQuestion === "number" ? parsed.currentQuestion : 0,
           isCameraOn: Boolean(parsed.isCameraOn),
@@ -166,6 +201,16 @@ function MockInterviewPageContent({
           sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : null,
           storagePrefix: typeof parsed.storagePrefix === "string" ? parsed.storagePrefix : null,
           savedSegmentCount: typeof parsed.savedSegmentCount === "number" ? parsed.savedSegmentCount : 0,
+          liveDraftTranscript:
+            typeof parsed.liveDraftTranscript === "string" ? parsed.liveDraftTranscript : "",
+          liveTranscriptText:
+            typeof parsed.liveTranscriptText === "string" ? parsed.liveTranscriptText : null,
+          latestWhisperStatus:
+            typeof parsed.latestWhisperStatus === "string" ? parsed.latestWhisperStatus : null,
+          preparedNextAction:
+            parsed.preparedNextAction && typeof parsed.preparedNextAction === "object"
+              ? parsed.preparedNextAction
+              : null,
           questions: Array.isArray(parsed.questions) ? parsed.questions : [],
           bankQuestionPool: Array.isArray(parsed.bankQuestionPool) ? parsed.bankQuestionPool : [],
           followupCountByBase:
@@ -215,13 +260,21 @@ function MockInterviewPageContent({
   const [savedSegmentCount, setSavedSegmentCount] = useState(
     initialStateRef.current?.savedSegmentCount ?? 0
   );
-  const [liveDraftTranscript, setLiveDraftTranscript] = useState("");
+  const [liveDraftTranscript, setLiveDraftTranscript] = useState(
+    initialStateRef.current?.liveDraftTranscript ?? ""
+  );
   const [fullSessionTranscript, setFullSessionTranscript] = useState("");
-  const [liveTranscriptText, setLiveTranscriptText] = useState<string | null>(null);
+  const [liveTranscriptText, setLiveTranscriptText] = useState<string | null>(
+    initialStateRef.current?.liveTranscriptText ?? null
+  );
   const [evaluations, setEvaluations] = useState<Record<number, any>>({});
   const lastEvaluatedTranscriptRef = useRef<Record<number, string>>({});
-  const [latestWhisperStatus, setLatestWhisperStatus] = useState<string | null>(null);
-  const [isPauseTranscriptPending, setIsPauseTranscriptPending] = useState(false);
+  const [latestWhisperStatus, setLatestWhisperStatus] = useState<string | null>(
+    initialStateRef.current?.latestWhisperStatus ?? null
+  );
+  const [isPauseTranscriptPending, setIsPauseTranscriptPending] = useState(
+    initialStateRef.current?.isPauseTranscriptPending ?? false
+  );
   const [liveDraftStatus, setLiveDraftStatus] = useState<string | null>(null);
   const [showFinishSpeakingPrompt, setShowFinishSpeakingPrompt] = useState(false);
   const [useLiveChunkFallback, setUseLiveChunkFallback] = useState(false);
@@ -239,6 +292,9 @@ function MockInterviewPageContent({
   );
   const [isDecidingNextQuestion, setIsDecidingNextQuestion] = useState(false);
   const [isAdvancingNextQuestion, setIsAdvancingNextQuestion] = useState(false);
+  const [preparedNextAction, setPreparedNextAction] = useState<PreparedNextAction | null>(
+    initialStateRef.current?.preparedNextAction ?? null
+  );
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -252,6 +308,8 @@ function MockInterviewPageContent({
   const activeSegmentMetaRef = useRef<ActiveSegmentMeta | null>(null);
   const speechRecognitionRef = useRef<any>(null);
   const speechFinalTextRef = useRef("");
+  const liveDraftTranscriptRef = useRef("");
+  const liveTranscriptTextRef = useRef<string | null>(null);
   const liveDraftHasResultRef = useRef(false);
   const liveDraftFallbackTimerRef = useRef<number | null>(null);
   const fullSessionTranscriptRef = useRef("");
@@ -281,6 +339,14 @@ function MockInterviewPageContent({
   const nextQuestionInFlightRef = useRef(false);
   const isApplyingPopstateRef = useRef(false);
   const hasInitializedHistoryStateRef = useRef(false);
+
+  useEffect(() => {
+    liveDraftTranscriptRef.current = liveDraftTranscript;
+  }, [liveDraftTranscript]);
+
+  useEffect(() => {
+    liveTranscriptTextRef.current = liveTranscriptText;
+  }, [liveTranscriptText]);
 
   const currentViewStep = React.useMemo(() => {
     if (showHistoryView) return "history";
@@ -412,6 +478,9 @@ function MockInterviewPageContent({
       if (typeof parsed.isPaused === "boolean") {
         setIsPaused(parsed.isPaused);
       }
+      if (typeof parsed.isPauseTranscriptPending === "boolean") {
+        setIsPauseTranscriptPending(parsed.isPauseTranscriptPending);
+      }
       if (typeof parsed.isCompleted === "boolean") {
         setIsCompleted(parsed.isCompleted);
       }
@@ -428,6 +497,20 @@ function MockInterviewPageContent({
       setStoragePrefix(typeof parsed.storagePrefix === "string" ? parsed.storagePrefix : null);
       if (typeof parsed.savedSegmentCount === "number") {
         setSavedSegmentCount(parsed.savedSegmentCount);
+      }
+      setLiveDraftTranscript(
+        typeof parsed.liveDraftTranscript === "string" ? parsed.liveDraftTranscript : ""
+      );
+      setLiveTranscriptText(
+        typeof parsed.liveTranscriptText === "string" ? parsed.liveTranscriptText : null
+      );
+      setLatestWhisperStatus(
+        typeof parsed.latestWhisperStatus === "string" ? parsed.latestWhisperStatus : null
+      );
+      if (parsed.preparedNextAction && typeof parsed.preparedNextAction === "object") {
+        setPreparedNextAction(parsed.preparedNextAction as PreparedNextAction);
+      } else {
+        setPreparedNextAction(null);
       }
       if (Array.isArray(parsed.questions)) {
         setQuestions(parsed.questions);
@@ -468,6 +551,7 @@ function MockInterviewPageContent({
         hasStarted,
         isSessionStarted,
         isPaused,
+        isPauseTranscriptPending,
         isCompleted,
         currentQuestion,
         isCameraOn,
@@ -475,6 +559,10 @@ function MockInterviewPageContent({
         sessionId,
         storagePrefix,
         savedSegmentCount,
+        liveDraftTranscript,
+        liveTranscriptText,
+        latestWhisperStatus,
+        preparedNextAction,
         questions,
         bankQuestionPool,
         followupCountByBase,
@@ -486,7 +574,7 @@ function MockInterviewPageContent({
     } catch (error) {
       console.error("Failed to persist mock interview state:", error);
     }
-  }, [hasStarted, isSessionStarted, isPaused, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, questions, bankQuestionPool, followupCountByBase, stateKey]);
+  }, [hasStarted, isSessionStarted, isPaused, isPauseTranscriptPending, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, liveDraftTranscript, liveTranscriptText, latestWhisperStatus, preparedNextAction, questions, bankQuestionPool, followupCountByBase, stateKey]);
 
   const persistSnapshot = useCallback(() => {
     if (!stateKey) return;
@@ -495,6 +583,7 @@ function MockInterviewPageContent({
         hasStarted,
         isSessionStarted,
         isPaused,
+        isPauseTranscriptPending,
         isCompleted,
         currentQuestion,
         isCameraOn,
@@ -502,6 +591,10 @@ function MockInterviewPageContent({
         sessionId,
         storagePrefix,
         savedSegmentCount,
+        liveDraftTranscript,
+        liveTranscriptText,
+        latestWhisperStatus,
+        preparedNextAction,
         questions,
         bankQuestionPool,
         followupCountByBase,
@@ -513,7 +606,7 @@ function MockInterviewPageContent({
     } catch (error) {
       console.error("Failed to persist mock interview state:", error);
     }
-  }, [stateKey, hasStarted, isSessionStarted, isPaused, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, questions, bankQuestionPool, followupCountByBase]);
+  }, [stateKey, hasStarted, isSessionStarted, isPaused, isPauseTranscriptPending, isCompleted, currentQuestion, isCameraOn, isMicOn, sessionId, storagePrefix, savedSegmentCount, liveDraftTranscript, liveTranscriptText, latestWhisperStatus, preparedNextAction, questions, bankQuestionPool, followupCountByBase]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -818,6 +911,7 @@ function MockInterviewPageContent({
         }
 
         if (draftTranscript && attempt >= 2) {
+          setIsPauseTranscriptPending(false);
           return;
         }
 
@@ -827,6 +921,8 @@ function MockInterviewPageContent({
           });
         }
       }
+
+      setIsPauseTranscriptPending(false);
     } catch {
       setIsPauseTranscriptPending(false);
     }
@@ -1085,10 +1181,12 @@ function MockInterviewPageContent({
         });
       }
       await refreshTranscriptAfterPause();
-      if ((liveDraftTranscript || "").trim()) {
-        setRecordingError("Answer captured. Draft transcript is ready. You can click Next Question while final transcription finishes.");
-      } else {
-        setRecordingError("Answer captured. Review transcript, then click Next Question.");
+      setIsAdvancingNextQuestion(true);
+      try {
+        setRecordingError("No speech detected. Preparing your answer now...");
+        await prepareNextActionForCurrentAnswer("auto");
+      } finally {
+        setIsAdvancingNextQuestion(false);
       }
     } finally {
       autoPauseInFlightRef.current = false;
@@ -1098,7 +1196,6 @@ function MockInterviewPageContent({
     isDecidingNextQuestion,
     isPaused,
     isSessionStarted,
-    liveDraftTranscript,
     refreshTranscriptAfterPause,
     sessionId,
     stopLiveChunkTranscription,
@@ -1185,7 +1282,8 @@ function MockInterviewPageContent({
 
           const rms = Math.sqrt(energy / waveform.length);
           const now = performance.now();
-          const segmentStartedAt = activeSegmentMetaRef.current?.startedAt || Date.now();
+          const segmentMeta = activeSegmentMetaRef.current;
+          const segmentStartedAt = segmentMeta?.startedAt || Date.now();
           const elapsedSinceSegmentStart = Date.now() - segmentStartedAt;
           const isAutoCaptureArmed = elapsedSinceSegmentStart >= AUTO_CAPTURE_ARM_DELAY_MS;
           const currentNoiseFloor = silenceNoiseFloorRef.current;
@@ -1220,19 +1318,28 @@ function MockInterviewPageContent({
             }
           }
 
-          // Fail-safe fallback: if no speech is detected for too long,
-          // ask the user for confirmation once instead of auto-stopping every time.
+          // Hard fail-safe: auto-stop when no transcript evidence appears for too long,
+          // even if ambient noise keeps RMS above the raw speech threshold.
+          const draftTranscriptDelta = Math.max(
+            0,
+            (liveDraftTranscriptRef.current || "").trim().length - (segmentMeta?.baselineDraftChars || 0)
+          );
+          const liveTranscriptDelta = Math.max(
+            0,
+            (liveTranscriptTextRef.current || "").trim().length - (segmentMeta?.baselineLiveChars || 0)
+          );
+          const hasMeaningfulTranscriptSinceSegment =
+            draftTranscriptDelta >= AUTO_NO_SPEECH_MIN_TRANSCRIPT_DELTA_CHARS ||
+            liveTranscriptDelta >= AUTO_NO_SPEECH_MIN_TRANSCRIPT_DELTA_CHARS;
+
           if (
-            isAutoCaptureArmed &&
-            silenceSpeechStartedAtRef.current === 0 &&
-            Date.now() - segmentStartedAt >= AUTO_NO_SPEECH_TIMEOUT_MS
+            !hasMeaningfulTranscriptSinceSegment &&
+            elapsedSinceSegmentStart >= AUTO_NO_SPEECH_TIMEOUT_MS
           ) {
-            const openedPrompt = maybeShowFinishSpeakingPrompt();
-            if (openedPrompt) {
-              setRecordingError("We detected a long pause. Are you finished speaking?");
-              stopSilenceDetection();
-              return;
-            }
+            setRecordingError("No speech detected. Auto-stopping and saving this segment...");
+            void triggerAutoPauseAndTranscribe();
+            stopSilenceDetection();
+            return;
           }
 
           silenceDetectionAnimationRef.current = window.requestAnimationFrame(tick);
@@ -1247,7 +1354,6 @@ function MockInterviewPageContent({
       isMicOn,
       isPaused,
       isSessionStarted,
-      maybeShowFinishSpeakingPrompt,
       stopSilenceDetection,
       triggerAutoPauseAndTranscribe,
     ]
@@ -1625,6 +1731,8 @@ function MockInterviewPageContent({
           questionIndex,
           segmentOrder: segmentOrderRef.current,
           startedAt: Date.now(),
+          baselineDraftChars: (liveDraftTranscriptRef.current || "").trim().length,
+          baselineLiveChars: (liveTranscriptTextRef.current || "").trim().length,
         };
 
         mediaRecorder.ondataavailable = (event: BlobEvent) => {
@@ -1703,6 +1811,143 @@ function MockInterviewPageContent({
     mediaRecorderRef.current = null;
   }, [stopLiveChunkTranscription, stopLiveDraftTranscription, stopSilenceDetection]);
 
+  const prepareNextActionForCurrentAnswer = useCallback(
+    async (triggerSource: "manual" | "auto") => {
+      const activeQuestion = questions[currentQuestion];
+      if (!activeQuestion) {
+        return;
+      }
+
+      const baseQuestionId = activeQuestion.baseQuestionId || activeQuestion.id;
+      const followupCountForCurrent = followupCountByBase[baseQuestionId] || 0;
+      const answerText = (liveDraftTranscript || liveTranscriptText || "").trim();
+      const candidateAnswer = answerText || "No clear answer captured from transcript.";
+
+      const askedQuestionCount = questions.length;
+      const sessionStarAverage = calculateSessionStarAverage();
+      const hasReachedMinimumQuestions = askedQuestionCount >= MIN_SESSION_QUESTION_COUNT;
+      const hasReachedStarAverageTarget = sessionStarAverage >= STAR_AVERAGE_TARGET_SCORE;
+
+      const preparedMessage =
+        triggerSource === "auto"
+          ? "No-speech capture finalized. Decision is ready. Click Next Question to continue, or Restart Answer to try again."
+          : "Answer finalized. Decision is ready. Click Next Question again to continue, or Restart Answer to try again.";
+      const completeMessage =
+        triggerSource === "auto"
+          ? "No-speech capture finalized. Click Next Question to complete the session, or Restart Answer to retry this question."
+          : "Answer finalized. Click Next Question again to complete the session, or Restart Answer to retry this question.";
+
+      if (askedQuestionCount >= MAX_SESSION_QUESTION_COUNT) {
+        setPreparedNextAction({
+          kind: "complete",
+          message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions. Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`,
+        });
+        setRecordingError(completeMessage);
+        return;
+      }
+
+      if (hasReachedMinimumQuestions && hasReachedStarAverageTarget) {
+        setPreparedNextAction({
+          kind: "complete",
+          message: `Session completed successfully after ${askedQuestionCount} questions. STAR average reached ${sessionStarAverage.toFixed(2)} / 5 (target ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)}).`,
+        });
+        setRecordingError(completeMessage);
+        return;
+      }
+
+      setIsDecidingNextQuestion(true);
+      let decisionResult;
+      try {
+        decisionResult = await decideNextQuestionStep({
+          currentQuestion: activeQuestion.question,
+          candidateAnswer,
+          category: activeQuestion.type,
+          remainingBankQuestions: bankQuestionPool.length,
+          followupCountForCurrent,
+        });
+      } finally {
+        setIsDecidingNextQuestion(false);
+      }
+
+      const shouldAskFollowup =
+        !decisionResult.error &&
+        decisionResult.data?.action === "follow_up" &&
+        Boolean(decisionResult.data?.followup_question);
+
+      if (shouldAskFollowup) {
+        if (questions.length >= MAX_SESSION_QUESTION_COUNT) {
+          setPreparedNextAction({
+            kind: "complete",
+            message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions.`,
+          });
+          setRecordingError(completeMessage);
+          return;
+        }
+
+        const followupQuestion: Question = {
+          id: `followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          type: "Follow-up",
+          question: decisionResult.data.followup_question,
+          tip: "Answer with concrete details and measurable outcomes.",
+          source: "followup",
+          baseQuestionId,
+        };
+
+        setPreparedNextAction({
+          kind: "followup",
+          question: followupQuestion,
+          nextQuestionIndex: questions.length,
+          baseQuestionId,
+        });
+        setRecordingError(preparedMessage);
+        return;
+      }
+
+      let nextPool = bankQuestionPool;
+      if (nextPool.length === 0 && questions.length < MAX_SESSION_QUESTION_COUNT) {
+        const remainingSlots = MAX_SESSION_QUESTION_COUNT - questions.length;
+        const refillLimit = Math.min(RANDOM_BANK_QUESTION_COUNT, remainingSlots);
+        const refill = await fetchAdditionalBankQuestions(refillLimit);
+        if (refill.length > 0) {
+          nextPool = refill;
+          setBankQuestionPool(refill);
+          bankQuestionPoolRef.current = refill;
+        }
+      }
+
+      if (nextPool.length > 0) {
+        const [nextBankQuestion, ...remainingPool] = nextPool;
+        setPreparedNextAction({
+          kind: "bank",
+          question: nextBankQuestion,
+          nextQuestionIndex: questions.length,
+          remainingPool,
+        });
+        setRecordingError(preparedMessage);
+        return;
+      }
+
+      const minimumMsg = hasReachedMinimumQuestions
+        ? ""
+        : ` Minimum required is ${MIN_SESSION_QUESTION_COUNT} questions.`;
+      setPreparedNextAction({
+        kind: "complete",
+        message: `Session ended because no more questions are available in the bank.${minimumMsg} Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`,
+      });
+      setRecordingError(completeMessage);
+    },
+    [
+      bankQuestionPool,
+      calculateSessionStarAverage,
+      currentQuestion,
+      fetchAdditionalBankQuestions,
+      followupCountByBase,
+      liveDraftTranscript,
+      liveTranscriptText,
+      questions,
+    ]
+  );
+
   const handleNextQuestion = useCallback(async () => {
     if (nextQuestionInFlightRef.current) {
       return;
@@ -1712,186 +1957,99 @@ function MockInterviewPageContent({
     setIsAdvancingNextQuestion(true);
 
     try {
-    if (questions.length === 0) {
-      return;
-    }
-
-    if (isDecidingNextQuestion) {
-      return;
-    }
-
-    const hasDraftTranscript = Boolean((liveDraftTranscript || "").trim());
-    if (isPauseTranscriptPending && !hasDraftTranscript) {
-      setRecordingError(
-        "Transcription is still processing for your latest captured answer. Please wait a moment, then click Next Question again."
-      );
-      return;
-    }
-
-    if (!isPaused) {
-      setRecordingError("Saving and transcribing your current answer before moving to the next question...");
-      await stopActiveRecording();
-      setIsPaused(true);
-      if (sessionId) {
-        await updateInterviewSessionStatus(sessionId, "paused", {
-          paused_at: new Date().toISOString(),
-        });
+      if (questions.length === 0) {
+        return;
       }
+
+      if (isDecidingNextQuestion) {
+        return;
+      }
+
+      if (preparedNextAction) {
+        if (preparedNextAction.kind === "complete") {
+          setPreparedNextAction(null);
+          await completeSession(preparedNextAction.message);
+          return;
+        }
+
+        const preparedQuestion = preparedNextAction.question;
+        const nextQuestionIndex = preparedNextAction.nextQuestionIndex;
+        activeQuestionIndexRef.current = nextQuestionIndex;
+        setLiveTranscriptText(null);
+        setLatestWhisperStatus(null);
+        setIsPauseTranscriptPending(false);
+        setLiveDraftTranscript("");
+
+        if (preparedNextAction.kind === "followup") {
+          const baseQuestionId = preparedNextAction.baseQuestionId;
+          setQuestions((previous) => [...previous, preparedQuestion]);
+          setFollowupCountByBase((previous) => ({
+            ...previous,
+            [baseQuestionId]: (previous[baseQuestionId] || 0) + 1,
+          }));
+        } else {
+          setQuestions((previous) => [...previous, preparedQuestion]);
+          setBankQuestionPool(preparedNextAction.remainingPool);
+          bankQuestionPoolRef.current = preparedNextAction.remainingPool;
+        }
+
+        setCurrentQuestion(nextQuestionIndex);
+        await syncSessionResumeState(nextQuestionIndex);
+        setPreparedNextAction(null);
+        setRecordingError(null);
+        setIsPaused(false);
+        await startSegmentRecording(nextQuestionIndex, undefined, preparedQuestion);
+        return;
+      }
+
       const hasDraftTranscript = Boolean((liveDraftTranscript || "").trim());
-      if (hasDraftTranscript) {
-        void refreshTranscriptAfterPause();
-      } else {
-        await refreshTranscriptAfterPause();
-      }
-      setRecordingError(null);
-    }
-
-    await stopActiveRecording();
-
-    const activeQuestion = questions[currentQuestion];
-    if (!activeQuestion) {
-      return;
-    }
-
-    const baseQuestionId = activeQuestion.baseQuestionId || activeQuestion.id;
-    const followupCountForCurrent = followupCountByBase[baseQuestionId] || 0;
-    const answerText = (liveDraftTranscript || liveTranscriptText || "").trim();
-    const candidateAnswer = answerText || "No clear answer captured from transcript.";
-
-    const askedQuestionCount = questions.length;
-    const sessionStarAverage = calculateSessionStarAverage();
-    const hasReachedMinimumQuestions = askedQuestionCount >= MIN_SESSION_QUESTION_COUNT;
-    const hasReachedStarAverageTarget = sessionStarAverage >= STAR_AVERAGE_TARGET_SCORE;
-
-    if (askedQuestionCount >= MAX_SESSION_QUESTION_COUNT) {
-      await completeSession(
-        `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions. Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`
-      );
-      return;
-    }
-
-    if (hasReachedMinimumQuestions && hasReachedStarAverageTarget) {
-      await completeSession(
-        `Session completed successfully after ${askedQuestionCount} questions. STAR average reached ${sessionStarAverage.toFixed(2)} / 5 (target ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)}).`
-      );
-      return;
-    }
-
-    setIsDecidingNextQuestion(true);
-
-    let decisionResult;
-    try {
-      decisionResult = await decideNextQuestionStep({
-        currentQuestion: activeQuestion.question,
-        candidateAnswer,
-        category: activeQuestion.type,
-        remainingBankQuestions: bankQuestionPool.length,
-        followupCountForCurrent,
-      });
-    } finally {
-      setIsDecidingNextQuestion(false);
-    }
-
-    const shouldAskFollowup =
-      !decisionResult.error &&
-      decisionResult.data?.action === "follow_up" &&
-      Boolean(decisionResult.data?.followup_question);
-
-    if (shouldAskFollowup) {
-      if (questions.length >= MAX_SESSION_QUESTION_COUNT) {
-        await completeSession(
-          `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions.`
+      if (isPauseTranscriptPending && !hasDraftTranscript) {
+        setRecordingError(
+          "Transcription is still processing for your latest captured answer. Please wait a moment, then click Next Question again."
         );
         return;
       }
 
-      const followupQuestion: Question = {
-        id: `followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type: "Follow-up",
-        question: decisionResult.data.followup_question,
-        tip: "Answer with concrete details and measurable outcomes.",
-        source: "followup",
-        baseQuestionId,
-      };
-
-      const nextQuestionIndex = questions.length;
-      activeQuestionIndexRef.current = nextQuestionIndex;
-      setLiveTranscriptText(null);
-      setLatestWhisperStatus(null);
-      setIsPauseTranscriptPending(false);
-      setLiveDraftTranscript("");
-      setQuestions((previous) => [...previous, followupQuestion]);
-      setFollowupCountByBase((previous) => ({
-        ...previous,
-        [baseQuestionId]: (previous[baseQuestionId] || 0) + 1,
-      }));
-      setCurrentQuestion(nextQuestionIndex);
-
-      await syncSessionResumeState(nextQuestionIndex);
-      setIsPaused(false);
-      await startSegmentRecording(nextQuestionIndex, undefined, followupQuestion);
-      return;
-    }
-
-    let nextPool = bankQuestionPool;
-    if (nextPool.length === 0 && questions.length < MAX_SESSION_QUESTION_COUNT) {
-      const remainingSlots = MAX_SESSION_QUESTION_COUNT - questions.length;
-      const refillLimit = Math.min(RANDOM_BANK_QUESTION_COUNT, remainingSlots);
-      const refill = await fetchAdditionalBankQuestions(refillLimit);
-      if (refill.length > 0) {
-        nextPool = refill;
-        setBankQuestionPool(refill);
-        bankQuestionPoolRef.current = refill;
+      if (!isPaused) {
+        setRecordingError("Preparing your answer now. Please wait...");
+        await stopActiveRecording();
+        setIsPaused(true);
+        if (sessionId) {
+          await updateInterviewSessionStatus(sessionId, "paused", {
+            paused_at: new Date().toISOString(),
+          });
+        }
+        const hasDraftAfterPause = Boolean((liveDraftTranscript || "").trim());
+        if (hasDraftAfterPause) {
+          void refreshTranscriptAfterPause();
+        } else {
+          await refreshTranscriptAfterPause();
+        }
       }
-    }
 
-    if (nextPool.length > 0) {
-      const [nextBankQuestion, ...remainingPool] = nextPool;
-      const nextQuestionIndex = questions.length;
-      activeQuestionIndexRef.current = nextQuestionIndex;
-      setLiveTranscriptText(null);
-      setLatestWhisperStatus(null);
-      setIsPauseTranscriptPending(false);
-      setLiveDraftTranscript("");
-      setQuestions((previous) => [...previous, nextBankQuestion]);
-      setBankQuestionPool(remainingPool);
-      bankQuestionPoolRef.current = remainingPool;
-      setCurrentQuestion(nextQuestionIndex);
-
-      await syncSessionResumeState(nextQuestionIndex);
-      setIsPaused(false);
-      await startSegmentRecording(nextQuestionIndex, undefined, nextBankQuestion);
-      return;
-    }
-    const minimumMsg = hasReachedMinimumQuestions
-      ? ""
-      : ` Minimum required is ${MIN_SESSION_QUESTION_COUNT} questions.`;
-    await completeSession(
-      `Session ended because no more questions are available in the bank.${minimumMsg} Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`
-    );
+      await stopActiveRecording();
+      await prepareNextActionForCurrentAnswer("manual");
     } finally {
       nextQuestionInFlightRef.current = false;
       setIsAdvancingNextQuestion(false);
     }
   }, [
-    bankQuestionPool,
-    calculateSessionStarAverage,
+    preparedNextAction,
     completeSession,
-    currentQuestion,
-    fetchAdditionalBankQuestions,
-    followupCountByBase,
     isDecidingNextQuestion,
     isAdvancingNextQuestion,
     isPauseTranscriptPending,
     isPaused,
     liveDraftTranscript,
     liveTranscriptText,
+    prepareNextActionForCurrentAnswer,
     questions,
     refreshTranscriptAfterPause,
     sessionId,
     syncSessionResumeState,
     startSegmentRecording,
     stopActiveRecording,
+    updateInterviewSessionStatus,
   ]);
 
   const handleRestartCurrentAnswer = useCallback(async () => {
@@ -1907,6 +2065,7 @@ function MockInterviewPageContent({
     setLiveTranscriptText(null);
     setLatestWhisperStatus(null);
     setIsPauseTranscriptPending(false);
+    setPreparedNextAction(null);
     setLiveDraftTranscript("");
     speechFinalTextRef.current = "";
 
@@ -1947,6 +2106,7 @@ function MockInterviewPageContent({
     isPaused,
     isSessionStarted,
     isUploadingSegment,
+    setPreparedNextAction,
     sessionId,
     startSegmentRecording,
     stateKey,
@@ -1970,6 +2130,7 @@ function MockInterviewPageContent({
     setFollowupCountByBase({});
     setIsDecidingNextQuestion(false);
     setIsAdvancingNextQuestion(false);
+    setPreparedNextAction(null);
     setQuestionsError(null);
     setRecordingError(null);
     setLiveDraftTranscript("");
@@ -2736,6 +2897,17 @@ function MockInterviewPageContent({
                   {isPauseTranscriptPending ? "Processing" : isPaused ? "Ready" : "Recording"}
                 </div>
               )}
+              {isSessionStarted &&
+                isPaused &&
+                preparedNextAction &&
+                !isAdvancingNextQuestion &&
+                !isDecidingNextQuestion &&
+                !isPauseTranscriptPending && (
+                  <div className="absolute top-6 right-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-full">
+                    <CheckCircle className="w-4 h-4" />
+                    Done
+                  </div>
+                )}
 
               {/* Camera Preview */}
               <div className="flex items-center justify-center h-full">
@@ -2884,6 +3056,7 @@ function MockInterviewPageContent({
                       setFollowupCountByBase({});
                       setIsDecidingNextQuestion(false);
                       setIsAdvancingNextQuestion(false);
+                      setPreparedNextAction(null);
                       setIsSessionStarted(true);
                       setIsPaused(false);
                       setCurrentQuestion(0);
@@ -2901,13 +3074,17 @@ function MockInterviewPageContent({
                   }}
                   title={
                     isSessionStarted && isAdvancingNextQuestion
-                      ? "Processing your current answer"
+                      ? "Preparing your current answer"
+                      : isSessionStarted && isDecidingNextQuestion
+                      ? "Deciding the next step"
+                      : isSessionStarted && preparedNextAction
+                      ? "Ready. Click again to continue, or use Restart Answer to retry this answer."
                       : isSessionStarted && isPauseTranscriptPending && (liveDraftTranscript || "").trim()
                       ? "Draft transcript is ready. You can continue while final transcription finishes in the background."
                       : isSessionStarted && isPauseTranscriptPending
                       ? "Waiting for transcription to finish"
                       : isSessionStarted && !isPaused
-                      ? "Capture this answer now and continue to the next question."
+                      ? "Capture and finalize this answer now."
                       : isSessionStarted
                       ? "Go to next question"
                       : "Start session"
@@ -2916,11 +3093,13 @@ function MockInterviewPageContent({
                   {questionsLoading
                     ? "Loading Questions..."
                     : isAdvancingNextQuestion && !isDecidingNextQuestion
-                    ? "Preparing..."
+                    ? "Preparing Now..."
                     : isUploadingSegment
                     ? "Saving Segment..."
                     : isDecidingNextQuestion
-                    ? "Deciding Next..."
+                    ? "Deciding Now..."
+                    : isSessionStarted && preparedNextAction
+                    ? "Next Question (Confirm)"
                     : isSessionStarted
                     ? "Next Question"
                     : "Start Session"}
@@ -2982,7 +3161,7 @@ function MockInterviewPageContent({
               {isSessionStarted && (
                 <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-lg p-3">
                   <p className="text-xs text-cyan-800">
-                    Speak naturally. The system auto-detects end-of-answer from silence, saves your segment, and prepares the transcript.
+                    Click Next Question to finalize this answer. When the done badge appears, you can either Restart Answer or click Next Question again to continue.
                   </p>
                 </div>
               )}

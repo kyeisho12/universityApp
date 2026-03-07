@@ -2,6 +2,21 @@ import { supabase } from '../lib/supabaseClient'
 
 let liveTranscribePreferredBaseUrl = null
 
+async function buildAuthHeaders(baseHeaders = {}) {
+	const headers = { ...baseHeaders }
+	try {
+		const { data } = await supabase.auth.getSession()
+		const accessToken = data?.session?.access_token
+		if (accessToken) {
+			headers.Authorization = `Bearer ${accessToken}`
+		}
+	} catch {
+		// Keep calls resilient even if auth session lookup fails.
+	}
+
+	return headers
+}
+
 function toTitleCase(value) {
 	return value
 		.split('_')
@@ -266,6 +281,31 @@ export async function insertRecordingSegmentMetadata({
 		return { data: null, error: new Error('Missing session id') }
 	}
 
+	const { data: authData, error: authError } = await supabase.auth.getUser()
+	if (authError || !authData?.user) {
+		return {
+			data: null,
+			error: authError || new Error('Authentication session expired. Please sign in again.'),
+		}
+	}
+
+	const { data: ownedSessionRows, error: ownedSessionError } = await supabase
+		.from('interview_sessions')
+		.select('id')
+		.eq('id', sessionId)
+		.limit(1)
+
+	if (ownedSessionError) {
+		return { data: null, error: ownedSessionError }
+	}
+
+	if (!ownedSessionRows || ownedSessionRows.length === 0) {
+		return {
+			data: null,
+			error: new Error('Interview session is no longer accessible. Please end and start a new session.'),
+		}
+	}
+
 	const payload = {
 		session_id: sessionId,
 		question_id: questionId || null,
@@ -342,18 +382,20 @@ export async function triggerSegmentTranscription({ sessionId, segmentId, force 
 
 	for (const baseUrl of baseUrls) {
 		try {
+			const headers = await buildAuthHeaders({
+				'Content-Type': 'application/json',
+			})
+
 			const response = await fetch(`${baseUrl}/interviews/sessions/${sessionId}/segments/${segmentId}/transcribe`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
+				headers,
 				body: JSON.stringify({ force }),
 			})
 
 			const payload = await response.json().catch(() => ({}))
 			if (!response.ok || payload?.success === false) {
 				lastError = new Error(payload?.error || `Transcription request failed (${response.status})`)
-				break
+				continue
 			}
 
 			return { data: payload?.data || payload, error: null }
@@ -393,9 +435,11 @@ export async function transcribeLiveAudioChunk({ audioBlob, language = 'en' }) {
 			const formData = new FormData()
 			formData.append('audio', audioBlob, 'live_chunk.webm')
 			formData.append('language', language)
+			const headers = await buildAuthHeaders()
 
 			const response = await fetch(`${baseUrl}/interviews/transcribe-live`, {
 				method: 'POST',
+				headers,
 				body: formData,
 			})
 

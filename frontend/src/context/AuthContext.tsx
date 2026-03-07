@@ -24,6 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then((session) => {
         if (mounted) setUser(session?.user ?? null)
       })
+      .catch(() => {
+        if (mounted) setUser(null)
+      })
       .finally(() => {
         if (mounted) setIsLoading(false)
       })
