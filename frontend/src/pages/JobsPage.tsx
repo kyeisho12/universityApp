@@ -696,9 +696,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                                 </p>
                               )}
                             </div>
-                            <span className="text-xs font-semibold text-[#00B4D8] bg-[#E0F7FA] px-2 py-1 rounded-full">
-                              {Math.round(score * 100)}%
-                            </span>
                           </div>
                         </button>
                       ))}
