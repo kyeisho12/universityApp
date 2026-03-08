@@ -20,8 +20,8 @@ interface StudentProfile {
   role: string;
   major: string | null;
   graduation_year: number | null;
-  year_level: number | null;  // Changed from Year_Level
-  student_number: string | null;  // Changed from Student_ID
+  year_level: number | null;
+  student_number: string | null;
   college: string | null;
   is_active: boolean;
   is_verified: boolean;
@@ -80,8 +80,47 @@ export default function ManageStudents() {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setStudents(data);
+      setStudents(data as StudentProfile[]);
+      setLoading(false);
+      return;
     }
+
+    // Backward-compatibility fallback for databases that don't yet have newer columns.
+    const { data: legacyData, error: legacyError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "student")
+      .order("created_at", { ascending: false });
+
+    if (!legacyError && legacyData) {
+      const normalizedStudents: StudentProfile[] = legacyData.map((row: Record<string, unknown>) => {
+        const rawYearLevel = row.year_level ?? row.Year_Level;
+        return {
+          id: String(row.id ?? ""),
+          email: String(row.email ?? ""),
+          full_name: typeof row.full_name === "string" ? row.full_name : null,
+          role: typeof row.role === "string" ? row.role : "student",
+          major: typeof row.major === "string" ? row.major : null,
+          graduation_year: typeof row.graduation_year === "number" ? row.graduation_year : null,
+          year_level: typeof rawYearLevel === "number" ? rawYearLevel : null,
+          student_number:
+            typeof row.student_number === "string"
+              ? row.student_number
+              : typeof row.student_id === "string"
+              ? row.student_id
+              : null,
+          college: typeof row.college === "string" ? row.college : null,
+          is_active: typeof row.is_active === "boolean" ? row.is_active : true,
+          is_verified: typeof row.is_verified === "boolean" ? row.is_verified : true,
+          created_at: typeof row.created_at === "string" ? row.created_at : null,
+        };
+      });
+      setStudents(normalizedStudents);
+    } else {
+      console.error("Failed to fetch students:", error || legacyError);
+      setStudents([]);
+    }
+
     setLoading(false);
   }
 
