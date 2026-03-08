@@ -355,15 +355,30 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   // Handle browser tab switching - reload draft when page becomes visible again
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && showResumeBuilder) {
+      if (document.hidden) {
+        // Save immediately when leaving the page
+        saveDraft();
+      } else {
         // Page became visible again and resume builder is open - reload draft
+        if (showResumeBuilder) {
+          loadDraft();
+        }
+      }
+    };
+
+    // Also handle focus event when user returns to the tab
+    const handleFocus = () => {
+      if (showResumeBuilder) {
         loadDraft();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [showResumeBuilder]);
 
@@ -377,15 +392,30 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   // Handle browser tab switching for cover letter - reload draft when page becomes visible again
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && showCoverLetterBuilder) {
+      if (document.hidden) {
+        // Save immediately when leaving the page
+        saveCoverLetterDraft();
+      } else {
         // Page became visible again and cover letter builder is open - reload draft
+        if (showCoverLetterBuilder) {
+          loadCoverLetterDraft();
+        }
+      }
+    };
+
+    // Also handle focus event when user returns to the tab
+    const handleFocus = () => {
+      if (showCoverLetterBuilder) {
         loadCoverLetterDraft();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [showCoverLetterBuilder]);
 
