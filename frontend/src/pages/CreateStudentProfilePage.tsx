@@ -307,13 +307,13 @@ export default function CreateStudentProfilePage() {
     if (saveError) {
       const errorMessage = (saveError as { message?: string })?.message || ''
       if (errorMessage.includes("Could not find the") && errorMessage.includes("profiles")) {
-        const {
-          preferred_job_types,
-          preferred_industries,
-          preferred_locations,
-          expected_salary_range,
-          ...fallbackPayload
-        } = payload
+        // For fallback, we need to include expected_salary_range as well
+        const fallbackPayload = {
+          ...payload,
+          job_type: payload.job_type,
+          Pref_Industries: payload.Pref_Industries,
+          Pref_Location: payload.Pref_Location,
+        }
         const { error: fallbackError } = await saveProfile(fallbackPayload)
         if (!fallbackError) {
           try {
