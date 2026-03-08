@@ -15,11 +15,13 @@ import StudentProfilePage from './pages/StudentProfilePage.tsx'
 import ApplicationsPage from './pages/ApplicationsPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
 import ApplyOutlookPage from './pages/ApplyOutlookPage'
+import MessagePreviewPage from './pages/MessagePreviewPage'
 import EmployerPartners from './components/admin/EmployerPartners'
 import StudentAnalytics from './components/admin/StudentAnalytics'
 import AdminMockInterview from './components/admin/AdminMockInterview'
 import ManageStudents from './components/admin/ManageStudents'
 import AdminCareerEvents from './components/admin/AdminCareerEvents'
+import { MessageBoxProvider } from './components/common/MessageBoxProvider'
 
 // Simple test components that don't require auth
 function TestEventsPage() {
@@ -256,9 +258,10 @@ function RequireProfile({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <main className="mx-auto">
-        <Routes>
+    <MessageBoxProvider>
+      <div className="min-h-screen bg-neutral-50 text-neutral-900">
+        <main className="mx-auto">
+          <Routes>
           <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
           <Route
             path="/student/dashboard"
@@ -274,6 +277,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/test/events" element={<TestEventsPage />} />
           <Route path="/test/admin/events" element={<TestAdminEventsPage />} />
+          <Route path="/test/messages" element={<MessagePreviewPage />} />
           <Route
             path="/create-profile"
             element={
@@ -405,8 +409,9 @@ export default function App() {
             }
           />
           <Route path="*" element={<div className="min-h-screen bg-neutral-50 flex items-center justify-center text-sm text-neutral-600">Not Found</div>} />
-        </Routes>
-      </main>
-    </div>
+          </Routes>
+        </main>
+      </div>
+    </MessageBoxProvider>
   )
 }

@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
+import { useMessageBox } from "../common/MessageBoxProvider";
 import {
   X,
   Eye,
@@ -238,6 +239,7 @@ function QuestionCard({ qIdx, segments }: { qIdx: string; segments: Segment[] })
 // Main page
 // ---------------------------------------------------------------------------
 export default function AdminMockInterview() {
+  const messageBox = useMessageBox();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -251,6 +253,41 @@ export default function AdminMockInterview() {
   const [segmentsByQuestion, setSegmentsByQuestion] = React.useState<Record<string, Segment[]>>({});
   const [loadingSegments, setLoadingSegments] = React.useState(false);
   const [exportingId, setExportingId] = React.useState<string | null>(null);
+  const viewStateKey = `admin_mock_interview_view_${user?.id || "anon"}`;
+  const pendingSessionIdRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(viewStateKey);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as {
+        searchQuery?: string;
+        selectedSessionId?: string | null;
+      };
+
+      if (typeof parsed.searchQuery === "string") {
+        setSearchQuery(parsed.searchQuery);
+      }
+      pendingSessionIdRef.current = parsed.selectedSessionId || null;
+    } catch (error) {
+      console.error("Failed to restore admin mock interview state:", error);
+    }
+  }, [viewStateKey]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        viewStateKey,
+        JSON.stringify({
+          searchQuery,
+          selectedSessionId: selectedSession?.id || null,
+        })
+      );
+    } catch (error) {
+      console.error("Failed to persist admin mock interview state:", error);
+    }
+  }, [viewStateKey, searchQuery, selectedSession?.id]);
 
   // ── Live stats computed from sessions ─────────────────────────────────────
   const stats = React.useMemo(() => {
@@ -297,6 +334,17 @@ export default function AdminMockInterview() {
       setLoadingSessions(false);
     }
   }
+
+  React.useEffect(() => {
+    const pendingSessionId = pendingSessionIdRef.current;
+    if (!pendingSessionId || loadingSessions || sessions.length === 0 || selectedSession) return;
+
+    const match = sessions.find((session) => session.id === pendingSessionId) || null;
+    if (match) {
+      handleViewSession(match);
+    }
+    pendingSessionIdRef.current = null;
+  }, [sessions, loadingSessions, selectedSession]);
 
   // ── View session ──────────────────────────────────────────────────────────
   async function handleViewSession(session: Session) {
@@ -467,7 +515,11 @@ export default function AdminMockInterview() {
         .order("segment_order", { ascending: true });
 
       if (error || !segs || segs.length === 0) {
-        alert("No recorded segments found for this session.");
+        await messageBox.alert({
+          title: "No Recordings Found",
+          message: "No recorded segments were found for this session.",
+          tone: "warning",
+        });
         return;
       }
 
@@ -600,7 +652,11 @@ export default function AdminMockInterview() {
       XLSX.writeFile(wb, filename);
     } catch (err) {
       console.error("Export failed:", err);
-      alert("Export failed. Please try again.");
+      await messageBox.alert({
+        title: "Export Failed",
+        message: "Export failed. Please try again.",
+        tone: "error",
+      });
     } finally {
       setExportingId(null);
     }

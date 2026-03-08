@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
+import { useMessageBox } from "../common/MessageBoxProvider";
 import {
   X,
   Search,
@@ -24,6 +25,7 @@ import {
 } from "../../services/careerEventService";
 
 export default function AdminCareerEvents() {
+  const messageBox = useMessageBox();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
@@ -37,6 +39,12 @@ export default function AdminCareerEvents() {
   const [events, setEvents] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const viewStateKey = `admin_career_events_view_${user?.id || "anon"}`;
+  const restoreEventRef = React.useRef<{
+    selectedEventId?: string | null;
+    showEditModal?: boolean;
+    showRegistrationsModal?: boolean;
+  } | null>(null);
   
   // Form state
   const [formData, setFormData] = React.useState({
@@ -50,6 +58,87 @@ export default function AdminCareerEvents() {
 
   const userName = user?.email?.split("@")[0] || "";
   const userID = "2024-00001";
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(viewStateKey);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as {
+        searchQuery?: string;
+        showAddModal?: boolean;
+        showEditModal?: boolean;
+        showRegistrationsModal?: boolean;
+        selectedEventId?: string | null;
+        formData?: typeof formData;
+      };
+
+      if (typeof parsed.searchQuery === "string") {
+        setSearchQuery(parsed.searchQuery);
+      }
+
+      if (parsed.formData) {
+        setFormData(parsed.formData);
+      }
+
+      setShowAddModal(Boolean(parsed.showAddModal));
+
+      restoreEventRef.current = {
+        selectedEventId: parsed.selectedEventId || null,
+        showEditModal: Boolean(parsed.showEditModal),
+        showRegistrationsModal: Boolean(parsed.showRegistrationsModal),
+      };
+    } catch (error) {
+      console.error("Failed to restore admin career events state:", error);
+    }
+  }, [viewStateKey]);
+
+  React.useEffect(() => {
+    const restoreState = restoreEventRef.current;
+    if (!restoreState || !restoreState.selectedEventId || events.length === 0) return;
+
+    const event = events.find((item) => item.id === restoreState.selectedEventId) || null;
+    if (!event) {
+      restoreEventRef.current = null;
+      return;
+    }
+
+    setSelectedEvent(event);
+    if (restoreState.showEditModal) {
+      setShowEditModal(true);
+    }
+    if (restoreState.showRegistrationsModal) {
+      setShowRegistrationsModal(true);
+      handleViewRegistrations(event);
+    }
+    restoreEventRef.current = null;
+  }, [events]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        viewStateKey,
+        JSON.stringify({
+          searchQuery,
+          showAddModal,
+          showEditModal,
+          showRegistrationsModal,
+          selectedEventId: selectedEvent?.id || null,
+          formData,
+        })
+      );
+    } catch (error) {
+      console.error("Failed to persist admin career events state:", error);
+    }
+  }, [
+    viewStateKey,
+    searchQuery,
+    showAddModal,
+    showEditModal,
+    showRegistrationsModal,
+    selectedEvent?.id,
+    formData,
+  ]);
 
   // Fetch events on component mount
   React.useEffect(() => {
@@ -207,7 +296,14 @@ export default function AdminCareerEvents() {
   }
 
   async function handleDeleteEvent(eventId: string) {
-    if (!confirm("Are you sure you want to delete this event?")) return;
+    const confirmed = await messageBox.confirm({
+      title: "Delete Event?",
+      message: "Are you sure you want to delete this event? This action cannot be undone.",
+      tone: "warning",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+    if (!confirmed) return;
 
     try {
       await deleteEvent(eventId);

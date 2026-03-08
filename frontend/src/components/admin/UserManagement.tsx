@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getAllUsers, updateUserRole, setUserActiveStatus } from '../../services/adminService'
+import { useMessageBox } from '../common/MessageBoxProvider'
 
 interface UserRecord {
 id: string
@@ -18,6 +19,7 @@ email?: string
 }
 
 const UserManagement = () => {
+  const messageBox = useMessageBox()
   const [users, setUsers] = useState<UserRecord[]>([])
   const [filteredUsers, setFilteredUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +44,7 @@ const UserManagement = () => {
       setFilteredUsers(data)
     } catch (error) {
       console.error('Error loading users:', error)
-      alert('Failed to load users')
+      messageBox.toast({ title: 'Load Failed', message: 'Failed to load users', tone: 'error' })
     } finally {
       setLoading(false)
     }
@@ -72,10 +74,10 @@ const UserManagement = () => {
     try {
       await updateUserRole(userId, newRole)
       setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, role: newRole } : user)))
-      alert('User role updated successfully')
+      messageBox.toast({ title: 'Role Updated', message: 'User role updated successfully', tone: 'success' })
     } catch (error) {
       console.error('Error updating role:', error)
-      alert('Failed to update user role')
+      messageBox.toast({ title: 'Update Failed', message: 'Failed to update user role', tone: 'error' })
     }
   }
 
@@ -84,10 +86,14 @@ const UserManagement = () => {
       const updated = await setUserActiveStatus(userId, nextStatus)
       setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, is_active: updated.is_active } : user)))
       setShowStatusConfirm(null)
-      alert(nextStatus ? 'User enabled successfully' : 'User disabled successfully')
+      messageBox.toast({
+        title: 'Status Updated',
+        message: nextStatus ? 'User enabled successfully' : 'User disabled successfully',
+        tone: 'success',
+      })
     } catch (error) {
       console.error('Error updating user status:', error)
-      alert('Failed to update user status')
+      messageBox.toast({ title: 'Update Failed', message: 'Failed to update user status', tone: 'error' })
     }
   }
 

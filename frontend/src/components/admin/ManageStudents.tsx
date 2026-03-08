@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AdminNavbar } from "../common/AdminNavbar";
+import { useMessageBox } from "../common/MessageBoxProvider";
 import { supabase } from "../../lib/supabaseClient";
 import {
   X,
@@ -30,6 +31,7 @@ interface StudentProfile {
 type TabView = "verified" | "pending";
 
 export default function ManageStudents() {
+  const messageBox = useMessageBox();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -42,6 +44,26 @@ export default function ManageStudents() {
   const userName = user?.email?.split("@")[0] || "";
   const userID = "ADMIN";
   const [courseFilter, setCourseFilter] = React.useState("All");
+  const tabStorageKey = `admin_manage_students_tab_${user?.id || "anon"}`;
+
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(tabStorageKey);
+      if (saved === "verified" || saved === "pending") {
+        setActiveTab(saved);
+      }
+    } catch (error) {
+      console.error("Failed to restore manage students tab:", error);
+    }
+  }, [tabStorageKey]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(tabStorageKey, activeTab);
+    } catch (error) {
+      console.error("Failed to persist manage students tab:", error);
+    }
+  }, [tabStorageKey, activeTab]);
 
   React.useEffect(() => {
     fetchStudents();
@@ -74,11 +96,15 @@ export default function ManageStudents() {
   }
 
   async function handleDeactivate(studentId: string, currentStatus: boolean) {
-    const confirmAction = window.confirm(
-      currentStatus
+    const confirmAction = await messageBox.confirm({
+      title: currentStatus ? "Deactivate Student?" : "Reactivate Student?",
+      message: currentStatus
         ? "Are you sure you want to deactivate this student?"
-        : "Reactivate this student?"
-    );
+        : "Reactivate this student?",
+      tone: "warning",
+      confirmText: currentStatus ? "Deactivate" : "Reactivate",
+      cancelText: "Cancel",
+    });
     if (!confirmAction) return;
 
     const { error } = await supabase
@@ -87,7 +113,7 @@ export default function ManageStudents() {
       .eq("id", studentId);
 
     if (error) {
-      alert("Failed to update account.");
+      messageBox.toast({ title: "Update Failed", message: "Failed to update account.", tone: "error" });
       console.error(error);
     } else {
       fetchStudents();
@@ -96,9 +122,13 @@ export default function ManageStudents() {
 
   // ── NEW: Verify / Reject handlers ────────────────────────────────────────
   async function handleApprove(studentId: string) {
-    const confirmAction = window.confirm(
-      "Approve this student's registration? They will be granted access to the system."
-    );
+    const confirmAction = await messageBox.confirm({
+      title: "Approve Registration?",
+      message: "Approve this student's registration? They will be granted access to the system.",
+      tone: "info",
+      confirmText: "Approve",
+      cancelText: "Cancel",
+    });
     if (!confirmAction) return;
 
     setVerifyingId(studentId);
@@ -108,7 +138,7 @@ export default function ManageStudents() {
       .eq("id", studentId);
 
     if (error) {
-      alert("Failed to approve student.");
+      messageBox.toast({ title: "Approval Failed", message: "Failed to approve student.", tone: "error" });
       console.error(error);
     } else {
       fetchStudents();
@@ -117,9 +147,13 @@ export default function ManageStudents() {
   }
 
   async function handleReject(studentId: string) {
-    const confirmAction = window.confirm(
-      "Reject this registration? The student account will be permanently deleted."
-    );
+    const confirmAction = await messageBox.confirm({
+      title: "Reject Registration?",
+      message: "Reject this registration? The student account will be permanently deleted.",
+      tone: "warning",
+      confirmText: "Reject",
+      cancelText: "Cancel",
+    });
     if (!confirmAction) return;
 
     setVerifyingId(studentId);
@@ -129,7 +163,7 @@ export default function ManageStudents() {
       .eq("id", studentId);
 
     if (error) {
-      alert("Failed to reject student.");
+      messageBox.toast({ title: "Rejection Failed", message: "Failed to reject student.", tone: "error" });
       console.error(error);
     } else {
       fetchStudents();

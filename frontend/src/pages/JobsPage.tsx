@@ -17,7 +17,7 @@ import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { getAllJobs, type JobWithEmployer } from "../services/jobService";
-import { submitJobApplication, checkIfApplied } from "../services/applicationService";
+import { submitJobApplication } from "../services/applicationService";
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
 
@@ -92,7 +92,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All Types");
-  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
+  const [optimisticAppliedJobs, setOptimisticAppliedJobs] = useState<Set<string>>(new Set());
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
@@ -217,18 +217,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     async () => {
       const data = await getAllJobs(false); // false = only active jobs for students
       
-      // Check which jobs the student has applied to
-      if (user?.id && data) {
-        const appliedSet = new Set<string>();
-        for (const job of data) {
-          const { hasApplied } = await checkIfApplied(user.id, job.id);
-          if (hasApplied) {
-            appliedSet.add(job.id);
-          }
-        }
-        setAppliedJobs(appliedSet);
-      }
-      
       if (data && data.length > 0 && !selectedJob) {
         setSelectedJob(data[0].id || null);
       }
@@ -239,6 +227,30 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   );
 
   const error = jobsError?.message || null;
+
+  // Load applied job IDs separately so apply-state survives cached jobs responses.
+  const { data: appliedJobIds = [], refetch: refetchAppliedJobIds } = useCachedQuery(
+    `applied-jobs-${user?.id}`,
+    async () => {
+      if (!user?.id) return [] as string[];
+
+      const { data, error } = await supabase
+        .from("applications")
+        .select("job_id")
+        .eq("student_id", user.id)
+        .neq("status", "withdrawn");
+
+      if (error) throw error;
+      return (data || []).map((application) => application.job_id).filter(Boolean);
+    },
+    { enabled: !!user?.id }
+  );
+
+  const appliedJobs = useMemo(() => {
+    const persisted = new Set<string>(appliedJobIds);
+    optimisticAppliedJobs.forEach((jobId) => persisted.add(jobId));
+    return persisted;
+  }, [appliedJobIds, optimisticAppliedJobs]);
 
   // Load user resumes with caching
   const { data: userResumes = [] } = useCachedQuery(
@@ -287,14 +299,16 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       );
 
       if (result.success) {
-        setAppliedJobs(new Set(appliedJobs).add(currentJob.id));
+        setOptimisticAppliedJobs((prev) => new Set(prev).add(currentJob.id));
         setShowApplyModal(false);
         setCoverLetter('');
         clearDraftForJob(currentJob.id);
         
-        // Invalidate jobs and applications cache to reflect new application
+        // Invalidate related cache keys so jobs/applications stay in sync.
         queryCache.invalidate(`jobs-list-${user.id}`);
         queryCache.invalidate(`applications-${user.id}`);
+        queryCache.invalidate(`applied-jobs-${user.id}`);
+        void refetchAppliedJobIds();
         
         navigate("/student/apply-outlook", {
           state: {
@@ -525,6 +539,14 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
     writeDrafts(drafts);
   }, [showApplyModal, coverLetter, selectedResume, currentJob?.id, user?.id]);
+
+  // If state restores a modal for an already-applied job, close it immediately.
+  useEffect(() => {
+    if (!showApplyModal || !currentJob?.id) return;
+    if (appliedJobs.has(currentJob.id)) {
+      setShowApplyModal(false);
+    }
+  }, [showApplyModal, currentJob?.id, appliedJobs]);
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">

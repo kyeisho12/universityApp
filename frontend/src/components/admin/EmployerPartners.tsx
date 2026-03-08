@@ -48,9 +48,148 @@ const EmployerPartners = () => {
   const [stats, setStats] = React.useState({ total: 0, verified: 0, activeListings: 0, pending: 0 });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const viewStateKey = `admin_employer_partners_view_${user?.id || 'anon'}`;
+  const restoredSelectionRef = React.useRef<{
+    showEditModal?: boolean;
+    showDeleteConfirm?: boolean;
+    selectedCompanyId?: string | null;
+    showEditJobModal?: boolean;
+    showDeleteJobConfirm?: boolean;
+    selectedJobId?: string | null;
+  } | null>(null);
 
   const userName = user?.email?.split("@")[0] || '';
   const userID = "2024-00001";
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(viewStateKey);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as {
+        activeTab?: 'companies' | 'jobs';
+        searchQuery?: string;
+        industryFilter?: string;
+        showAddModal?: boolean;
+        showAddJobModal?: boolean;
+        showEditModal?: boolean;
+        showDeleteConfirm?: boolean;
+        selectedCompanyId?: string | null;
+        showEditJobModal?: boolean;
+        showDeleteJobConfirm?: boolean;
+        selectedJobId?: string | null;
+      };
+
+      if (parsed.activeTab === 'companies' || parsed.activeTab === 'jobs') {
+        setActiveTab(parsed.activeTab);
+      }
+      if (typeof parsed.searchQuery === 'string') {
+        setSearchQuery(parsed.searchQuery);
+      }
+      if (typeof parsed.industryFilter === 'string') {
+        setIndustryFilter(parsed.industryFilter);
+      }
+      setShowAddModal(Boolean(parsed.showAddModal));
+      setShowAddJobModal(Boolean(parsed.showAddJobModal));
+
+      restoredSelectionRef.current = {
+        showEditModal: Boolean(parsed.showEditModal),
+        showDeleteConfirm: Boolean(parsed.showDeleteConfirm),
+        selectedCompanyId: parsed.selectedCompanyId || null,
+        showEditJobModal: Boolean(parsed.showEditJobModal),
+        showDeleteJobConfirm: Boolean(parsed.showDeleteJobConfirm),
+        selectedJobId: parsed.selectedJobId || null,
+      };
+    } catch (error) {
+      console.error('Failed to restore employer partners state:', error);
+    }
+  }, [viewStateKey]);
+
+  React.useEffect(() => {
+    const restored = restoredSelectionRef.current;
+    if (!restored) return;
+
+    if (restored.selectedCompanyId) {
+      const matchedCompany = companies.find((company) => company.id === restored.selectedCompanyId) || null;
+      if (matchedCompany) {
+        setSelectedCompany(matchedCompany);
+        if (restored.showEditModal) {
+          setFormData({
+            name: matchedCompany.name,
+            website: matchedCompany.website || '',
+            industry: matchedCompany.industry,
+            contact_email: matchedCompany.contact_email,
+          });
+          setShowEditModal(true);
+        }
+        if (restored.showDeleteConfirm) {
+          setShowDeleteConfirm(true);
+        }
+      }
+    }
+
+    if (restored.selectedJobId) {
+      const matchedJob = jobs.find((job) => job.id === restored.selectedJobId) || null;
+      if (matchedJob) {
+        setSelectedJob(matchedJob);
+        if (restored.showEditJobModal) {
+          setJobFormData({
+            title: matchedJob.title,
+            employer_id: matchedJob.employer_id,
+            location: matchedJob.location,
+            job_type: matchedJob.job_type,
+            category: matchedJob.category,
+            salary_range: matchedJob.salary_range || '',
+            deadline: matchedJob.deadline,
+            description: matchedJob.description || '',
+            requirements: matchedJob.requirements?.join('\n') || '',
+          });
+          setShowEditJobModal(true);
+        }
+        if (restored.showDeleteJobConfirm) {
+          setShowDeleteJobConfirm(true);
+        }
+      }
+    }
+
+    restoredSelectionRef.current = null;
+  }, [companies, jobs]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        viewStateKey,
+        JSON.stringify({
+          activeTab,
+          searchQuery,
+          industryFilter,
+          showAddModal,
+          showEditModal,
+          showDeleteConfirm,
+          showAddJobModal,
+          showEditJobModal,
+          showDeleteJobConfirm,
+          selectedCompanyId: selectedCompany?.id || null,
+          selectedJobId: selectedJob?.id || null,
+        })
+      );
+    } catch (error) {
+      console.error('Failed to persist employer partners state:', error);
+    }
+  }, [
+    viewStateKey,
+    activeTab,
+    searchQuery,
+    industryFilter,
+    showAddModal,
+    showEditModal,
+    showDeleteConfirm,
+    showAddJobModal,
+    showEditJobModal,
+    showDeleteJobConfirm,
+    selectedCompany?.id,
+    selectedJob?.id,
+  ]);
 
   // Fetch employers on component mount
   React.useEffect(() => {

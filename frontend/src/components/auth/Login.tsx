@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useMessageBox } from '../common/MessageBoxProvider'
 
 const STUDENT_DOMAIN = '@student.tsu.edu.ph'
 const ADMIN_DOMAIN = '@admin.tsu.edu.ph'
@@ -336,6 +337,7 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
 
 export default function Login() {
   const { signIn, signUp } = useAuth()
+  const messageBox = useMessageBox()
   const navigate = useNavigate()
   const [view, setView] = useState<View>('login')
 
@@ -354,9 +356,17 @@ export default function Login() {
     })
 
     if (result?.session) {
-      alert('Registration successful! Your account is ready.')
+      await messageBox.alert({
+        title: 'Registration Successful',
+        message: 'Your account is ready.',
+        tone: 'success',
+      })
     } else {
-      alert('Registration successful! Please check your email to verify your account.')
+      await messageBox.alert({
+        title: 'Registration Successful',
+        message: 'Please check your email to verify your account.',
+        tone: 'info',
+      })
     }
     setView('login')
     navigate('/login')

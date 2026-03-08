@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { signUp } from '../../services/authService'
+import { useMessageBox } from '../common/MessageBoxProvider'
 
 interface FormState {
   email: string
@@ -28,6 +29,7 @@ const Register = () => {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const messageBox = useMessageBox()
   const navigate = useNavigate()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -81,7 +83,11 @@ const Register = () => {
         phone: formData.phone,
       })
 
-      alert('Registration successful! Please check your email to verify your account.')
+      await messageBox.alert({
+        title: 'Registration Successful',
+        message: 'Please check your email to verify your account.',
+        tone: 'info',
+      })
       navigate('/login')
     } catch (err) {
       console.error('Registration error:', err)

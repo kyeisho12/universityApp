@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Search, Check, X, Clock, Eye, FileText, ExternalLink } from "lucide-react";
 import { getAllApplications } from "../../services/applicationService";
 import { supabase } from "../../lib/supabaseClient";
+import { useMessageBox } from "../common/MessageBoxProvider";
 
 interface ApplicationWithDetails {
   id: string;
@@ -26,18 +27,57 @@ interface ApplicationWithDetails {
 }
 
 export function ApplicationManagement() {
+  const messageBox = useMessageBox();
+  const VIEW_STATE_KEY = "admin_application_management_view_state";
   const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
   const [filteredApplications, setFilteredApplications] = useState<ApplicationWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedApp, setSelectedApp] = useState<ApplicationWithDetails | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [pendingSelectedAppId, setPendingSelectedAppId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchApplications();
+    let savedSelectedAppId: string | null = null;
+    try {
+      const raw = window.localStorage.getItem(VIEW_STATE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          searchTerm?: string;
+          modalOpen?: boolean;
+          selectedAppId?: string | null;
+        };
+        if (parsed.searchTerm) {
+          setSearchTerm(parsed.searchTerm);
+        }
+        if (parsed.modalOpen && parsed.selectedAppId) {
+          savedSelectedAppId = parsed.selectedAppId;
+          setPendingSelectedAppId(parsed.selectedAppId);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to restore application management state:", error);
+    }
+
+    fetchApplications(savedSelectedAppId);
   }, []);
 
-  const fetchApplications = async () => {
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        VIEW_STATE_KEY,
+        JSON.stringify({
+          searchTerm,
+          modalOpen,
+          selectedAppId: modalOpen ? selectedApp?.id || null : null,
+        })
+      );
+    } catch (error) {
+      console.error("Failed to persist application management state:", error);
+    }
+  }, [searchTerm, modalOpen, selectedApp?.id]);
+
+  const fetchApplications = async (restoreSelectedAppId?: string | null) => {
     try {
       setLoading(true);
       const data = await getAllApplications();
@@ -114,6 +154,16 @@ export function ApplicationManagement() {
 
       setApplications(enrichedData);
       filterApplications(enrichedData, searchTerm);
+
+      const selectedIdToRestore = restoreSelectedAppId || pendingSelectedAppId;
+      if (selectedIdToRestore) {
+        const savedApp = enrichedData.find((app) => app.id === selectedIdToRestore) || null;
+        if (savedApp) {
+          setSelectedApp(savedApp);
+          setModalOpen(true);
+        }
+        setPendingSelectedAppId(null);
+      }
     } catch (err) {
       console.error("Failed to fetch applications:", err);
       setApplications([]);
@@ -408,13 +458,25 @@ export function ApplicationManagement() {
                                 : app
                             )
                           );
-                          alert("Status updated successfully!");
+                          messageBox.toast({
+                            title: "Application Updated",
+                            message: "Status updated successfully.",
+                            tone: "success",
+                          });
                         } else {
-                          alert("Failed to update status: " + result.error);
+                          messageBox.toast({
+                            title: "Update Failed",
+                            message: "Failed to update status: " + result.error,
+                            tone: "error",
+                          });
                         }
                       } catch (err) {
                         console.error("Error updating status:", err);
-                        alert("Error updating status");
+                        messageBox.toast({
+                          title: "Update Failed",
+                          message: "Error updating status.",
+                          tone: "error",
+                        });
                       }
                     }}
                     className="px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] transition-colors font-medium"

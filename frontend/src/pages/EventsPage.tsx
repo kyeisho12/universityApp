@@ -9,16 +9,15 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
+import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { useStudentId } from "../hooks/useStudentId";
 import { useStudent } from "../context/StudentContext";
 import { supabase } from "../lib/supabaseClient";
-import { queryCache } from "../utils/queryCache";
 import { 
   getEventsForStudent, 
   registerForEvent, 
-  unregisterFromEvent,
   EventWithRegistration 
 } from "../services/careerEventService";
 
@@ -44,9 +43,56 @@ interface Event {
 }
 
 function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavigate }: CareerEventsPageContentProps & { studentId?: string }) {
+  const messageBox = useMessageBox();
   const userID = studentId || "2024-00001";
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
+  const [eventsView, setEventsView] = useState<EventWithRegistration[]>([]);
+  const filterStorageKey = `student_events_active_filter_${userId || "anon"}`;
+  const registrationStorageKey = `student_events_registered_${userId || "anon"}`;
+
+  const readPersistedRegistered = () => {
+    try {
+      const raw = window.localStorage.getItem(registrationStorageKey);
+      if (!raw) return new Set<string>();
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return new Set<string>();
+      return new Set<string>(parsed.filter((value) => typeof value === "string"));
+    } catch {
+      return new Set<string>();
+    }
+  };
+
+  const persistRegistered = (next: Set<string>) => {
+    try {
+      window.localStorage.setItem(registrationStorageKey, JSON.stringify(Array.from(next)));
+    } catch (error) {
+      console.error("Failed to persist event registrations:", error);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(filterStorageKey);
+      if (saved) {
+        setActiveFilter(saved);
+      }
+    } catch (error) {
+      console.error("Failed to restore event filter:", error);
+    }
+  }, [filterStorageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(filterStorageKey, activeFilter);
+    } catch (error) {
+      console.error("Failed to persist event filter:", error);
+    }
+  }, [filterStorageKey, activeFilter]);
+
+  useEffect(() => {
+    setRegisteredEvents(readPersistedRegistered());
+  }, [registrationStorageKey]);
 
   async function getSupabaseUserId(): Promise<string | null> {
     try {
@@ -59,68 +105,112 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
   }
 
   // Use cached query for events
-  const { data: events = [], isLoading: loading, error: eventsError, refetch } = useCachedQuery(
+  const { data: events = [], isLoading: loading, error: eventsError } = useCachedQuery(
     `events-${userID}`,
     async () => {
       const supabaseUserId = await getSupabaseUserId();
       const eventsData = await getEventsForStudent(supabaseUserId || userID);
+      const locallyRegistered = readPersistedRegistered();
       
       // Track which events this student is registered for
       const registered = new Set(
         eventsData
-          .filter(e => e.isRegistered)
+          .filter(e => e.isRegistered || locallyRegistered.has(e.id))
           .map(e => e.id)
       );
       setRegisteredEvents(registered);
+      persistRegistered(registered);
       
-      return eventsData;
+      return eventsData.map((event) => ({
+        ...event,
+        isRegistered: registered.has(event.id),
+      }));
     }
   );
+
+  useEffect(() => {
+    setEventsView(events);
+  }, [events]);
 
   const error = eventsError?.message || null;
 
   async function handleRegister(eventId: string) {
+    if (registeredEvents.has(eventId)) {
+      return;
+    }
+
+    const previousRegistered = new Set(registeredEvents);
+    const optimisticRegistered = new Set(previousRegistered);
+    optimisticRegistered.add(eventId);
+    setRegisteredEvents(optimisticRegistered);
+    persistRegistered(optimisticRegistered);
+    setEventsView((prev) =>
+      prev.map((event) =>
+        event.id === eventId
+          ? {
+              ...event,
+              isRegistered: true,
+              registered: (event.registered || 0) + 1,
+            }
+          : event
+      )
+    );
+
     try {
       const supabaseUserId = await getSupabaseUserId();
       if (!supabaseUserId) {
-        alert('Please sign in to register for events');
+        setRegisteredEvents(previousRegistered);
+        persistRegistered(previousRegistered);
+        setEventsView((prev) =>
+          prev.map((event) =>
+            event.id === eventId
+              ? {
+                  ...event,
+                  isRegistered: false,
+                  registered: Math.max((event.registered || 1) - 1, 0),
+                }
+              : event
+          )
+        );
+        await messageBox.alert({
+          title: "Sign In Required",
+          message: "Please sign in to register for events.",
+          tone: "warning",
+        });
         return;
       }
 
       await registerForEvent(eventId, supabaseUserId);
-      
-      // Invalidate cache and refetch to get updated data
-      queryCache.invalidate(`events-${userID}`);
-      refetch();
     } catch (err) {
       console.error('Registration error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to register for event');
-    }
-  }
-
-  async function handleUnregister(eventId: string) {
-    try {
-      const supabaseUserId = await getSupabaseUserId();
-      if (!supabaseUserId) {
-        alert('Please sign in to manage your registrations');
-        return;
+      const isAlreadyRegistered = err instanceof Error && err.message.toLowerCase().includes('already registered');
+      if (!isAlreadyRegistered) {
+        setRegisteredEvents(previousRegistered);
+        persistRegistered(previousRegistered);
+        setEventsView((prev) =>
+          prev.map((event) =>
+            event.id === eventId
+              ? {
+                  ...event,
+                  isRegistered: false,
+                  registered: Math.max((event.registered || 1) - 1, 0),
+                }
+              : event
+          )
+        );
+        await messageBox.alert({
+          title: "Registration Failed",
+          message: err instanceof Error ? err.message : "Failed to register for event.",
+          tone: "error",
+        });
       }
-
-      await unregisterFromEvent(eventId, supabaseUserId);
-      
-      // Invalidate cache and refetch to get updated data
-      queryCache.invalidate(`events-${userID}`);
-      refetch();
-    } catch (err) {
-      console.error('Unregistration error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to unregister from event');
     }
   }
 
   const filteredEvents =
     activeFilter === "all"
-      ? events
-      : events.filter((e) => e.event_type.toLowerCase() === activeFilter.toLowerCase());
+      ? eventsView
+      : eventsView.filter((e) => e.event_type.toLowerCase() === activeFilter.toLowerCase());
 
   const filterOptions = ["all", "job fair", "workshop", "seminar", "webinar", "announcement"];
 
@@ -184,14 +274,14 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
           )}
 
           {/* Empty State */}
-          {!loading && events.length === 0 && (
+          {!loading && eventsView.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <p className="text-gray-500">No events found</p>
             </div>
           )}
 
           {/* Events Grid */}
-          {!loading && events.length > 0 && (
+          {!loading && eventsView.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-fr">
               {filteredEvents.map((event) => (
                 <EventCard
@@ -199,7 +289,6 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
                   event={event}
                   isRegistered={registeredEvents.has(event.id)}
                   onRegister={() => handleRegister(event.id)}
-                  onUnregister={() => handleUnregister(event.id)}
                 />
               ))}
             </div>
@@ -214,12 +303,10 @@ function EventCard({
   event,
   isRegistered,
   onRegister,
-  onUnregister,
 }: {
   event: Event;
   isRegistered: boolean;
   onRegister: () => void;
-  onUnregister: () => void;
 }) {
   const getTypeBadgeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -294,14 +381,15 @@ function EventCard({
       {/* Action Button - Only show for non-announcements */}
       {event.event_type !== "Announcement" && (
         <button
-          onClick={isRegistered ? onUnregister : onRegister}
+          onClick={onRegister}
+          disabled={isRegistered}
           className={`w-full py-2.5 rounded-lg font-semibold transition-colors ${
             isRegistered
-              ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-emerald-100 text-emerald-700 cursor-not-allowed"
               : "bg-[#1B2744] text-white hover:bg-[#131d33]"
           }`}
         >
-          {isRegistered ? "Cancel Registration" : "Register Now"}
+          {isRegistered ? "Registered" : "Register Now"}
         </button>
       )}
     </div>

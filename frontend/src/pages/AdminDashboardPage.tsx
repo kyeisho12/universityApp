@@ -30,6 +30,33 @@ const AdminDashboardPage = () => {
   })
   const navigate = useNavigate()
   const { signOut } = useAuth()
+  const tabStorageKey = 'admin_dashboard_active_tab'
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(tabStorageKey)
+      if (
+        saved === 'users' ||
+        saved === 'jobs' ||
+        saved === 'events' ||
+        saved === 'interviews' ||
+        saved === 'reports' ||
+        saved === 'applications'
+      ) {
+        setActiveTab(saved)
+      }
+    } catch (error) {
+      console.error('Failed to restore admin tab state:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(tabStorageKey, activeTab)
+    } catch (error) {
+      console.error('Failed to persist admin tab state:', error)
+    }
+  }, [activeTab])
 
   useEffect(() => {
     checkAdminAccess()

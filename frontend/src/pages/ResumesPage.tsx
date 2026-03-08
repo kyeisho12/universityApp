@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
+import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { useStudent } from "../context/StudentContext";
@@ -30,6 +31,7 @@ interface ResumesPageContentProps {
 }
 
 function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate }: ResumesPageContentProps & { studentId?: string }) {
+  const messageBox = useMessageBox();
   const userID = studentId || "2024-00001";
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -545,7 +547,14 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   };
 
   const handleDelete = async (resume: ResumeWithUrl) => {
-    if (!window.confirm(`Delete ${resume.file_name}?`)) return;
+    const confirmed = await messageBox.confirm({
+      title: "Delete Document?",
+      message: `Delete ${resume.file_name}? This action cannot be undone.`,
+      tone: "warning",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+    if (!confirmed) return;
     setErrorMessage(null);
     const { error } = await deleteResume(resume.id, resume.file_path, userId);
     if (error) {
@@ -707,13 +716,17 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {isUploading ? "Uploading..." : "Browse Files"}
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   // Check if there's a draft before clearing
                   const hasDraft = localStorage.getItem(DRAFT_KEY);
                   if (hasDraft) {
-                    const shouldContinue = window.confirm(
-                      "You have an unsaved draft. Do you want to continue where you left off?\n\nClick OK to continue your draft, or Cancel to start fresh."
-                    );
+                    const shouldContinue = await messageBox.confirm({
+                      title: "Unsaved Resume Draft",
+                      message: "Do you want to continue where you left off? Choose Cancel to start fresh.",
+                      tone: "info",
+                      confirmText: "Continue Draft",
+                      cancelText: "Start Fresh",
+                    });
                     if (!shouldContinue) {
                       resetResumeBuilder();
                     }
@@ -728,12 +741,16 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 Create New Resume
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   const hasDraft = localStorage.getItem(COVER_LETTER_DRAFT_KEY);
                   if (hasDraft) {
-                    const shouldContinue = window.confirm(
-                      "You have an unsaved cover letter draft. Do you want to continue where you left off?\n\nClick OK to continue your draft, or Cancel to start fresh."
-                    );
+                    const shouldContinue = await messageBox.confirm({
+                      title: "Unsaved Cover Letter Draft",
+                      message: "Do you want to continue where you left off? Choose Cancel to start fresh.",
+                      tone: "info",
+                      confirmText: "Continue Draft",
+                      cancelText: "Start Fresh",
+                    });
                     if (!shouldContinue) {
                       resetCoverLetterBuilder();
                     }
