@@ -288,10 +288,15 @@ export default function CreateStudentProfilePage() {
     const preferredLocations = formData.preferred_locations.map((item) => item.trim()).filter(Boolean)
     const expectedSalaryText = toStringValue(formData.expected_salary_range).trim()
     const payload = {
-      ...formData,
+      full_name: toStringValue(formData.full_name).trim(),
       student_number: toStringValue(formData.student_number).trim(),
+      phone: toStringValue(formData.phone).trim(),
+      address: toStringValue(formData.address).trim(),
+      university: toStringValue(formData.university).trim(),
+      major: toStringValue(formData.major).trim(),
       graduation_year: formData.graduation_year ? Number(formData.graduation_year) : null,
       year_level: formData.year_level ? Number(formData.year_level) : null,
+      bio: toStringValue(formData.bio).trim(),
       skills_entries: formData.skills_entries.map((item) => item.trim()).filter(Boolean),
       education_entries: formData.education_entries.filter((entry) =>
         entry.school || entry.degree || entry.field || entry.start_year || entry.end_year
