@@ -69,7 +69,6 @@ function extractSkills(rawSkills) {
 }
 
 interface JobApplicationDraft {
-  coverLetter: string;
   selectedResume: string | null;
   selectedCoverLetter: string | null;
   updatedAt: string;
@@ -98,7 +97,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
-  const [coverLetter, setCoverLetter] = useState('');
   const hasRestoredViewState = useRef(false);
 
   const getDraftStorageKey = () => (user?.id ? `job-application-drafts-${user.id}` : null);
@@ -191,11 +189,8 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
     const draft = readDrafts()[currentJob.id];
     if (draft) {
-      setCoverLetter(draft.coverLetter || "");
       setSelectedResume(draft.selectedResume || null);
       setSelectedCoverLetter(draft.selectedCoverLetter || null);
-    } else {
-      setCoverLetter("");
     }
 
     setApplyMessage(null);
@@ -271,7 +266,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
   // Load user resumes with caching
   const { data: userResumes = [] } = useCachedQuery(
-    `resumes-${user?.id}`,
+    `resumes-list-${user?.id}`,
     async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
@@ -312,22 +307,21 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       // Also check by filename pattern - files with "cover_letter" in name
       const fileName = resume.file_name?.toLowerCase() || '';
       const filePath = resume.file_path?.toLowerCase() || '';
-      return fileName.includes('cover_letter') || fileName.includes('cover letter') || filePath.includes('cover_letter');
+      return (
+        fileName.includes('cover_letter') ||
+        fileName.includes('cover-letter') ||
+        fileName.includes('cover letter') ||
+        fileName.includes('coverletter') ||
+        filePath.includes('cover_letter') ||
+        filePath.includes('cover-letter') ||
+        filePath.includes('coverletter')
+      );
     });
   }, [userResumes]);
 
   // Handle job application
   const handleApplyNow = async () => {
     if (!user?.id || !currentJob) return;
-
-    // Allow submission if either cover letter text OR cover letter attachment is provided
-    if (!coverLetter.trim() && !selectedCoverLetter) {
-      setApplyMessage({
-        type: 'error',
-        text: 'Please provide a cover letter (write text or attach a file).'
-      });
-      return;
-    }
 
     if (!selectedResume) {
       setApplyMessage({
@@ -345,7 +339,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         user.id,
         currentJob.id,
         currentJob.employer_id,
-        coverLetter.trim() || undefined,
+        undefined,
         selectedResume || undefined,
         selectedCoverLetter || undefined
       );
@@ -353,7 +347,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       if (result.success) {
         setOptimisticAppliedJobs((prev) => new Set(prev).add(currentJob.id));
         setShowApplyModal(false);
-        setCoverLetter('');
         clearDraftForJob(currentJob.id);
         
         // Invalidate related cache keys so jobs/applications stay in sync.
@@ -371,7 +364,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             employerEmail: currentJob.employer_email,
             resumeId: selectedResume,
             coverLetterId: selectedCoverLetter,
-            coverLetter: coverLetter.trim(),
+            coverLetter: "",
           },
         });
       } else {
@@ -578,11 +571,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     if (!showApplyModal || !currentJob?.id || !user?.id) return;
 
     const drafts = readDrafts();
-    const hasProgress = Boolean(coverLetter.trim()) || Boolean(selectedResume) || Boolean(selectedCoverLetter);
+    const hasProgress = Boolean(selectedResume) || Boolean(selectedCoverLetter);
 
     if (hasProgress) {
       drafts[currentJob.id] = {
-        coverLetter,
         selectedResume,
         selectedCoverLetter,
         updatedAt: new Date().toISOString(),
@@ -592,7 +584,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     }
 
     writeDrafts(drafts);
-  }, [showApplyModal, coverLetter, selectedResume, selectedCoverLetter, currentJob?.id, user?.id]);
+  }, [showApplyModal, selectedResume, selectedCoverLetter, currentJob?.id, user?.id]);
 
   // If state restores a modal for an already-applied job, close it immediately.
   useEffect(() => {
@@ -1027,20 +1019,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-gray-500">Or write a cover letter below</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Cover Letter
-                </label>
-                <textarea
-                  value={coverLetter}
-                  onChange={(e) => setCoverLetter(e.target.value)}
-                  placeholder="Write a brief cover letter to support your application"
-                  rows={4}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none text-sm resize-none"
-                />
               </div>
 
               {resumeDocs.length > 0 && (
@@ -1053,7 +1031,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </button>
                   <button
                     onClick={handleApplyNow}
-                    disabled={applyingJobId === currentJob.id || !selectedResume || (!coverLetter.trim() && !selectedCoverLetter)}
+                    disabled={applyingJobId === currentJob.id || !selectedResume}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {applyingJobId === currentJob.id ? (

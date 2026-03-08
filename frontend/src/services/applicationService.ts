@@ -26,21 +26,47 @@ export async function submitJobApplication(
   coverLetterId?: string
 ): Promise<{ success: boolean; data?: Application; error?: string }> {
   try {
-    const { data, error } = await supabase
+    const payload: Record<string, unknown> = {
+      student_id: studentId,
+      job_id: jobId,
+      employer_id: employerId,
+      status: "pending",
+    };
+
+    if (typeof coverLetter === "string" && coverLetter.trim().length > 0) {
+      payload.cover_letter = coverLetter;
+    }
+
+    if (typeof resumeId === "string" && resumeId.trim().length > 0) {
+      payload.resume_id = resumeId;
+    }
+
+    if (typeof coverLetterId === "string" && coverLetterId.trim().length > 0) {
+      payload.cover_letter_id = coverLetterId;
+    }
+
+    let { data, error } = await supabase
       .from("applications")
-      .insert([
-        {
-          student_id: studentId,
-          job_id: jobId,
-          employer_id: employerId,
-          status: "pending",
-          cover_letter: coverLetter,
-          resume_id: resumeId,
-          cover_letter_id: coverLetterId,
-          application_date: new Date().toISOString(),
-        },
-      ])
+      .insert([payload])
       .select();
+
+    // Compatibility fallback for databases that don't yet have cover_letter_id.
+    if (error && payload.cover_letter_id) {
+      const message = String(error.message || "").toLowerCase();
+      const missingCoverLetterIdColumn =
+        message.includes("cover_letter_id") &&
+        (message.includes("column") || message.includes("schema cache"));
+
+      if (missingCoverLetterIdColumn) {
+        const { cover_letter_id: _ignored, ...legacyPayload } = payload;
+        const retry = await supabase
+          .from("applications")
+          .insert([legacyPayload])
+          .select();
+        data = retry.data;
+        error = retry.error;
+      }
+    }
 
     if (error) {
       return { success: false, error: error.message };
