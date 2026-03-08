@@ -32,6 +32,7 @@ const EmployerPartners = () => {
     industry: '',
     contact_email: '',
   });
+  const [customIndustry, setCustomIndustry] = React.useState('');
   const [jobFormData, setJobFormData] = React.useState({
     title: '',
     employer_id: '',
@@ -258,7 +259,10 @@ const EmployerPartners = () => {
   };
 
   const handleAddCompany = async () => {
-    if (!formData.name || !formData.industry || !formData.contact_email) {
+    // Use custom industry if "other" is selected
+    const industryValue = formData.industry === 'Other' ? customIndustry : formData.industry;
+    
+    if (!formData.name || !industryValue || !formData.contact_email) {
       setError('Please fill in all required fields');
       return;
     }
@@ -268,7 +272,7 @@ const EmployerPartners = () => {
       await EmployerService.create({
         name: formData.name,
         website: formData.website,
-        industry: formData.industry,
+        industry: industryValue,
         contact_email: formData.contact_email,
       });
       
@@ -278,6 +282,7 @@ const EmployerPartners = () => {
       // Close modal and reset form
       setShowAddModal(false);
       setFormData({ name: '', website: '', industry: '', contact_email: '' });
+      setCustomIndustry('');
     } catch (err) {
       setError('Failed to add company');
       console.error(err);
@@ -287,7 +292,10 @@ const EmployerPartners = () => {
   };
 
   const handleEditCompany = async () => {
-    if (!selectedCompany || !formData.name || !formData.industry || !formData.contact_email) {
+    // Use custom industry if "other" is selected
+    const industryValue = formData.industry === 'Other' ? customIndustry : formData.industry;
+    
+    if (!selectedCompany || !formData.name || !industryValue || !formData.contact_email) {
       setError('Please fill in all required fields');
       return;
     }
@@ -297,7 +305,7 @@ const EmployerPartners = () => {
       await EmployerService.update(selectedCompany.id!, {
         name: formData.name,
         website: formData.website,
-        industry: formData.industry,
+        industry: industryValue,
         contact_email: formData.contact_email,
       });
       
@@ -308,6 +316,7 @@ const EmployerPartners = () => {
       setShowEditModal(false);
       setSelectedCompany(null);
       setFormData({ name: '', website: '', industry: '', contact_email: '' });
+      setCustomIndustry('');
     } catch (err) {
       setError('Failed to update company');
       console.error(err);
@@ -339,12 +348,28 @@ const EmployerPartners = () => {
 
   const openEditModal = (company: Employer) => {
     setSelectedCompany(company);
+    
+    // Check if the company's industry is in our predefined list
+    const predefinedIndustries = [
+      'Information Technology',
+      'IT Services',
+      'Data Analytics',
+      'Cloud Computing',
+      'Finance',
+      'Healthcare',
+      'Retail',
+      'Manufacturing',
+    ];
+    
+    const isPredefined = predefinedIndustries.includes(company.industry);
+    
     setFormData({
       name: company.name,
       website: company.website || '',
-      industry: company.industry,
+      industry: isPredefined ? company.industry : 'Other',
       contact_email: company.contact_email,
     });
+    setCustomIndustry(isPredefined ? '' : company.industry);
     setShowEditModal(true);
   };
 
@@ -932,7 +957,12 @@ const EmployerPartners = () => {
                 </label>
                 <select
                   value={formData.industry}
-                  onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, industry: e.target.value });
+                    if (e.target.value !== 'Other') {
+                      setCustomIndustry('');
+                    }
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
                   <option value="">Select an industry</option>
@@ -944,7 +974,17 @@ const EmployerPartners = () => {
                   <option value="Healthcare">Healthcare</option>
                   <option value="Retail">Retail</option>
                   <option value="Manufacturing">Manufacturing</option>
+                  <option value="Other">Other (Please specify)</option>
                 </select>
+                {formData.industry === 'Other' && (
+                  <input
+                    type="text"
+                    placeholder="Enter industry name"
+                    value={customIndustry}
+                    onChange={(e) => setCustomIndustry(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
+                  />
+                )}
               </div>
 
               <div>
@@ -1082,7 +1122,12 @@ const EmployerPartners = () => {
                 </label>
                 <select
                   value={formData.industry}
-                  onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, industry: e.target.value });
+                    if (e.target.value !== 'Other') {
+                      setCustomIndustry('');
+                    }
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
                   <option value="">Select an industry</option>
@@ -1094,7 +1139,17 @@ const EmployerPartners = () => {
                   <option value="Healthcare">Healthcare</option>
                   <option value="Retail">Retail</option>
                   <option value="Manufacturing">Manufacturing</option>
+                  <option value="Other">Other (Please specify)</option>
                 </select>
+                {formData.industry === 'Other' && (
+                  <input
+                    type="text"
+                    placeholder="Enter industry name"
+                    value={customIndustry}
+                    onChange={(e) => setCustomIndustry(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
+                  />
+                )}
               </div>
 
               <div>

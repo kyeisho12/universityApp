@@ -17,6 +17,7 @@ class ApplicationService:
     def submit_application(self, student_id: str, job_id: str, employer_id: str, 
                           cover_letter: Optional[str] = None, 
                           resume_id: Optional[str] = None,
+                          cover_letter_id: Optional[str] = None,
                           auth_token: str = None) -> Dict[str, Any]:
         """Submit a job application"""
         try:
@@ -31,7 +32,8 @@ class ApplicationService:
                 'status': 'pending',
                 'application_date': datetime.utcnow().isoformat(),
                 'cover_letter': cover_letter,
-                'resume_id': resume_id
+                'resume_id': resume_id,
+                'cover_letter_id': cover_letter_id
             }
             
             response = requests.post(

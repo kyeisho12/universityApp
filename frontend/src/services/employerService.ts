@@ -29,7 +29,7 @@ class EmployerService {
    */
   static async getAll(includeUnverified = false): Promise<Employer[]> {
     try {
-      let query = supabase.from('employers').select('*').order('created_at', { ascending: false })
+      let query = supabase.from('employers').select('*, job_listings_count').order('created_at', { ascending: false })
       
       // Filter to only verified employers unless explicitly requested
       if (!includeUnverified) {

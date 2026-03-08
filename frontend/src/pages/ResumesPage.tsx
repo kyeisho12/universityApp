@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X } from "lucide-react";
+import { Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
@@ -354,11 +354,71 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     }
   }, [showResumeBuilder]);
 
+  // Handle browser tab switching - reload draft when page becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Save immediately when leaving the page
+        saveDraft();
+      } else {
+        // Page became visible again and resume builder is open - reload draft
+        if (showResumeBuilder) {
+          loadDraft();
+        }
+      }
+    };
+
+    // Also handle focus event when user returns to the tab
+    const handleFocus = () => {
+      if (showResumeBuilder) {
+        loadDraft();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [showResumeBuilder]);
+
   // Load cover letter draft when modal opens
   useEffect(() => {
     if (showCoverLetterBuilder) {
       loadCoverLetterDraft();
     }
+  }, [showCoverLetterBuilder]);
+
+  // Handle browser tab switching for cover letter - reload draft when page becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Save immediately when leaving the page
+        saveCoverLetterDraft();
+      } else {
+        // Page became visible again and cover letter builder is open - reload draft
+        if (showCoverLetterBuilder) {
+          loadCoverLetterDraft();
+        }
+      }
+    };
+
+    // Also handle focus event when user returns to the tab
+    const handleFocus = () => {
+      if (showCoverLetterBuilder) {
+        loadCoverLetterDraft();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [showCoverLetterBuilder]);
 
   // Auto-save draft whenever form data changes
@@ -668,7 +728,6 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       <div className="flex-1 overflow-auto">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         {/* Content Area */}
@@ -676,7 +735,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
           {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Résumé Management</h1>
-            <p className="text-gray-500">Upload, create, and manage your résumés and documents</p>
+            <p className="text-gray-500">Upload, create, and manage your résumés and cover letters</p>
           </div>
 
           {(errorMessage || statusMessage) && (
@@ -810,10 +869,10 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       <button
                         onClick={() => handleDownload(resume)}
                         className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
-                        title="View resume"
+                        title={`View ${getDocumentType(resume).toLowerCase()}`}
                       >
                         <Eye className="w-4 h-4" />
-                        View Resume
+                        View {getDocumentType(resume)}
                       </button>
                       <button
                         onClick={() => handleDelete(resume)}

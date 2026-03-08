@@ -1,6 +1,5 @@
 ﻿import React from "react";
 import {
-  Bell,
   LayoutGrid,
   Briefcase,
   FileText,
@@ -171,9 +170,6 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
               <LayoutGrid className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-            <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0" />
-          </div>
         </div>
 
         {/* Content Area */}
@@ -198,7 +194,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
             <StatCard
               icon={<FileText className="w-8 h-8 text-gray-400" />}
               number={loading ? "..." : resumesCount.toString()}
-              label="My Résumés"
+              label="My Documents"
             />
             <StatCard
               icon={<Calendar className="w-8 h-8 text-gray-400" />}

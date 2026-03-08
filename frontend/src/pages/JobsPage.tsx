@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
-  Bell,
   Bookmark,
   MapPin,
   Clock,
@@ -72,6 +71,7 @@ function extractSkills(rawSkills) {
 interface JobApplicationDraft {
   coverLetter: string;
   selectedResume: string | null;
+  selectedCoverLetter: string | null;
   updatedAt: string;
 }
 
@@ -96,11 +96,27 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
+  const [selectedCoverLetter, setSelectedCoverLetter] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const hasRestoredViewState = useRef(false);
 
   const getDraftStorageKey = () => (user?.id ? `job-application-drafts-${user.id}` : null);
+  
+  const getCoverLetterDocIdsKey = () => (user?.id ? `cover_letter_document_ids_${user.id}` : null);
+
+  const getCoverLetterDocIds = (): string[] => {
+    const key = getCoverLetterDocIdsKey();
+    if (!key) return [];
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
 
   const readDrafts = (): JobApplicationDraftMap => {
     const storageKey = getDraftStorageKey();
@@ -177,6 +193,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     if (draft) {
       setCoverLetter(draft.coverLetter || "");
       setSelectedResume(draft.selectedResume || null);
+      setSelectedCoverLetter(draft.selectedCoverLetter || null);
     } else {
       setCoverLetter("");
     }
@@ -274,14 +291,48 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     { enabled: !!user?.id }
   );
 
+  // Get resume documents (exclude cover letters) - files with "resume" in name or not cover_letter
+  const resumeDocs = useMemo(() => {
+    return userResumes.filter((resume) => {
+      const fileName = resume.file_name?.toLowerCase() || '';
+      const filePath = resume.file_path?.toLowerCase() || '';
+      // Exclude files that have "cover_letter" in the name
+      if (fileName.includes('cover_letter') || filePath.includes('cover_letter')) return false;
+      // Include files that have "resume" in the name OR files without cover_letter pattern
+      return fileName.includes('resume') || fileName.includes('cv') || !fileName.includes('cover');
+    });
+  }, [userResumes]);
+
+  // Get cover letter documents - files with "cover_letter" in name
+  const coverLetterDocs = useMemo(() => {
+    const coverLetterIds = getCoverLetterDocIds();
+    return userResumes.filter((resume) => {
+      // Check if resume ID is in the cover letter IDs list (from ResumesPage builder)
+      if (coverLetterIds.includes(resume.id)) return true;
+      // Also check by filename pattern - files with "cover_letter" in name
+      const fileName = resume.file_name?.toLowerCase() || '';
+      const filePath = resume.file_path?.toLowerCase() || '';
+      return fileName.includes('cover_letter') || fileName.includes('cover letter') || filePath.includes('cover_letter');
+    });
+  }, [userResumes]);
+
   // Handle job application
   const handleApplyNow = async () => {
     if (!user?.id || !currentJob) return;
 
-    if (!coverLetter.trim()) {
+    // Allow submission if either cover letter text OR cover letter attachment is provided
+    if (!coverLetter.trim() && !selectedCoverLetter) {
       setApplyMessage({
         type: 'error',
-        text: 'Cover letter is required to submit your application.'
+        text: 'Please provide a cover letter (write text or attach a file).'
+      });
+      return;
+    }
+
+    if (!selectedResume) {
+      setApplyMessage({
+        type: 'error',
+        text: 'Please select a resume to attach.'
       });
       return;
     }
@@ -290,12 +341,13 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     setApplyMessage(null);
 
     try {
-      const result = await submitJobApplication(
+    const result = await submitJobApplication(
         user.id,
         currentJob.id,
         currentJob.employer_id,
         coverLetter.trim() || undefined,
-        selectedResume || undefined
+        selectedResume || undefined,
+        selectedCoverLetter || undefined
       );
 
       if (result.success) {
@@ -318,6 +370,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             employerName: currentJob.employer_name,
             employerEmail: currentJob.employer_email,
             resumeId: selectedResume,
+            coverLetterId: selectedCoverLetter,
             coverLetter: coverLetter.trim(),
           },
         });
@@ -525,12 +578,13 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     if (!showApplyModal || !currentJob?.id || !user?.id) return;
 
     const drafts = readDrafts();
-    const hasProgress = Boolean(coverLetter.trim()) || Boolean(selectedResume);
+    const hasProgress = Boolean(coverLetter.trim()) || Boolean(selectedResume) || Boolean(selectedCoverLetter);
 
     if (hasProgress) {
       drafts[currentJob.id] = {
         coverLetter,
         selectedResume,
+        selectedCoverLetter,
         updatedAt: new Date().toISOString(),
       };
     } else if (drafts[currentJob.id]) {
@@ -538,7 +592,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     }
 
     writeDrafts(drafts);
-  }, [showApplyModal, coverLetter, selectedResume, currentJob?.id, user?.id]);
+  }, [showApplyModal, coverLetter, selectedResume, selectedCoverLetter, currentJob?.id, user?.id]);
 
   // If state restores a modal for an already-applied job, close it immediately.
   useEffect(() => {
@@ -605,7 +659,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               <LayoutGrid className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0 ml-auto" />
         </div>
 
         {/* Content Area */}
@@ -901,7 +954,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Select Resume to Attach
                 </label>
-                {userResumes.length === 0 ? (
+                {resumeDocs.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
                     <p className="text-gray-500 mb-2">No resumes uploaded yet</p>
                     <button
@@ -916,7 +969,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {userResumes.map((resume) => (
+                    {resumeDocs.map((resume) => (
                       <button
                         key={resume.id}
                         onClick={() => setSelectedResume(resume.id)}
@@ -936,6 +989,47 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 )}
               </div>
 
+              {/* Cover Letter Document Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Attach Cover Letter (Optional)
+                </label>
+                {coverLetterDocs.length === 0 ? (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 mb-3">
+                    <p className="text-gray-500 text-sm">No cover letter documents yet</p>
+                    <button
+                      onClick={() => {
+                        closeApplyModal();
+                        onNavigate('student/resumes');
+                      }}
+                      className="text-[#00B4D8] hover:underline text-sm"
+                    >
+                      Create a cover letter
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-3">
+                    {coverLetterDocs.map((doc) => (
+                      <button
+                        key={doc.id}
+                        onClick={() => setSelectedCoverLetter(selectedCoverLetter === doc.id ? null : doc.id)}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          selectedCoverLetter === doc.id
+                            ? 'border-[#00B4D8] bg-[#E0F7FA]'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{doc.file_name}</p>
+                        <p className="text-xs text-gray-500">
+                          Uploaded {new Date(doc.created_at).toLocaleDateString()}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">Or write a cover letter below</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Cover Letter
@@ -949,7 +1043,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 />
               </div>
 
-              {userResumes.length > 0 && (
+              {resumeDocs.length > 0 && (
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={closeApplyModal}
@@ -959,7 +1053,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </button>
                   <button
                     onClick={handleApplyNow}
-                    disabled={applyingJobId === currentJob.id || !selectedResume || !coverLetter.trim()}
+                    disabled={applyingJobId === currentJob.id || !selectedResume || (!coverLetter.trim() && !selectedCoverLetter)}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {applyingJobId === currentJob.id ? (

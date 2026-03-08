@@ -439,6 +439,8 @@ export default function AdminCareerEvents() {
                 <input
                   type="text"
                   placeholder="Search events..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -448,7 +450,16 @@ export default function AdminCareerEvents() {
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               {loading ? (
                 <div className="p-8 text-center text-gray-500">Loading events...</div>
-              ) : events.length === 0 ? (
+              ) : events.filter((event) => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                return (
+                  event.title?.toLowerCase().includes(query) ||
+                  event.description?.toLowerCase().includes(query) ||
+                  event.event_type?.toLowerCase().includes(query) ||
+                  event.location?.toLowerCase().includes(query)
+                );
+              }).length === 0 ? (
                 <div className="p-8 text-center text-gray-500">No events found. Click "Add Event" to create one.</div>
               ) : (
                 <div className="overflow-x-auto">
@@ -464,7 +475,16 @@ export default function AdminCareerEvents() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {events.map((event) => (
+                      {events.filter((event) => {
+                        if (!searchQuery) return true;
+                        const query = searchQuery.toLowerCase();
+                        return (
+                          event.title?.toLowerCase().includes(query) ||
+                          event.description?.toLowerCase().includes(query) ||
+                          event.event_type?.toLowerCase().includes(query) ||
+                          event.location?.toLowerCase().includes(query)
+                        );
+                      }).map((event) => (
                         <tr key={event.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4">
                             <div>
