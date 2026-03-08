@@ -83,10 +83,14 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     { id: 1, name: "", organization: "", dateIssued: "", credentialId: "" },
   ]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const resumeModalScrollRef = useRef<HTMLDivElement | null>(null);
+  const coverLetterModalScrollRef = useRef<HTMLDivElement | null>(null);
   const DRAFT_KEY = `resume_draft_${userId}`;
   const MODAL_KEY = `resume_builder_open_${userId}`;
+  const RESUME_MODAL_SCROLL_KEY = `resume_builder_scroll_${userId}`;
   const COVER_LETTER_DRAFT_KEY = `cover_letter_draft_${userId}`;
   const COVER_LETTER_MODAL_KEY = `cover_letter_builder_open_${userId}`;
+  const COVER_LETTER_MODAL_SCROLL_KEY = `cover_letter_builder_scroll_${userId}`;
   const COVER_LETTER_DOC_IDS_KEY = `cover_letter_document_ids_${userId}`;
 
   const allowedFormatsLabel = useMemo(() => ALLOWED_EXTENSIONS.map((ext) => ext.toUpperCase()).join(", "), []);
@@ -236,6 +240,26 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     }
   };
 
+  const persistModalScroll = (key: string, value: number) => {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (error) {
+      console.error("Failed to persist modal scroll:", error);
+    }
+  };
+
+  const restoreModalScroll = (key: string) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return 0;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : 0;
+    } catch (error) {
+      console.error("Failed to restore modal scroll:", error);
+      return 0;
+    }
+  };
+
   const loadCoverLetterDraft = () => {
     try {
       const savedDraft = localStorage.getItem(COVER_LETTER_DRAFT_KEY);
@@ -321,6 +345,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setProjectEntries([{ id: 1, name: "", technologies: "", link: "", description: "" }]);
     setCertificationEntries([{ id: 1, name: "", organization: "", dateIssued: "", credentialId: "" }]);
     clearDraft();
+    persistModalScroll(RESUME_MODAL_SCROLL_KEY, 0);
   };
 
   const resetCoverLetterBuilder = () => {
@@ -345,6 +370,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       signatureName: "",
     });
     clearCoverLetterDraft();
+    persistModalScroll(COVER_LETTER_MODAL_SCROLL_KEY, 0);
   };
 
   // Load draft when modal opens
@@ -436,6 +462,55 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       return () => clearTimeout(timeoutId);
     }
   }, [coverLetterName, coverLetterForm, showCoverLetterBuilder]);
+
+  // Restore modal scroll positions after mounts/re-renders that can happen on tab switches.
+  useEffect(() => {
+    if (!showResumeBuilder) return;
+
+    requestAnimationFrame(() => {
+      if (!resumeModalScrollRef.current) return;
+      resumeModalScrollRef.current.scrollTop = restoreModalScroll(RESUME_MODAL_SCROLL_KEY);
+    });
+  }, [showResumeBuilder, RESUME_MODAL_SCROLL_KEY]);
+
+  useEffect(() => {
+    if (!showCoverLetterBuilder) return;
+
+    requestAnimationFrame(() => {
+      if (!coverLetterModalScrollRef.current) return;
+      coverLetterModalScrollRef.current.scrollTop = restoreModalScroll(COVER_LETTER_MODAL_SCROLL_KEY);
+    });
+  }, [showCoverLetterBuilder, COVER_LETTER_MODAL_SCROLL_KEY]);
+
+  useEffect(() => {
+    if (!showResumeBuilder) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "hidden") return;
+      const currentScroll = resumeModalScrollRef.current?.scrollTop ?? 0;
+      persistModalScroll(RESUME_MODAL_SCROLL_KEY, currentScroll);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [showResumeBuilder, RESUME_MODAL_SCROLL_KEY]);
+
+  useEffect(() => {
+    if (!showCoverLetterBuilder) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "hidden") return;
+      const currentScroll = coverLetterModalScrollRef.current?.scrollTop ?? 0;
+      persistModalScroll(COVER_LETTER_MODAL_SCROLL_KEY, currentScroll);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [showCoverLetterBuilder, COVER_LETTER_MODAL_SCROLL_KEY]);
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -927,7 +1002,11 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
+            <div
+              ref={resumeModalScrollRef}
+              onScroll={(e) => persistModalScroll(RESUME_MODAL_SCROLL_KEY, e.currentTarget.scrollTop)}
+              className="flex-1 overflow-auto p-6"
+            >
               <div className="max-w-3xl mx-auto space-y-6">
                 {/* Resume Name */}
                 <div>
@@ -1482,7 +1561,11 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
+            <div
+              ref={coverLetterModalScrollRef}
+              onScroll={(e) => persistModalScroll(COVER_LETTER_MODAL_SCROLL_KEY, e.currentTarget.scrollTop)}
+              className="flex-1 overflow-auto p-6"
+            >
               <div className="max-w-3xl mx-auto space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Cover Letter Name *</label>
