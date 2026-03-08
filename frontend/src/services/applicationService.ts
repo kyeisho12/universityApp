@@ -46,6 +46,17 @@ export async function submitJobApplication(
       return { success: false, error: error.message };
     }
 
+    // 🔹 increment job_listings_count
+    const { error: updateError } = await supabase.rpc(
+      "increment_job_listing_count",
+      { job_id_input: jobId }
+    );
+
+    if (updateError) {
+      console.error("Error updating job listing count:", updateError);
+    }
+
+
     return { success: true, data: data?.[0] };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
