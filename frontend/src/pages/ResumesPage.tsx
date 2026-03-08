@@ -727,7 +727,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
           {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Résumé Management</h1>
-            <p className="text-gray-500">Upload, create, and manage your résumés and documents</p>
+            <p className="text-gray-500">Upload, create, and manage your résumés and cover letters</p>
           </div>
 
           {(errorMessage || statusMessage) && (
