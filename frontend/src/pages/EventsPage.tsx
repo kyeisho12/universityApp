@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell,
   Calendar,
   Clock,
   MapPin,
@@ -139,7 +138,6 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
       <div className="flex-1 overflow-auto">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         {/* Content Area */}

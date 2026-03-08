@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
-  Bell,
   Bookmark,
   MapPin,
   Clock,
@@ -583,7 +582,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               <LayoutGrid className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 cursor-pointer hover:text-gray-900 flex-shrink-0 ml-auto" />
         </div>
 
         {/* Content Area */}

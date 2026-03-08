@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, User, Mail, Phone, MapPin, GraduationCap, Briefcase, PencilLine } from "lucide-react";
+import { User, Mail, Phone, MapPin, GraduationCap, Briefcase, PencilLine } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabaseClient";
@@ -102,7 +102,6 @@ export default function StudentProfilePage() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         <div className="p-8 overflow-y-auto">
