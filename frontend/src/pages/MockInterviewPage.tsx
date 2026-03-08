@@ -315,6 +315,10 @@ function MockInterviewPageContent({
   const [preparedNextAction, setPreparedNextAction] = useState<PreparedNextAction | null>(
     initialStateRef.current?.preparedNextAction ?? null
   );
+  const [isNextConfirmed, setIsNextConfirmed] = useState(false);
+  useEffect(() => {
+    setIsNextConfirmed(false);
+  }, [preparedNextAction, currentQuestion, isSessionStarted]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -2550,7 +2554,7 @@ function MockInterviewPageContent({
                     onClick={() => setShowHistoryView(false)}
                     className="bg-[#1B2744] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors"
                   >
-                    Take Mock Interview Again
+                    Take Mock Interview
                   </button>
                 </div>
 
@@ -3090,6 +3094,11 @@ function MockInterviewPageContent({
                       }, questionSet[0]);
                       return;
                     }
+                    // Require an intermediate confirmation when a prepared next action exists
+                    if (isSessionStarted && preparedNextAction && !isNextConfirmed) {
+                      setIsNextConfirmed(true);
+                      return;
+                    }
                     await handleNextQuestion();
                   }}
                   title={
@@ -3119,7 +3128,9 @@ function MockInterviewPageContent({
                     : isDecidingNextQuestion
                     ? "Deciding Now..."
                     : isSessionStarted && preparedNextAction
-                    ? "Next Question (Confirm)"
+                    ? isNextConfirmed
+                      ? "Next Question"
+                      : "Confirm"
                     : isSessionStarted
                     ? "Next Question"
                     : "Start Session"}
