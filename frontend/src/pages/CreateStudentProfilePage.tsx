@@ -303,37 +303,11 @@ export default function CreateStudentProfilePage() {
       preferred_industries: preferredIndustries,
       preferred_locations: preferredLocations,
       expected_salary_range: expectedSalaryText,
-      job_type: preferredJobTypes.join(', '),
-      Pref_Industries: preferredIndustries.join(', '),
-      Pref_Location: preferredLocations.join(', '),
-      Expected_Salary: expectedSalaryText,
     }
     const { error: saveError } = await saveProfile(payload)
     if (saveError) {
-      const errorMessage = (saveError as { message?: string })?.message || ''
-      if (errorMessage.includes("Could not find the") && errorMessage.includes("profiles")) {
-        // For fallback, we need to include expected_salary_range as well
-        const fallbackPayload = {
-          ...payload,
-          job_type: payload.job_type,
-          Pref_Industries: payload.Pref_Industries,
-          Pref_Location: payload.Pref_Location,
-        }
-        const { error: fallbackError } = await saveProfile(fallbackPayload)
-        if (!fallbackError) {
-          try {
-            localStorage.removeItem(draftKey)
-          } catch (error) {
-            console.error('Failed to clear profile draft:', error)
-          }
-          setMessage('Profile saved successfully')
-          navigate(isEditMode ? '/student/profile' : '/', { replace: true })
-          return
-        }
-        setError((fallbackError as { message?: string })?.message ?? 'Failed to save profile')
-        return
-      }
-      setError(errorMessage || 'Failed to save profile')
+      const errorMessage = (saveError as { message?: string })?.message || 'Failed to save profile'
+      setError(errorMessage)
       return
     }
     try {
