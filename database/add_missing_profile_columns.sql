@@ -16,7 +16,7 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS preferred_job_type TEXT,
   ADD COLUMN IF NOT EXISTS preferred_location TEXT,
   ADD COLUMN IF NOT EXISTS preferred_category TEXT,
-  ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE;
+  ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Keep year level values within a practical student range.
 DO $$
@@ -46,4 +46,4 @@ SET
   preferred_job_types = COALESCE(preferred_job_types, '{}'::text[]),
   preferred_industries = COALESCE(preferred_industries, '{}'::text[]),
   preferred_locations = COALESCE(preferred_locations, '{}'::text[]),
-  is_verified = COALESCE(is_verified, TRUE);
+  is_verified = COALESCE(is_verified, FALSE);
