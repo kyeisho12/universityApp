@@ -265,7 +265,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
             {/* Right Column */}
             <div className="space-y-3 sm:space-y-4 md:space-y-5 h-full flex flex-col md:min-h-0">
               {/* AI-Powered Card */}
-              <div className="bg-gradient-to-br from-[#0096C7] to-[#00B4D8] rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 text-white shadow-lg flex-1 flex flex-col justify-between">
+              <div className="bg-gradient-to-br from-[#0096C7] to-[#00B4D8] rounded-lg max-h-[200px] sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 text-white shadow-lg flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5 sm:mb-2 md:mb-3">
                     <Zap className="w-3 h-3 sm:w-4 sm:h-4" />

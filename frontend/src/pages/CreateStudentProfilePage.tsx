@@ -306,7 +306,7 @@ export default function CreateStudentProfilePage() {
       job_type: preferredJobTypes.join(', '),
       Pref_Industries: preferredIndustries.join(', '),
       Pref_Location: preferredLocations.join(', '),
-      Expected_Salary: parseSalaryValue(expectedSalaryText),
+      Expected_Salary: expectedSalaryText,
     }
     const { error: saveError } = await saveProfile(payload)
     if (saveError) {
