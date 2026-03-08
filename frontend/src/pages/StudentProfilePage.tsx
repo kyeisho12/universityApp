@@ -73,13 +73,32 @@ export default function StudentProfilePage() {
   const preferredLocations = normalizeList(profile?.preferred_locations ?? profile?.Pref_Location);
 
   const expectedSalaryRaw = profile?.Expected_Salary ?? profile?.expected_salary_range;
+
   const expectedSalaryRange = (() => {
     if (typeof expectedSalaryRaw === "number" && Number.isFinite(expectedSalaryRaw)) {
       return `₱${expectedSalaryRaw.toLocaleString()}/month`;
     }
+
     if (typeof expectedSalaryRaw === "string" && expectedSalaryRaw.trim()) {
-      return expectedSalaryRaw.trim();
+      const value = expectedSalaryRaw.trim();
+
+      // Handle range like "20000-30000"
+      if (value.includes("-")) {
+        const [min, max] = value.split("-").map(v => Number(v.trim()));
+        if (Number.isFinite(min) && Number.isFinite(max)) {
+          return `₱${min.toLocaleString()} - ₱${max.toLocaleString()}/month`;
+        }
+      }
+
+      // Handle single number in string
+      const num = Number(value);
+      if (Number.isFinite(num)) {
+        return `₱${num.toLocaleString()}/month`;
+      }
+
+      return value;
     }
+
     return "";
   })();
 
