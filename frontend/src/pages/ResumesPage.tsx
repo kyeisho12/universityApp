@@ -793,10 +793,10 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       <button
                         onClick={() => handleDownload(resume)}
                         className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
-                        title="View resume"
+                        title={`View ${getDocumentType(resume).toLowerCase()}`}
                       >
                         <Eye className="w-4 h-4" />
-                        View Resume
+                        View {getDocumentType(resume)}
                       </button>
                       <button
                         onClick={() => handleDelete(resume)}

@@ -87,7 +87,14 @@ export default function CreateStudentProfilePage() {
   }
 
   const parseSalaryValue = (value: string): number | null => {
-    const cleaned = value.replace(/[^\d.]/g, '').trim()
+    // Don't parse salary range strings (e.g., "30000 - 35000") as numbers
+    // Only parse simple numeric values without dashes or spaces
+    const trimmed = value.trim()
+    // If it contains a dash or space (likely a range), don't parse
+    if (trimmed.includes('-') || trimmed.includes(' ') || trimmed.includes('–')) {
+      return null
+    }
+    const cleaned = trimmed.replace(/[^\d.]/g, '')
     if (!cleaned) return null
     const parsed = Number(cleaned)
     return Number.isFinite(parsed) ? parsed : null

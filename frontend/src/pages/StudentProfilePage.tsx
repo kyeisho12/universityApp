@@ -72,13 +72,15 @@ export default function StudentProfilePage() {
   const preferredIndustries = normalizeList(profile?.preferred_industries ?? profile?.Pref_Industries);
   const preferredLocations = normalizeList(profile?.preferred_locations ?? profile?.Pref_Location);
 
-  const expectedSalaryRaw = profile?.Expected_Salary ?? profile?.expected_salary_range;
+  const expectedSalaryRaw = profile?.expected_salary_range ?? profile?.Expected_Salary ?? '';
   const expectedSalaryRange = (() => {
-    if (typeof expectedSalaryRaw === "number" && Number.isFinite(expectedSalaryRaw)) {
-      return `₱${expectedSalaryRaw.toLocaleString()}/month`;
-    }
+    // Always prefer the string version (expected_salary_range)
     if (typeof expectedSalaryRaw === "string" && expectedSalaryRaw.trim()) {
       return expectedSalaryRaw.trim();
+    }
+    // Fallback for legacy number format (should rarely happen now)
+    if (typeof expectedSalaryRaw === "number" && Number.isFinite(expectedSalaryRaw)) {
+      return `₱${expectedSalaryRaw.toLocaleString()}/month`;
     }
     return "";
   })();
