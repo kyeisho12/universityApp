@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStudent } from '../context/StudentContext'
 
+
 interface ProfileForm {
   full_name: string
   student_number: string
@@ -10,6 +11,7 @@ interface ProfileForm {
   university: string
   major: string
   graduation_year: string | number | null
+  year_level: string | number | null  // Added year level field
   bio: string
   skills_entries: string[]
   education_entries: {
@@ -40,6 +42,7 @@ const initialState: ProfileForm = {
   university: '',
   major: '',
   graduation_year: '',
+  year_level: '',  // Added year level initial state
   bio: '',
   skills_entries: [''],
   education_entries: [{ school: '', degree: '', field: '', start_year: '', end_year: '' }],
@@ -132,6 +135,7 @@ export default function CreateStudentProfilePage() {
         university: toStringValue(profile.university),
         major: toStringValue(profile.major),
         graduation_year: profile.graduation_year ?? '',
+        year_level: profile.year_level ?? '',
         bio: toStringValue(profile.bio),
         skills_entries: Array.isArray(profile.skills_entries)
           ? profile.skills_entries
@@ -287,6 +291,7 @@ export default function CreateStudentProfilePage() {
       ...formData,
       student_number: toStringValue(formData.student_number).trim(),
       graduation_year: formData.graduation_year ? Number(formData.graduation_year) : null,
+      year_level: formData.year_level ? Number(formData.year_level) : null,
       skills_entries: formData.skills_entries.map((item) => item.trim()).filter(Boolean),
       education_entries: formData.education_entries.filter((entry) =>
         entry.school || entry.degree || entry.field || entry.start_year || entry.end_year
@@ -404,6 +409,23 @@ export default function CreateStudentProfilePage() {
             required
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
         />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+          Year Level *
+          <select
+            name="year_level"
+            value={formData.year_level ?? ''}
+            onChange={handleChange}
+            required
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          >
+            <option value="">Select Year Level</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+            <option value="5">5th Year</option>
+          </select>
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
         Phone *

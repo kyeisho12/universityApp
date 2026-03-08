@@ -7,6 +7,7 @@ export interface Application {
   employer_id: string;
   status: "pending" | "accepted" | "rejected" | "withdrawn";
   cover_letter?: string;
+  cover_letter_id?: string;
   resume_id?: string;
   application_date: string;
   reviewed_at?: string;
@@ -21,7 +22,8 @@ export async function submitJobApplication(
   jobId: string,
   employerId: string,
   coverLetter?: string,
-  resumeId?: string
+  resumeId?: string,
+  coverLetterId?: string
 ): Promise<{ success: boolean; data?: Application; error?: string }> {
   try {
     const { data, error } = await supabase
@@ -34,6 +36,7 @@ export async function submitJobApplication(
           status: "pending",
           cover_letter: coverLetter,
           resume_id: resumeId,
+          cover_letter_id: coverLetterId,
           application_date: new Date().toISOString(),
         },
       ])

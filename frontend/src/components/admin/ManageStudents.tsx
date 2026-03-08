@@ -19,12 +19,12 @@ interface StudentProfile {
   role: string;
   major: string | null;
   graduation_year: number | null;
-  Year_Level: number | null;
-  Student_ID: number | null;
+  year_level: number | null;  // Changed from Year_Level
+  student_number: string | null;  // Changed from Student_ID
   college: string | null;
   is_active: boolean;
-  is_verified: boolean;        // NEW: added to profiles table
-  created_at: string | null;   // NEW: useful for "registered on" display
+  is_verified: boolean;
+  created_at: string | null;
 }
 
 type TabView = "verified" | "pending";
@@ -52,7 +52,7 @@ export default function ManageStudents() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, full_name, role, major, graduation_year, Year_Level, Student_ID, college, is_active, is_verified, created_at"
+        "id, email, full_name, role, major, graduation_year, year_level, student_number, college, is_active, is_verified, created_at"
       )
       .eq("role", "student")
       .order("created_at", { ascending: false });
@@ -158,7 +158,7 @@ export default function ManageStudents() {
   ];
 
   const filteredVerified = verifiedStudents.filter((s) => {
-    const matchesSearch = `${s.full_name} ${s.email} ${s.Student_ID}`
+    const matchesSearch = `${s.full_name} ${s.email} ${s.student_number}`
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesCourse = courseFilter === "All" || s.college === courseFilter;
@@ -166,7 +166,7 @@ export default function ManageStudents() {
   });
 
   const filteredPending = pendingStudents.filter((s) => {
-    const matchesSearch = `${s.full_name} ${s.email} ${s.Student_ID}`
+    const matchesSearch = `${s.full_name} ${s.email} ${s.student_number}`
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesCourse = courseFilter === "All" || s.college === courseFilter;
@@ -350,9 +350,9 @@ export default function ManageStudents() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">{student.Student_ID ?? "—"}</td>
+                        <td className="px-6 py-4">{student.student_number ?? "—"}</td>
                         <td className="px-6 py-4">{student.major ?? "—"}</td>
-                        <td className="px-6 py-4">{student.Year_Level ?? "—"}</td>
+                        <td className="px-6 py-4">{student.year_level ?? "—"}</td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -436,10 +436,10 @@ export default function ManageStudents() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">{student.Student_ID ?? "—"}</td>
+                      <td className="px-6 py-4">{student.student_number ?? "—"}</td>
                       <td className="px-6 py-4">{student.college ?? "—"}</td>
                       <td className="px-6 py-4">{student.major ?? "—"}</td>
-                      <td className="px-6 py-4">{student.Year_Level ?? "—"}</td>
+                      <td className="px-6 py-4">{student.year_level ?? "—"}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {student.created_at
                           ? new Date(student.created_at).toLocaleDateString("en-PH", {

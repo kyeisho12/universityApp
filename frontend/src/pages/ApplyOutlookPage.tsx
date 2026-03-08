@@ -12,6 +12,7 @@ interface ApplyOutlookState {
   employerName?: string;
   employerEmail?: string;
   resumeId: string | null;
+  coverLetterId?: string | null;
   coverLetter: string;
 }
 
@@ -28,6 +29,8 @@ export default function ApplyOutlookPage() {
   const [manualEmail, setManualEmail] = React.useState("");
   const [resumeUrl, setResumeUrl] = React.useState<string | null>(null);
   const [resumeName, setResumeName] = React.useState<string | null>(null);
+  const [coverLetterUrl, setCoverLetterUrl] = React.useState<string | null>(null);
+  const [coverLetterName, setCoverLetterName] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [outlookUrl, setOutlookUrl] = React.useState<string | null>(null);
   const [openedOutlook, setOpenedOutlook] = React.useState(false);
@@ -62,7 +65,17 @@ export default function ApplyOutlookPage() {
 
       try {
         const shouldFetchEmployer = !state.employerEmail;
-        const [{ data: employer }, resumeData] = await Promise.all([
+        
+        // Fetch cover letter document if coverLetterId is provided
+        const coverLetterPromise = state.coverLetterId
+          ? supabase
+              .from("resumes")
+              .select("file_name, file_path")
+              .eq("id", state.coverLetterId)
+              .single()
+          : Promise.resolve({ data: null });
+
+        const [{ data: employer }, resumeData, coverLetterData] = await Promise.all([
           shouldFetchEmployer
             ? supabase
                 .from("employers")
@@ -77,6 +90,7 @@ export default function ApplyOutlookPage() {
                 .eq("id", state.resumeId)
                 .single()
             : Promise.resolve({ data: null }),
+          coverLetterPromise,
         ]);
 
         if (state.employerEmail) {
@@ -99,6 +113,20 @@ export default function ApplyOutlookPage() {
             setResumeName(resumeData.data.file_name);
           }
         }
+
+        // Load cover letter document if attached
+        if (coverLetterData?.data?.file_path) {
+          const { data: signedUrl } = await supabase.storage
+            .from("resumes")
+            .createSignedUrl(coverLetterData.data.file_path, 3600);
+
+          if (signedUrl?.signedUrl) {
+            setCoverLetterUrl(signedUrl.signedUrl);
+          }
+          if (coverLetterData.data.file_name) {
+            setCoverLetterName(coverLetterData.data.file_name);
+          }
+        }
       } catch (error) {
         console.error("Failed to load application details:", error);
       } finally {
@@ -107,7 +135,7 @@ export default function ApplyOutlookPage() {
     };
 
     loadDetails();
-  }, [state?.employerId, state?.resumeId]);
+  }, [state?.employerId, state?.resumeId, state?.coverLetterId]);
 
   React.useEffect(() => {
     const targetEmail = manualEmail || employerEmail;
@@ -116,18 +144,27 @@ export default function ApplyOutlookPage() {
     const subject = state.jobType
       ? `Application for ${state.jobTitle} with the ${state.jobType} Position`
       : `Application for ${state.jobTitle}`;
+    
     const bodyLines = [
       `Hello ${state.employerName || "Employer"},`,
       "",
       "Please find my application below.",
       "",
-      "Cover Letter:",
-      state.coverLetter || "",
-      "",
+    ];
+
+    // Add cover letter (text or attachment info)
+    if (coverLetterUrl) {
+      bodyLines.push("Cover Letter (attached):", coverLetterUrl, "");
+    } else if (state.coverLetter) {
+      bodyLines.push("Cover Letter:", state.coverLetter, "");
+    }
+
+    // Add resume
+    bodyLines.push(
       resumeUrl
         ? `Resume: ${resumeUrl}`
-        : "Resume: Please attach my resume manually before sending. You may remove this note after attaching.",
-    ];
+        : "Resume: Please attach my resume manually before sending. You may remove this note after attaching."
+    );
 
     const body = bodyLines.join("\n");
 
@@ -136,7 +173,7 @@ export default function ApplyOutlookPage() {
     )}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     setOutlookUrl(url);
-  }, [state?.jobTitle, state?.jobType, state?.employerName, state?.coverLetter, employerEmail, manualEmail, resumeUrl]);
+  }, [state?.jobTitle, state?.jobType, state?.employerName, state?.coverLetter, employerEmail, manualEmail, resumeUrl, coverLetterUrl]);
 
   React.useEffect(() => {
     if (outlookUrl && !openedOutlook) {
@@ -196,7 +233,7 @@ export default function ApplyOutlookPage() {
             </div>
 
             <p className="text-gray-600 mb-6">
-              We’ll open Outlook Web with your email prefilled. Attach your resume manually before sending.
+              We'll open Outlook Web with your email prefilled. Attach your resume manually before sending.
             </p>
 
             {loading ? (
@@ -230,9 +267,33 @@ export default function ApplyOutlookPage() {
 
                 <div>
                   <p className="text-sm text-gray-500 mb-2">Cover Letter</p>
-                  <div className="bg-gray-50 rounded-lg p-4 text-gray-800 whitespace-pre-wrap">
-                    {state.coverLetter}
-                  </div>
+                  {coverLetterUrl ? (
+                    <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-[#00B4D8]" />
+                        <div>
+                          <p className="font-medium text-gray-900">{coverLetterName || "Cover Letter"}</p>
+                          <p className="text-xs text-gray-500">Attached document</p>
+                        </div>
+                      </div>
+                      <a
+                        href={coverLetterUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-[#E0F7FA] text-[#00B4D8] hover:bg-[#B3E5FC] transition-colors text-sm font-medium"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  ) : state.coverLetter ? (
+                    <div className="bg-gray-50 rounded-lg p-4 text-gray-800 whitespace-pre-wrap">
+                      {state.coverLetter}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-4 text-gray-500">
+                      No cover letter provided
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
@@ -280,3 +341,4 @@ export default function ApplyOutlookPage() {
     </div>
   );
 }
+
