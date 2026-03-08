@@ -352,11 +352,41 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     }
   }, [showResumeBuilder]);
 
+  // Handle browser tab switching - reload draft when page becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && showResumeBuilder) {
+        // Page became visible again and resume builder is open - reload draft
+        loadDraft();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [showResumeBuilder]);
+
   // Load cover letter draft when modal opens
   useEffect(() => {
     if (showCoverLetterBuilder) {
       loadCoverLetterDraft();
     }
+  }, [showCoverLetterBuilder]);
+
+  // Handle browser tab switching for cover letter - reload draft when page becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && showCoverLetterBuilder) {
+        // Page became visible again and cover letter builder is open - reload draft
+        loadCoverLetterDraft();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [showCoverLetterBuilder]);
 
   // Auto-save draft whenever form data changes
