@@ -3086,21 +3086,21 @@ function MockInterviewPageContent({
                 )}
 
               {/* Camera Preview */}
-              <div className="flex-1 min-h-0 w-full flex items-center justify-center py-10">
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center py-8">
                 {isCameraOn && !mediaError ? (
-                  <div className="w-full h-full rounded-xl overflow-hidden">
+                  <div className="w-full max-w-[980px] aspect-[4/3] rounded-xl overflow-hidden bg-black shadow-inner">
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center">
-                    <div className="w-32 h-32 bg-gray-400 rounded-full flex items-center justify-center mb-4">
-                      <Camera className="w-16 h-16 text-gray-600" />
+                  <div className="w-full max-w-[980px] aspect-[4/3] rounded-xl bg-gray-200 flex flex-col items-center justify-center">
+                    <div className="w-28 h-28 bg-gray-300 rounded-full flex items-center justify-center mb-4">
+                      <Camera className="w-14 h-14 text-gray-600" />
                     </div>
                     <p className="text-gray-600 font-medium">Camera Preview</p>
                     {mediaError && (
@@ -3322,11 +3322,9 @@ function MockInterviewPageContent({
                   {micTestError || "Mic loopback test is active. Use earphones to avoid feedback."}
                 </p>
               )}
-              {(recordingError || isUploadingSegment || savedSegmentCount > 0) && (
+              {(recordingError || isUploadingSegment) && (
                 <p className="text-xs text-center mt-2 text-gray-700">
-                  {recordingError || (isUploadingSegment
-                    ? "Uploading recorded segment..."
-                    : `${savedSegmentCount} segment${savedSegmentCount > 1 ? "s" : ""} saved`)}
+                  {recordingError || "Uploading recorded segment..."}
                 </p>
               )}
             </div>
