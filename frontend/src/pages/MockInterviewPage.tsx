@@ -349,6 +349,8 @@ function MockInterviewPageContent({
   const lastHydratedKeyRef = useRef<string | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const activeQuestionIndexRef = useRef(0);
+  const previousSessionStartedRef = useRef<boolean | null>(null);
+  const previousQuestionRef = useRef<number | null>(null);
   const bankQuestionPoolRef = useRef<Question[]>([]);
   const silenceDetectionAudioContextRef = useRef<AudioContext | null>(null);
   const silenceDetectionAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -965,17 +967,37 @@ function MockInterviewPageContent({
   }, [isPauseTranscriptPending, latestWhisperStatus]);
 
   useEffect(() => {
-    if (!isSessionStarted) {
-      setShowFinishSpeakingPrompt(false);
+    const previousSessionStarted = previousSessionStartedRef.current;
+    const previousQuestion = previousQuestionRef.current;
+
+    // Skip reset on first mount/hydration so tab return does not lose visible text.
+    if (previousSessionStarted === null) {
+      previousSessionStartedRef.current = isSessionStarted;
+      previousQuestionRef.current = currentQuestion;
       return;
     }
 
-    setShowFinishSpeakingPrompt(false);
-    setLiveTranscriptText(null);
-    setLatestWhisperStatus(null);
-    setIsPauseTranscriptPending(false);
-    setLiveDraftTranscript("");
-    speechFinalTextRef.current = "";
+    if (!isSessionStarted) {
+      setShowFinishSpeakingPrompt(false);
+      previousSessionStartedRef.current = isSessionStarted;
+      previousQuestionRef.current = currentQuestion;
+      return;
+    }
+
+    const sessionJustStarted = !previousSessionStarted && isSessionStarted;
+    const questionChanged = previousQuestion !== currentQuestion;
+
+    if (sessionJustStarted || questionChanged) {
+      setShowFinishSpeakingPrompt(false);
+      setLiveTranscriptText(null);
+      setLatestWhisperStatus(null);
+      setIsPauseTranscriptPending(false);
+      setLiveDraftTranscript("");
+      speechFinalTextRef.current = "";
+    }
+
+    previousSessionStartedRef.current = isSessionStarted;
+    previousQuestionRef.current = currentQuestion;
   }, [currentQuestion, isSessionStarted]);
 
   useEffect(() => {
