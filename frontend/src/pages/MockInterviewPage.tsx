@@ -153,6 +153,7 @@ const FINISH_PROMPT_COOLDOWN_MS = 10000;
 const TRANSCRIPT_FAST_POLL_MS = 800;
 const TRANSCRIPT_NORMAL_POLL_MS = 2500;
 const AUTO_CAPTURE_ARM_DELAY_MS = 3000;
+const LIVE_TRANSCRIBE_REQUEST_TIMEOUT_MS = 3500;
 const SEGMENT_PERSIST_TIMEOUT_MS = 15000;
 const STOP_RECORDING_FALLBACK_TIMEOUT_MS = 12000;
 
@@ -1649,18 +1650,31 @@ function MockInterviewPageContent({
       const durationSeconds = Number(((Date.now() - segmentMeta.startedAt) / 1000).toFixed(2));
 
       setIsUploadingSegment(true);
-      const [directTranscriptionResult, uploadResult] = await Promise.all([
+
+      // Never let fast live-transcribe block segment persistence.
+      const directTranscriptionPromise = Promise.race([
         transcribeLiveAudioChunk({ audioBlob: segmentBlob }),
-        uploadInterviewRecordingSegment({
-          storagePath,
-          segmentBlob,
-          contentType: segmentBlob.type || "video/webm",
+        new Promise<{ data: null; error: Error }>((resolve) => {
+          window.setTimeout(() => {
+            resolve({
+              data: null,
+              error: new Error("Live transcription timed out"),
+            });
+          }, LIVE_TRANSCRIBE_REQUEST_TIMEOUT_MS);
         }),
       ]);
 
+      const uploadResult = await uploadInterviewRecordingSegment({
+        storagePath,
+        segmentBlob,
+        contentType: segmentBlob.type || "video/webm",
+      });
+
+      const directTranscriptionResult = await directTranscriptionPromise;
+
       const directTranscriptText =
         (directTranscriptionResult.data?.transcript_text || "").trim();
-      const directTranscriptionFailed = Boolean(directTranscriptionResult.error);
+      const directTranscriptionFailed = Boolean(directTranscriptionResult?.error);
 
       if (!directTranscriptionFailed) {
         setLatestWhisperStatus("completed");
