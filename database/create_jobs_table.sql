@@ -121,7 +121,23 @@ CREATE POLICY "Admins can delete jobs"
   );
 
 -- =============================================================================
--- 6. SUCCESS MESSAGE
+-- 6. RPC FUNCTION FOR APPLICATION COUNT
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.increment_job_listing_count(job_id_input UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE public.jobs
+  SET applications_count = COALESCE(applications_count, 0) + 1,
+      updated_at = NOW()
+  WHERE id = job_id_input;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.increment_job_listing_count(UUID) TO authenticated;
+
+-- =============================================================================
+-- 7. SUCCESS MESSAGE
 -- =============================================================================
 
 DO $$
