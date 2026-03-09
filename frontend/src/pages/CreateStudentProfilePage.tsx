@@ -323,6 +323,7 @@ export default function CreateStudentProfilePage() {
     } catch (error) {
       console.error('Failed to clear profile draft:', error)
     }
+    console.log(payload)
     setMessage('Profile saved successfully')
     setIsDirty(false)
     navigate(isEditMode ? '/student/profile' : '/', { replace: true })
