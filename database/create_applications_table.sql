@@ -40,7 +40,7 @@ DROP POLICY IF EXISTS "Admins can update application status" ON applications;
 CREATE POLICY "Students can view their own applications"
     ON applications FOR SELECT
     USING (auth.uid() = student_id OR auth.uid() IN (
-        SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin'
+        SELECT id FROM public.profiles WHERE role = 'admin'
     ));
 
 -- RLS Policy: Students can create applications
@@ -58,17 +58,17 @@ CREATE POLICY "Students can update their pending applications"
 CREATE POLICY "Admins can view all applications"
     ON applications FOR SELECT
     USING (auth.uid() IN (
-        SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin'
+        SELECT id FROM public.profiles WHERE role = 'admin'
     ));
 
 -- RLS Policy: Admins can update application status
 CREATE POLICY "Admins can update application status"
     ON applications FOR UPDATE
     USING (auth.uid() IN (
-        SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin'
+        SELECT id FROM public.profiles WHERE role = 'admin'
     ))
     WITH CHECK (auth.uid() IN (
-        SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin'
+        SELECT id FROM public.profiles WHERE role = 'admin'
     ));
 
 -- Create function to prevent duplicate applications
