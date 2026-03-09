@@ -2,6 +2,10 @@ import { supabase } from '../lib/supabaseClient'
 
 let liveTranscribePreferredBaseUrl = null
 
+function delay(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function buildAuthHeaders(baseHeaders = {}) {
 	const headers = { ...baseHeaders }
 	try {
@@ -385,27 +389,34 @@ export async function triggerSegmentTranscription({ sessionId, segmentId, force 
 	let lastError = null
 
 	for (const baseUrl of baseUrls) {
-		try {
-			const headers = await buildAuthHeaders({
-				'Content-Type': 'application/json',
-			})
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			try {
+				const headers = await buildAuthHeaders({
+					'Content-Type': 'application/json',
+				})
 
-			const response = await fetch(`${baseUrl}/interviews/sessions/${sessionId}/segments/${segmentId}/transcribe`, {
-				method: 'POST',
-				headers,
-				body: JSON.stringify({ force }),
-			})
+				const response = await fetch(`${baseUrl}/interviews/sessions/${sessionId}/segments/${segmentId}/transcribe`, {
+					method: 'POST',
+					headers,
+					body: JSON.stringify({ force }),
+				})
 
-			const payload = await response.json().catch(() => ({}))
-			if (!response.ok || payload?.success === false) {
-				lastError = new Error(payload?.error || `Transcription request failed (${response.status})`)
-				continue
+				const payload = await response.json().catch(() => ({}))
+				if (!response.ok || payload?.success === false) {
+					lastError = new Error(payload?.error || `Transcription request failed (${response.status})`)
+					break
+				}
+
+				return { data: payload?.data || payload, error: null }
+			} catch (error) {
+				lastError = error instanceof Error ? error : new Error('Unknown transcription error')
+				const isNetworkError = /failed to fetch|networkerror/i.test(lastError?.message || '')
+				if (isNetworkError && attempt < 2) {
+					await delay(1200 * (attempt + 1))
+					continue
+				}
+				break
 			}
-
-			return { data: payload?.data || payload, error: null }
-		} catch (error) {
-			lastError = error instanceof Error ? error : new Error('Unknown transcription error')
-			continue
 		}
 	}
 
@@ -435,33 +446,40 @@ export async function transcribeLiveAudioChunk({ audioBlob, language = 'en' }) {
 	let lastError = null
 
 	for (const baseUrl of baseUrls) {
-		try {
-			const formData = new FormData()
-			formData.append('audio', audioBlob, 'live_chunk.webm')
-			formData.append('language', language)
-			const headers = await buildAuthHeaders()
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			try {
+				const formData = new FormData()
+				formData.append('audio', audioBlob, 'live_chunk.webm')
+				formData.append('language', language)
+				const headers = await buildAuthHeaders()
 
-			const response = await fetch(`${baseUrl}/interviews/transcribe-live`, {
-				method: 'POST',
-				headers,
-				body: formData,
-			})
+				const response = await fetch(`${baseUrl}/interviews/transcribe-live`, {
+					method: 'POST',
+					headers,
+					body: formData,
+				})
 
-			const payload = await response.json().catch(() => ({}))
-			if (!response.ok || payload?.success === false) {
-				lastError = new Error(payload?.error || `Live transcription request failed (${response.status})`)
-				if (response.status === 429 || response.status === 400 || response.status === 401 || response.status === 403 || response.status === 404) {
-					break
+				const payload = await response.json().catch(() => ({}))
+				if (!response.ok || payload?.success === false) {
+					lastError = new Error(payload?.error || `Live transcription request failed (${response.status})`)
+					if (response.status === 429 || response.status === 400 || response.status === 401 || response.status === 403 || response.status === 404) {
+						break
+					}
+					continue
 				}
-				continue
+
+				liveTranscribePreferredBaseUrl = baseUrl
+
+				return { data: payload?.data || payload, error: null }
+			} catch (error) {
+				lastError = error instanceof Error ? error : new Error('Unknown live transcription error')
+				const isNetworkError = /failed to fetch|networkerror/i.test(lastError?.message || '')
+				if (isNetworkError && attempt < 2) {
+					await delay(1200 * (attempt + 1))
+					continue
+				}
+				break
 			}
-
-			liveTranscribePreferredBaseUrl = baseUrl
-
-			return { data: payload?.data || payload, error: null }
-		} catch (error) {
-			lastError = error instanceof Error ? error : new Error('Unknown live transcription error')
-			continue
 		}
 	}
 

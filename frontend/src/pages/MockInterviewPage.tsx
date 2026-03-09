@@ -361,6 +361,7 @@ function MockInterviewPageContent({
   const finishPromptCooldownUntilRef = useRef(0);
   const autoPauseInFlightRef = useRef(false);
   const nextQuestionInFlightRef = useRef(false);
+  const tabBackgroundPauseInFlightRef = useRef(false);
   const isApplyingPopstateRef = useRef(false);
   const hasInitializedHistoryStateRef = useRef(false);
 
@@ -1683,15 +1684,22 @@ function MockInterviewPageContent({
           });
           if (transcriptionResult.error) {
             setRecordingError(
-              `Segment saved, but fast transcription failed and retry also failed: ${transcriptionResult.error.message}`
+              "Segment saved. Transcription service is temporarily unreachable; it will retry in the background."
             );
+            window.setTimeout(() => {
+              void triggerSegmentTranscription({
+                sessionId: activeSessionId,
+                segmentId: createdSegmentId,
+                force: true,
+              });
+            }, 12000);
           } else {
             setRecordingError("Segment saved. Final transcription completed after retry.");
           }
         })();
       } else if (directTranscriptionFailed) {
         setRecordingError(
-          `Segment saved, but fast transcription failed: ${directTranscriptionResult.error?.message || "Unknown error"}.`
+          "Segment saved. Fast transcription is temporarily unavailable; the system will retry."
         );
       }
 
@@ -1829,6 +1837,60 @@ function MockInterviewPageContent({
     });
     mediaRecorderRef.current = null;
   }, [stopLiveChunkTranscription, stopLiveDraftTranscription, stopSilenceDetection]);
+
+  const handleTabHiddenPause = useCallback(async () => {
+    if (tabBackgroundPauseInFlightRef.current) {
+      return;
+    }
+
+    if (!isSessionStarted || isPaused || isPauseTranscriptPending) {
+      return;
+    }
+
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      return;
+    }
+
+    tabBackgroundPauseInFlightRef.current = true;
+    setRecordingError("Tab switched. Auto-saving your current answer...");
+
+    try {
+      await stopActiveRecording();
+      setIsPaused(true);
+      if (sessionId) {
+        await updateInterviewSessionStatus(sessionId, "paused", {
+          paused_at: new Date().toISOString(),
+          paused_reason: "tab_hidden",
+        });
+      }
+      await refreshTranscriptAfterPause();
+      setRecordingError("Answer saved. Return to this tab and click Confirm to continue.");
+    } finally {
+      tabBackgroundPauseInFlightRef.current = false;
+    }
+  }, [
+    isPauseTranscriptPending,
+    isPaused,
+    isSessionStarted,
+    refreshTranscriptAfterPause,
+    sessionId,
+    stopActiveRecording,
+    updateInterviewSessionStatus,
+  ]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") {
+        void handleTabHiddenPause();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [handleTabHiddenPause]);
 
   const prepareNextActionForCurrentAnswer = useCallback(
     async (triggerSource: "manual" | "auto") => {
