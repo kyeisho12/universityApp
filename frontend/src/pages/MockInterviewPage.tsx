@@ -153,6 +153,8 @@ const FINISH_PROMPT_COOLDOWN_MS = 10000;
 const TRANSCRIPT_FAST_POLL_MS = 800;
 const TRANSCRIPT_NORMAL_POLL_MS = 2500;
 const AUTO_CAPTURE_ARM_DELAY_MS = 3000;
+const SEGMENT_PERSIST_TIMEOUT_MS = 15000;
+const STOP_RECORDING_FALLBACK_TIMEOUT_MS = 12000;
 
 function MockInterviewPageContent({
   email,
@@ -1804,15 +1806,30 @@ function MockInterviewPageContent({
           const segmentMeta = activeSegmentMetaRef.current;
           activeSegmentMetaRef.current = null;
 
-          if (chunks.length > 0 && segmentMeta) {
-            const segmentBlob = new Blob(chunks, { type: mediaRecorder.mimeType || mimeType });
-            await persistSegmentBlob(segmentBlob, segmentMeta);
-            segmentOrderRef.current += 1;
-          }
-
-          if (pendingStopResolveRef.current) {
-            pendingStopResolveRef.current();
-            pendingStopResolveRef.current = null;
+          try {
+            if (chunks.length > 0 && segmentMeta) {
+              const segmentBlob = new Blob(chunks, { type: mediaRecorder.mimeType || mimeType });
+              await Promise.race([
+                persistSegmentBlob(segmentBlob, segmentMeta),
+                new Promise((_, reject) => {
+                  window.setTimeout(() => {
+                    reject(new Error("Segment persistence timed out"));
+                  }, SEGMENT_PERSIST_TIMEOUT_MS);
+                }),
+              ]);
+              segmentOrderRef.current += 1;
+            }
+          } catch (error: any) {
+            const message =
+              error?.message === "Segment persistence timed out"
+                ? "Saving this answer is taking too long. You can continue; the segment will keep retrying in the background."
+                : "Segment processing hit an issue, but you can continue to the next question.";
+            setRecordingError(message);
+          } finally {
+            if (pendingStopResolveRef.current) {
+              pendingStopResolveRef.current();
+              pendingStopResolveRef.current = null;
+            }
           }
         };
 
@@ -1860,8 +1877,32 @@ function MockInterviewPageContent({
     stopSilenceDetection();
 
     await new Promise<void>((resolve) => {
-      pendingStopResolveRef.current = resolve;
-      recorder.stop();
+      let resolved = false;
+      const finalize = () => {
+        if (resolved) return;
+        resolved = true;
+        resolve();
+      };
+
+      const timeoutId = window.setTimeout(() => {
+        setRecordingError(
+          "Recording stop took too long. Continuing with the next step while save retries in background."
+        );
+        finalize();
+      }, STOP_RECORDING_FALLBACK_TIMEOUT_MS);
+
+      pendingStopResolveRef.current = () => {
+        window.clearTimeout(timeoutId);
+        finalize();
+      };
+
+      try {
+        recorder.stop();
+      } catch {
+        window.clearTimeout(timeoutId);
+        pendingStopResolveRef.current = null;
+        finalize();
+      }
     });
     mediaRecorderRef.current = null;
   }, [stopLiveChunkTranscription, stopLiveDraftTranscription, stopSilenceDetection]);
