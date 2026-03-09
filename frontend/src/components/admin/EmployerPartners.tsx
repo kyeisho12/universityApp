@@ -33,6 +33,7 @@ const EmployerPartners = () => {
     contact_email: '',
   });
   const [customIndustry, setCustomIndustry] = React.useState('');
+  const [customJobCategory, setCustomJobCategory] = React.useState('');
   const [jobFormData, setJobFormData] = React.useState({
     title: '',
     employer_id: '',
@@ -1275,7 +1276,12 @@ const EmployerPartners = () => {
                   </label>
                   <select
                     value={jobFormData.category}
-                    onChange={(e) => setJobFormData({ ...jobFormData, category: e.target.value })}
+                    onChange={(e) => {
+                      setJobFormData({ ...jobFormData, category: e.target.value });
+                      if (e.target.value !== 'Other') {
+                        setCustomJobCategory('');
+                      }
+                    }}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Information Technology">Information Technology</option>
@@ -1284,7 +1290,17 @@ const EmployerPartners = () => {
                     <option value="Business Analytics">Business Analytics</option>
                     <option value="Finance">Finance</option>
                     <option value="Marketing">Marketing</option>
+                    <option value="Other">Other (Please specify)</option>
                   </select>
+                  {jobFormData.category === 'Other' && (
+                    <input
+                      type="text"
+                      placeholder="Enter category name"
+                      value={customJobCategory}
+                      onChange={(e) => setCustomJobCategory(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1451,7 +1467,12 @@ const EmployerPartners = () => {
                   </label>
                   <select
                     value={jobFormData.category}
-                    onChange={(e) => setJobFormData({ ...jobFormData, category: e.target.value })}
+                    onChange={(e) => {
+                      setJobFormData({ ...jobFormData, category: e.target.value });
+                      if (e.target.value !== 'Other') {
+                        setCustomJobCategory('');
+                      }
+                    }}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Information Technology">Information Technology</option>
@@ -1460,7 +1481,17 @@ const EmployerPartners = () => {
                     <option value="Business Analytics">Business Analytics</option>
                     <option value="Finance">Finance</option>
                     <option value="Marketing">Marketing</option>
+                    <option value="Other">Other (Please specify)</option>
                   </select>
+                  {jobFormData.category === 'Other' && (
+                    <input
+                      type="text"
+                      placeholder="Enter category name"
+                      value={customJobCategory}
+                      onChange={(e) => setCustomJobCategory(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
+                    />
+                  )}
                 </div>
               </div>
 

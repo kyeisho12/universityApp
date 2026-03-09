@@ -1,3 +1,4 @@
+<parameter name="content">
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,7 +17,7 @@ import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { getAllJobs, type JobWithEmployer } from "../services/jobService";
-import { submitJobApplication } from "../services/applicationService";
+import { submitJobApplication, checkIfApplied } from "../services/applicationService";
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
 
@@ -69,8 +70,8 @@ function extractSkills(rawSkills) {
 }
 
 interface JobApplicationDraft {
+  coverLetter: string;
   selectedResume: string | null;
-  selectedCoverLetter: string | null;
   updatedAt: string;
 }
 
@@ -92,31 +93,15 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [filterType, setFilterType] = useState("All");
   const [customJobType, setCustomJobType] = useState("");
   const [filterCategory, setFilterCategory] = useState("All Types");
-  const [customCategory, setCustomCategory] = useState("");
-  const [optimisticAppliedJobs, setOptimisticAppliedJobs] = useState<Set<string>>(new Set());
+  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
-  const [selectedCoverLetter, setSelectedCoverLetter] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [coverLetter, setCoverLetter] = useState('');
   const hasRestoredViewState = useRef(false);
 
   const getDraftStorageKey = () => (user?.id ? `job-application-drafts-${user.id}` : null);
-  
-  const getCoverLetterDocIdsKey = () => (user?.id ? `cover_letter_document_ids_${user.id}` : null);
-
-  const getCoverLetterDocIds = (): string[] => {
-    const key = getCoverLetterDocIdsKey();
-    if (!key) return [];
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
 
   const readDrafts = (): JobApplicationDraftMap => {
     const storageKey = getDraftStorageKey();
@@ -191,8 +176,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
     const draft = readDrafts()[currentJob.id];
     if (draft) {
+      setCoverLetter(draft.coverLetter || "");
       setSelectedResume(draft.selectedResume || null);
-      setSelectedCoverLetter(draft.selectedCoverLetter || null);
+    } else {
+      setCoverLetter("");
     }
 
     setApplyMessage(null);
@@ -210,15 +197,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     setFilterType(value);
     if (value !== 'Other') {
       setCustomJobType('');
-    }
-  };
-
-  // Handle filter category change
-  const handleFilterCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setFilterCategory(value);
-    if (value !== 'Other') {
-      setCustomCategory('');
     }
   };
 
@@ -249,6 +227,18 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     async () => {
       const data = await getAllJobs(false); // false = only active jobs for students
       
+      // Check which jobs the student has applied to
+      if (user?.id && data) {
+        const appliedSet = new Set<string>();
+        for (const job of data) {
+          const { hasApplied } = await checkIfApplied(user.id, job.id);
+          if (hasApplied) {
+            appliedSet.add(job.id);
+          }
+        }
+        setAppliedJobs(appliedSet);
+      }
+      
       if (data && data.length > 0 && !selectedJob) {
         setSelectedJob(data[0].id || null);
       }
@@ -260,33 +250,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
   const error = jobsError?.message || null;
 
-  // Load applied job IDs separately so apply-state survives cached jobs responses.
-  const { data: appliedJobIds = [], refetch: refetchAppliedJobIds } = useCachedQuery(
-    `applied-jobs-${user?.id}`,
-    async () => {
-      if (!user?.id) return [] as string[];
-
-      const { data, error } = await supabase
-        .from("applications")
-        .select("job_id")
-        .eq("student_id", user.id)
-        .neq("status", "withdrawn");
-
-      if (error) throw error;
-      return (data || []).map((application) => application.job_id).filter(Boolean);
-    },
-    { enabled: !!user?.id }
-  );
-
-  const appliedJobs = useMemo(() => {
-    const persisted = new Set<string>(appliedJobIds);
-    optimisticAppliedJobs.forEach((jobId) => persisted.add(jobId));
-    return persisted;
-  }, [appliedJobIds, optimisticAppliedJobs]);
-
   // Load user resumes with caching
   const { data: userResumes = [] } = useCachedQuery(
-    `resumes-list-${user?.id}`,
+    `resumes-${user?.id}`,
     async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
@@ -306,47 +272,14 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     { enabled: !!user?.id }
   );
 
-  // Get resume documents (exclude cover letters) - files with "resume" in name or not cover_letter
-  const resumeDocs = useMemo(() => {
-    return userResumes.filter((resume) => {
-      const fileName = resume.file_name?.toLowerCase() || '';
-      const filePath = resume.file_path?.toLowerCase() || '';
-      // Exclude files that have "cover_letter" in the name
-      if (fileName.includes('cover_letter') || filePath.includes('cover_letter')) return false;
-      // Include files that have "resume" in the name OR files without cover_letter pattern
-      return fileName.includes('resume') || fileName.includes('cv') || !fileName.includes('cover');
-    });
-  }, [userResumes]);
-
-  // Get cover letter documents - files with "cover_letter" in name
-  const coverLetterDocs = useMemo(() => {
-    const coverLetterIds = getCoverLetterDocIds();
-    return userResumes.filter((resume) => {
-      // Check if resume ID is in the cover letter IDs list (from ResumesPage builder)
-      if (coverLetterIds.includes(resume.id)) return true;
-      // Also check by filename pattern - files with "cover_letter" in name
-      const fileName = resume.file_name?.toLowerCase() || '';
-      const filePath = resume.file_path?.toLowerCase() || '';
-      return (
-        fileName.includes('cover_letter') ||
-        fileName.includes('cover-letter') ||
-        fileName.includes('cover letter') ||
-        fileName.includes('coverletter') ||
-        filePath.includes('cover_letter') ||
-        filePath.includes('cover-letter') ||
-        filePath.includes('coverletter')
-      );
-    });
-  }, [userResumes]);
-
   // Handle job application
   const handleApplyNow = async () => {
     if (!user?.id || !currentJob) return;
 
-    if (!selectedResume) {
+    if (!coverLetter.trim()) {
       setApplyMessage({
         type: 'error',
-        text: 'Please select a resume to attach.'
+        text: 'Cover letter is required to submit your application.'
       });
       return;
     }
@@ -355,25 +288,23 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     setApplyMessage(null);
 
     try {
-    const result = await submitJobApplication(
+      const result = await submitJobApplication(
         user.id,
         currentJob.id,
         currentJob.employer_id,
-        undefined,
-        selectedResume || undefined,
-        selectedCoverLetter || undefined
+        coverLetter.trim() || undefined,
+        selectedResume || undefined
       );
 
       if (result.success) {
-        setOptimisticAppliedJobs((prev) => new Set(prev).add(currentJob.id));
+        setAppliedJobs(new Set(appliedJobs).add(currentJob.id));
         setShowApplyModal(false);
+        setCoverLetter('');
         clearDraftForJob(currentJob.id);
         
-        // Invalidate related cache keys so jobs/applications stay in sync.
+        // Invalidate jobs and applications cache to reflect new application
         queryCache.invalidate(`jobs-list-${user.id}`);
         queryCache.invalidate(`applications-${user.id}`);
-        queryCache.invalidate(`applied-jobs-${user.id}`);
-        void refetchAppliedJobIds();
         
         navigate("/student/apply-outlook", {
           state: {
@@ -383,8 +314,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             employerName: currentJob.employer_name,
             employerEmail: currentJob.employer_email,
             resumeId: selectedResume,
-            coverLetterId: selectedCoverLetter,
-            coverLetter: "",
+            coverLetter: coverLetter.trim(),
           },
         });
       } else {
@@ -408,31 +338,24 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     const matchesSearch =
       searchTerm === "" ||
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.employer_name?.toLowerCase().includes(searchTerm.toLowerCase());
+er_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Handle job type filter including custom "Other" type
+    // Handle job      job.employ type filter including custom "Other" type
     let matchesType = false;
     if (filterType === "All") {
       matchesType = true;
     } else if (filterType === "Other" && customJobType) {
-      // For custom type, match if job type contains the custom input (case-insensitive partial match)
-      // This allows real-time filtering as user types
-      const jobTypeLower = (job.job_type || "").toLowerCase();
-      const customTypeLower = customJobType.toLowerCase();
-      matchesType = jobTypeLower.includes(customTypeLower) || customTypeLower.includes(jobTypeLower);
+      // For custom type, match if job type equals the custom input (case-insensitive)
+      matchesType = job.job_type?.toLowerCase() === customJobType.toLowerCase();
     } else {
       matchesType = job.job_type === filterType;
     }
 
     const matchesCategory =
-      filterCategory === "All Types" 
-        ? true 
-        : filterCategory === "Other" && customCategory
-          ? (job.category || "").toLowerCase().includes(customCategory.toLowerCase()) || customCategory.toLowerCase().includes((job.category || "").toLowerCase())
-          : job.category === filterCategory;
+      filterCategory === "All Types" || job.category === filterCategory;
 
     return matchesSearch && matchesType && matchesCategory;
-  }), [jobs, searchTerm, filterType, filterCategory, customJobType, customCategory]);
+  }), [jobs, searchTerm, filterType, filterCategory, customJobType]);
 
   const recommendedJobs = useMemo(() => {
     if (!jobs.length) return [];
@@ -608,12 +531,12 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     if (!showApplyModal || !currentJob?.id || !user?.id) return;
 
     const drafts = readDrafts();
-    const hasProgress = Boolean(selectedResume) || Boolean(selectedCoverLetter);
+    const hasProgress = Boolean(coverLetter.trim()) || Boolean(selectedResume);
 
     if (hasProgress) {
       drafts[currentJob.id] = {
+        coverLetter,
         selectedResume,
-        selectedCoverLetter,
         updatedAt: new Date().toISOString(),
       };
     } else if (drafts[currentJob.id]) {
@@ -621,15 +544,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     }
 
     writeDrafts(drafts);
-  }, [showApplyModal, selectedResume, selectedCoverLetter, currentJob?.id, user?.id]);
-
-  // If state restores a modal for an already-applied job, close it immediately.
-  useEffect(() => {
-    if (!showApplyModal || !currentJob?.id) return;
-    if (appliedJobs.has(currentJob.id)) {
-      setShowApplyModal(false);
-    }
-  }, [showApplyModal, currentJob?.id, appliedJobs]);
+  }, [showApplyModal, coverLetter, selectedResume, currentJob?.id, user?.id]);
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
@@ -672,7 +587,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               <X className="w-5 h-5 text-gray-800" />
             </button>
           </div>
-        </div>
       )}
 
       {/* Main Content */}
@@ -688,7 +602,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               <LayoutGrid className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-        </div>
 
         {/* Content Area */}
         <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto flex flex-col">
@@ -716,8 +629,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     className="w-full pl-10 pr-4 py-3 bg-white rounded-lg border-2 border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none placeholder-gray-500 text-sm"
                   />
                 </div>
-              </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 <select
                   value={filterType}
                   onChange={handleFilterTypeChange}
@@ -741,9 +653,10 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[160px]"
                   />
                 )}
+                
                 <select
                   value={filterCategory}
-                  onChange={handleFilterCategoryChange}
+                  onChange={(e) => setFilterCategory(e.target.value)}
                   className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
                 >
                   <option>All Types</option>
@@ -753,24 +666,11 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   <option>Business Analytics</option>
                   <option>Finance</option>
                   <option>Marketing</option>
-                  <option value="Other">Other (Specify)</option>
                 </select>
-                
-                {/* Show custom category input when "Other" is selected */}
-                {filterCategory === 'Other' && (
-                  <input
-                    type="text"
-                    placeholder="Enter category..."
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[160px]"
-                  />
-                )}
                 <button className="px-4 py-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50">
                   <Filter className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
-            </div>
           </div>
 
           {/* Showing count */}
@@ -810,11 +710,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                                 </p>
                               )}
                             </div>
-                          </div>
                         </button>
                       ))}
                     </div>
-                  </div>
                 )}
               </div>
 
@@ -846,14 +744,11 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                               <p className="text-sm font-semibold text-gray-900 truncate">{job.title}</p>
                               <p className="text-xs text-gray-500 truncate">{job.employer_name}</p>
                             </div>
-                          </div>
                         </button>
                       ))
                     )}
                   </div>
-                </div>
               </div>
-            </div>
 
             {/* Job Details */}
             <div className="lg:col-span-2 flex flex-col overflow-hidden sticky top-0 h-fit">
@@ -890,9 +785,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                             <MapPin className="w-4 h-4" />
                             {currentJob.location}
                           </div>
-                        </div>
                       </div>
-                    </div>
                   </div>
 
                   {/* Action Buttons */}
@@ -973,7 +866,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                       {new Date(currentJob.deadline).toLocaleDateString()}
                     </p>
                   </div>
-                </div>
               ) : (
                 <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex items-center justify-center h-full">
                   <div className="text-center py-16">
@@ -981,12 +873,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     <p className="text-gray-500 font-medium text-lg mb-2">No job selected</p>
                     <p className="text-gray-400">Select a job from the list to view details</p>
                   </div>
-                </div>
               )}
             </div>
-          </div>
         </div>
-      </div>
 
       {/* Application Modal */}
       {showApplyModal && currentJob && (
@@ -1007,7 +896,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Select Resume to Attach
                 </label>
-                {resumeDocs.length === 0 ? (
+                {userResumes.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
                     <p className="text-gray-500 mb-2">No resumes uploaded yet</p>
                     <button
@@ -1022,7 +911,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {resumeDocs.map((resume) => (
+                    {userResumes.map((resume) => (
                       <button
                         key={resume.id}
                         onClick={() => setSelectedResume(resume.id)}
@@ -1042,47 +931,20 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 )}
               </div>
 
-              {/* Cover Letter Document Selector */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Attach Cover Letter (Optional)
+                  Cover Letter
                 </label>
-                {coverLetterDocs.length === 0 ? (
-                  <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 mb-3">
-                    <p className="text-gray-500 text-sm">No cover letter documents yet</p>
-                    <button
-                      onClick={() => {
-                        closeApplyModal();
-                        onNavigate('student/resumes');
-                      }}
-                      className="text-[#00B4D8] hover:underline text-sm"
-                    >
-                      Create a cover letter
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 mb-3">
-                    {coverLetterDocs.map((doc) => (
-                      <button
-                        key={doc.id}
-                        onClick={() => setSelectedCoverLetter(selectedCoverLetter === doc.id ? null : doc.id)}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          selectedCoverLetter === doc.id
-                            ? 'border-[#00B4D8] bg-[#E0F7FA]'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <p className="font-medium text-gray-900">{doc.file_name}</p>
-                        <p className="text-xs text-gray-500">
-                          Uploaded {new Date(doc.created_at).toLocaleDateString()}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <textarea
+                  value={coverLetter}
+                  onChange={(e) => setCoverLetter(e.target.value)}
+                  placeholder="Write a brief cover letter to support your application"
+                  rows={4}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none text-sm resize-none"
+                />
               </div>
 
-              {resumeDocs.length > 0 && (
+              {userResumes.length > 0 && (
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={closeApplyModal}
@@ -1092,7 +954,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </button>
                   <button
                     onClick={handleApplyNow}
-                    disabled={applyingJobId === currentJob.id || !selectedResume}
+                    disabled={applyingJobId === currentJob.id || !selectedResume || !coverLetter.trim()}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-[#2C3E5C] text-white hover:bg-[#1B2744] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {applyingJobId === currentJob.id ? (
@@ -1107,7 +969,6 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                 </div>
               )}
             </div>
-          </div>
         </div>
       )}
     </div>
@@ -1140,4 +1001,4 @@ export default function JobsPage() {
     />
   )
 }
-
+</parameter>
