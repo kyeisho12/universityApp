@@ -18,6 +18,51 @@ export type ResumeRecord = {
 
 export type ResumeWithUrl = ResumeRecord & { signed_url: string | null }
 
+type ResumeInsertPayload = {
+  user_id: string
+  file_name: string
+  file_path: string
+  file_size: number
+  file_type: string
+  status: string
+  skills?: string[]
+  ratings?: Record<string, unknown>
+}
+
+const MISSING_COLUMN_ERRORS = [
+  "Could not find the 'skills' column",
+  "Could not find the 'ratings' column",
+] as const
+
+function isMissingOptionalColumnError(error: unknown): boolean {
+  const message = (error as { message?: string } | null)?.message ?? ''
+  return MISSING_COLUMN_ERRORS.some((snippet) => message.includes(snippet))
+}
+
+async function insertResumeMetadata(payload: ResumeInsertPayload) {
+  const basePayload = {
+    user_id: payload.user_id,
+    file_name: payload.file_name,
+    file_path: payload.file_path,
+    file_size: payload.file_size,
+    file_type: payload.file_type,
+    status: payload.status,
+  }
+
+  // Try writing parser-enriched metadata first; fallback keeps uploads working on older schemas.
+  const enrichedPayload = {
+    ...basePayload,
+    skills: payload.skills,
+    ratings: payload.ratings,
+  }
+
+  const firstAttempt = await supabase.from('resumes').insert(enrichedPayload).select().single()
+  if (!firstAttempt.error) return firstAttempt
+  if (!isMissingOptionalColumnError(firstAttempt.error)) return firstAttempt
+
+  return supabase.from('resumes').insert(basePayload).select().single()
+}
+
 function sanitizeFileName(originalName: string) {
   const trimmed = originalName.trim()
   const name = trimmed || 'resume'
@@ -101,20 +146,16 @@ export async function uploadResume(file: File, userId: string) {
     console.warn('Resume parsing failed:', e);
   }
 
-  const { data, error } = await supabase
-    .from('resumes')
-    .insert({
-      user_id: userId,
-      file_name: file.name,
-      file_path: objectPath,
-      file_size: file.size,
-      file_type: file.type || `.${ext}`,
-      status: 'active',
-      skills,
-      ratings,
-    })
-    .select()
-    .single()
+  const { data, error } = await insertResumeMetadata({
+    user_id: userId,
+    file_name: file.name,
+    file_path: objectPath,
+    file_size: file.size,
+    file_type: file.type || `.${ext}`,
+    status: 'active',
+    skills,
+    ratings,
+  })
 
   if (error) {
     await supabase.storage.from(RESUME_BUCKET).remove([objectPath])
@@ -161,20 +202,16 @@ export async function createResumeFromBlob(
 
   if (uploadError) return { data: null as ResumeWithUrl | null, error: uploadError }
 
-  const { data, error } = await supabase
-    .from('resumes')
-    .insert({
-      user_id: userId,
-      file_name: fileName,
-      file_path: objectPath,
-      file_size: pdfBlob.size,
-      file_type: 'application/pdf',
-      status: 'active',
-      skills: extractedSkills,
-      ratings: extractedRatings,
-    })
-    .select()
-    .single()
+  const { data, error } = await insertResumeMetadata({
+    user_id: userId,
+    file_name: fileName,
+    file_path: objectPath,
+    file_size: pdfBlob.size,
+    file_type: 'application/pdf',
+    status: 'active',
+    skills: extractedSkills,
+    ratings: extractedRatings,
+  })
 
   if (error) {
     await supabase.storage.from(RESUME_BUCKET).remove([objectPath])
