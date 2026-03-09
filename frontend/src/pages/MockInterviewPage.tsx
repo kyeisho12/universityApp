@@ -3049,7 +3049,7 @@ function MockInterviewPageContent({
           {/* Left - Camera Preview */}
           <div className="flex-1 flex flex-col min-h-0">
             {/* Recording Status and Controls */}
-            <div className="bg-gray-300 rounded-2xl flex-1 min-h-0 flex flex-col p-6 relative">
+            <div className="bg-white rounded-2xl border border-gray-200 flex-1 min-h-0 flex flex-col p-4 relative shadow-sm">
               {/* Recording Badge */}
               {isSessionStarted && (
                 <div
@@ -3086,19 +3086,19 @@ function MockInterviewPageContent({
                 )}
 
               {/* Camera Preview */}
-              <div className="flex-1 min-h-0 w-full flex items-center justify-center py-8">
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center">
                 {isCameraOn && !mediaError ? (
-                  <div className="w-full max-w-[980px] aspect-[4/3] rounded-xl overflow-hidden bg-black shadow-inner">
+                  <div className="w-full h-full min-h-[340px] rounded-xl overflow-hidden bg-black shadow-inner">
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-full max-w-[980px] aspect-[4/3] rounded-xl bg-gray-200 flex flex-col items-center justify-center">
+                  <div className="w-full h-full min-h-[340px] rounded-xl bg-gray-100 flex flex-col items-center justify-center">
                     <div className="w-28 h-28 bg-gray-300 rounded-full flex items-center justify-center mb-4">
                       <Camera className="w-14 h-14 text-gray-600" />
                     </div>
@@ -3113,7 +3113,7 @@ function MockInterviewPageContent({
               </div>
 
               {/* Controls */}
-              <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-3 bg-white/95 rounded-2xl px-4 py-3 shadow-lg border border-gray-200">
+              <div className="mt-3 w-full flex flex-wrap items-center justify-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-md border border-gray-200">
                 <button
                   onClick={handleToggleMic}
                   className={
