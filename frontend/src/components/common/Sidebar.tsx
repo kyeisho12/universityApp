@@ -4,7 +4,7 @@ import {
   Briefcase,
   FileText,
   Calendar,
-  Zap,
+  Bot,
   LogOut,
   User,
   ClipboardList,
@@ -97,7 +97,7 @@ export const Sidebar = ({
           onClick={() => handleNavClick("student/events")}
         />
         <NavItem
-          icon={<Zap className="w-5 h-5" />}
+          icon={<Bot className="w-5 h-5" />}
           label="Mock Interview"
           badge="AI"
           active={activeNav === "student/interview"}

@@ -4,7 +4,8 @@ import {
   Briefcase,
   FileText,
   Calendar,
-  Zap,
+  Sparkles,
+  Bot,
   ChevronRight,
   Upload,
   Eye,
@@ -202,7 +203,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
               label="Upcoming Events"
             />
             <StatCard
-              icon={<Eye className="w-8 h-8 text-gray-400" />}
+              icon={<Bot className="w-8 h-8 text-gray-400" />}
               number={loading ? "..." : interviewsCount.toString()}
               label="Mock Interviews"
             />
@@ -268,7 +269,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
               <div className="bg-gradient-to-br from-[#0096C7] to-[#00B4D8] rounded-lg max-h-[200px] sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 text-white shadow-lg flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5 sm:mb-2 md:mb-3">
-                    <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span className="text-xs font-medium">AI-Powered</span>
                   </div>
                   <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold mb-1 sm:mb-1.5 md:mb-2">
