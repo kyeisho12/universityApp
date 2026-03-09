@@ -3045,11 +3045,11 @@ function MockInterviewPageContent({
         </div>
 
         {/* Recording Interface */}
-        <div className="flex-1 flex gap-6 p-6 overflow-hidden">
+        <div className="flex-1 flex gap-6 p-6 overflow-y-auto">
           {/* Left - Camera Preview */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Recording Status and Controls */}
-            <div className="bg-gray-300 rounded-2xl flex-1 flex flex-col items-center justify-between p-6 mb-4 relative">
+            <div className="bg-gray-300 rounded-2xl flex-1 min-h-0 flex flex-col p-6 relative">
               {/* Recording Badge */}
               {isSessionStarted && (
                 <div
@@ -3086,7 +3086,7 @@ function MockInterviewPageContent({
                 )}
 
               {/* Camera Preview */}
-              <div className="flex items-center justify-center h-full">
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center py-10">
                 {isCameraOn && !mediaError ? (
                   <div className="w-full h-full rounded-xl overflow-hidden">
                     <video
@@ -3113,7 +3113,7 @@ function MockInterviewPageContent({
               </div>
 
               {/* Controls */}
-              <div className="flex flex-wrap items-center justify-center gap-3 bg-white/95 rounded-2xl px-4 py-3 shadow-lg border border-gray-200">
+              <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-3 bg-white/95 rounded-2xl px-4 py-3 shadow-lg border border-gray-200">
                 <button
                   onClick={handleToggleMic}
                   className={
