@@ -97,7 +97,7 @@ export async function getQuestionById(questionId) {
 		.select('id, question_text, category')
 		.eq('id', questionId)
 		.eq('is_active', true)
-		.single()
+		.maybeSingle()
 
 	if (error || !data) {
 		return { data: null, error: error || new Error('Question not found') }

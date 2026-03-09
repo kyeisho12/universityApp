@@ -671,15 +671,6 @@ function MockInterviewPageContent({
       }),
     ]);
 
-    if (openingResult.error || !openingResult.data) {
-      setQuestions([]);
-      setBankQuestionPool([]);
-      bankQuestionPoolRef.current = [];
-      setQuestionsError("Failed to load question bank. Please try again.");
-      setQuestionsLoading(false);
-      return [];
-    }
-
     if (bankResult.error) {
       setQuestions([]);
       setBankQuestionPool([]);
@@ -689,28 +680,32 @@ function MockInterviewPageContent({
       return [];
     }
 
-    const openingQuestion: Question = {
-      ...openingResult.data,
-      source: "fixed",
-      baseQuestionId: openingResult.data.id,
-    };
-
     const bankPool = (bankResult.data || []).map((question: Question) => ({
       ...question,
       source: "bank" as const,
       baseQuestionId: question.id,
     }));
 
-    if (bankPool.length === 0) {
-      setQuestions([openingQuestion]);
+    const openingQuestion: Question | null = openingResult.data
+      ? {
+          ...openingResult.data,
+          source: "fixed",
+          baseQuestionId: openingResult.data.id,
+        }
+      : null;
+
+    if (!openingQuestion && bankPool.length === 0) {
+      setQuestions([]);
       setBankQuestionPool([]);
       bankQuestionPoolRef.current = [];
       setQuestionsError("No active questions found in the question bank.");
       setQuestionsLoading(false);
-      return [openingQuestion];
+      return [];
     }
 
-    const initialQuestions = [openingQuestion];
+    const initialQuestions = openingQuestion
+      ? [openingQuestion]
+      : [bankPool.shift() as Question];
     setQuestions(initialQuestions);
     setBankQuestionPool(bankPool);
     bankQuestionPoolRef.current = bankPool;
