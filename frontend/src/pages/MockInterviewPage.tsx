@@ -849,16 +849,22 @@ function MockInterviewPageContent({
     }
 
     if (error || !data) {
-      setLatestWhisperStatus(null);
-      setLiveTranscriptText(null);
+      // Keep the last known transcript visible when polling fails transiently
+      // (common during tab switches / network hiccups).
       return { hasTranscript: false, whisperStatus: null as string | null };
     }
 
     const whisperStatus = data.whisper_status || null;
     const transcriptText = data.transcript_text?.trim() || null;
 
-    setLatestWhisperStatus(whisperStatus);
-    setLiveTranscriptText(transcriptText);
+    if (whisperStatus) {
+      setLatestWhisperStatus(whisperStatus);
+    }
+    if (transcriptText) {
+      setLiveTranscriptText(transcriptText);
+    } else if (whisperStatus === "completed" || whisperStatus === "failed") {
+      setLiveTranscriptText(null);
+    }
 
     // If transcript is complete and we have text, run automatic evaluation once
     try {
@@ -1867,16 +1873,47 @@ function MockInterviewPageContent({
       await refreshTranscriptAfterPause();
       setRecordingError("Answer saved. Return to this tab and click Confirm to continue.");
     } finally {
+      persistSnapshot();
       tabBackgroundPauseInFlightRef.current = false;
     }
   }, [
     isPauseTranscriptPending,
     isPaused,
+    persistSnapshot,
     isSessionStarted,
     refreshTranscriptAfterPause,
     sessionId,
     stopActiveRecording,
     updateInterviewSessionStatus,
+  ]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      if (!isSessionStarted || !isPaused) {
+        return;
+      }
+
+      const hasTranscriptText = Boolean(
+        (liveDraftTranscript || "").trim() || (liveTranscriptText || "").trim()
+      );
+      if (!hasTranscriptText) {
+        void refreshTranscriptAfterPause();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [
+    isPaused,
+    isSessionStarted,
+    liveDraftTranscript,
+    liveTranscriptText,
+    refreshTranscriptAfterPause,
   ]);
 
   useEffect(() => {
