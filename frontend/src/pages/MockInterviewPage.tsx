@@ -5,7 +5,9 @@ import {
   Video,
   CheckCircle,
   Mic,
+  MicOff,
   Camera,
+  CameraOff,
   ChevronRight,
   Volume2,
   RotateCcw,
@@ -3111,27 +3113,50 @@ function MockInterviewPageContent({
               </div>
 
               {/* Controls */}
-              <div className="flex items-center gap-4 bg-white rounded-2xl px-6 py-3 shadow-lg">
+              <div className="flex flex-wrap items-center justify-center gap-3 bg-white/95 rounded-2xl px-4 py-3 shadow-lg border border-gray-200">
                 <button
                   onClick={handleToggleMic}
                   className={
                     isMicOn
-                      ? "p-2 text-gray-600 hover:text-gray-900"
-                      : "p-2 text-red-600 hover:text-red-700"
+                      ? "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                      : "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                   }
                   title={isMicOn ? "Mute mic" : "Unmute mic"}
                 >
-                  <Mic className="w-6 h-6" />
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/80 border border-current/20">
+                    {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                  </span>
+                  <span className="text-left leading-tight">
+                    <span className="block text-xs font-semibold uppercase tracking-wide opacity-80">Microphone</span>
+                    <span className="block text-sm font-semibold">{isMicOn ? "Active" : "Muted"}</span>
+                  </span>
+                </button>
+                <button
+                  onClick={handleToggleCamera}
+                  className={
+                    isCameraOn
+                      ? "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition-colors"
+                      : "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                  }
+                  title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+                >
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/80 border border-current/20">
+                    {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                  </span>
+                  <span className="text-left leading-tight">
+                    <span className="block text-xs font-semibold uppercase tracking-wide opacity-80">Camera</span>
+                    <span className="block text-sm font-semibold">{isCameraOn ? "On" : "Off"}</span>
+                  </span>
                 </button>
                 <button
                   onClick={handleToggleMicLoopback}
                   disabled={!isMicOn || isSessionStarted}
                   className={
                     !isMicOn || isSessionStarted
-                      ? "p-2 text-gray-400 cursor-not-allowed"
+                      ? "inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
                       : isMicLoopbackOn
-                      ? "p-2 text-cyan-600 hover:text-cyan-700"
-                      : "p-2 text-gray-600 hover:text-gray-900"
+                      ? "inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors"
+                      : "inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
                   }
                   title={
                     isSessionStarted
@@ -3141,18 +3166,10 @@ function MockInterviewPageContent({
                       : "Start mic loopback test"
                   }
                 >
-                  <Volume2 className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={handleToggleCamera}
-                  className={
-                    isCameraOn
-                      ? "p-2 text-gray-600 hover:text-gray-900"
-                      : "p-2 text-red-600 hover:text-red-700"
-                  }
-                  title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-                >
-                  <Camera className="w-6 h-6" />
+                  <Volume2 className="w-4 h-4" />
+                  <span className="text-sm font-semibold">
+                    {isMicLoopbackOn ? "Stop Mic Test" : "Mic Test"}
+                  </span>
                 </button>
                 <button
                   onClick={handleRestartCurrentAnswer}
