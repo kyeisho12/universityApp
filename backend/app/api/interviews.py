@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from flask_cors import cross_origin
 from app.services.interview_service import InterviewService
 from functools import wraps
 
@@ -240,8 +241,9 @@ def get_session_segments(session_id):
         }), 500
 
 
-@interviews_bp.route("/sessions/<session_id>/segments/<segment_id>/transcribe", methods=["POST"])
+@interviews_bp.route("/sessions/<session_id>/segments/<segment_id>/transcribe", methods=["POST", "OPTIONS"])
 @require_auth
+@cross_origin(methods=["POST", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
 def transcribe_segment(session_id, segment_id):
     """Trigger Whisper transcription for one uploaded segment."""
     try:
@@ -256,8 +258,9 @@ def transcribe_segment(session_id, segment_id):
         }), 500
 
 
-@interviews_bp.route("/transcribe-live", methods=["POST"])
+@interviews_bp.route("/transcribe-live", methods=["POST", "OPTIONS"])
 @require_auth
+@cross_origin(methods=["POST", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
 def transcribe_live_audio():
     """Transcribe a short live audio chunk while recording continues."""
     try:
