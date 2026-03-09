@@ -179,7 +179,7 @@ export default function CreateStudentProfilePage() {
     }
   }, [isProfileComplete, isEditMode, navigate])
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = e.target
     setIsDirty(true)
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -286,6 +286,10 @@ export default function CreateStudentProfilePage() {
     e.preventDefault()
     setError('')
     setMessage('')
+    if (!formData.college) {
+      setError('Please select a college.')
+      return
+    }
     const preferredJobTypes = formData.preferred_job_types.map((item) => item.trim()).filter(Boolean)
     const preferredIndustries = formData.preferred_industries.map((item) => item.trim()).filter(Boolean)
     const preferredLocations = formData.preferred_locations.map((item) => item.trim()).filter(Boolean)
@@ -296,6 +300,7 @@ export default function CreateStudentProfilePage() {
       phone: toStringValue(formData.phone).trim(),
       address: toStringValue(formData.address).trim(),
       university: toStringValue(formData.university).trim(),
+      college: toStringValue(formData.college).trim(),
       major: toStringValue(formData.major).trim(),
       graduation_year: formData.graduation_year ? Number(formData.graduation_year) : null,
       year_level: formData.year_level ? Number(formData.year_level) : null,
@@ -371,15 +376,25 @@ export default function CreateStudentProfilePage() {
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
           College *
-          <input
-            type="text"
+          <select
             name="college"
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
             value={formData.college}
             onChange={handleChange}
             required
-            placeholder="e.g., CCS, CBA"
-            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-          />
+          >
+            <option value="">Select College</option>
+            <option value="CASS">CASS</option>
+            <option value="CAFA">CAFA</option>
+            <option value="CBA">CBA</option>
+            <option value="CCS">CCS</option>
+            <option value="COE">COE</option>
+            <option value="CIT">CIT</option>
+            <option value="CCJE">CCJE</option>
+            <option value="CPAG">CPAG</option>
+            <option value="COED">COED</option>
+            <option value="COS">COS</option>
+          </select>
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
           Major *

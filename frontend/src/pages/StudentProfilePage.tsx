@@ -46,6 +46,7 @@ export default function StudentProfilePage() {
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
   const studentId = profile?.student_number || profile?.student_id || "2024-00001";
   const department = profile?.university || "Department";
+  const college = profile?.college || "";
   const skills = Array.isArray(profile?.skills_entries)
     ? profile.skills_entries
     : (profile?.skills || "")
@@ -151,7 +152,7 @@ export default function StudentProfilePage() {
                       <p className="text-sm text-gray-500">{studentId}</p>
                     </div>
                     <span className="text-xs font-semibold text-[#00B4D8] bg-[#E0F7FA] px-3 py-1 rounded-full">
-                      {department}
+                      {department} {college && `- ${college}`}
                     </span>
                   </div>
                 </div>
