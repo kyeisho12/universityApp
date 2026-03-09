@@ -1,5 +1,21 @@
 import { supabase } from '../lib/supabaseClient'
 
+function isMissingEventRegistrationsTableError(error: any): boolean {
+  if (!error) return false
+  const code = String(error.code || '')
+  const message = String(error.message || '').toLowerCase()
+  const details = String(error.details || '').toLowerCase()
+  const hint = String(error.hint || '').toLowerCase()
+
+  return (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    message.includes('event_registrations') ||
+    details.includes('event_registrations') ||
+    hint.includes('event_registrations')
+  )
+}
+
 export interface CareerEvent {
   id: string
   event_type: string
@@ -85,7 +101,9 @@ export async function getEventsForStudent(studentId?: string): Promise<EventWith
         .eq('student_id', effectiveStudentId)
       
       if (regError) {
-        console.warn('Failed to fetch student registrations:', regError)
+        if (!isMissingEventRegistrationsTableError(regError)) {
+          console.warn('Failed to fetch student registrations:', regError)
+        }
       } else {
         registeredEventIds = new Set((registrations || []).map(r => r.event_id))
       }
@@ -99,7 +117,9 @@ export async function getEventsForStudent(studentId?: string): Promise<EventWith
     // Count registrations per event
     const countMap = new Map<string, number>()
     if (countError) {
-      console.warn('Failed to fetch registration counts:', countError)
+      if (!isMissingEventRegistrationsTableError(countError)) {
+        console.warn('Failed to fetch registration counts:', countError)
+      }
     } else {
       regCounts?.forEach(reg => {
         countMap.set(reg.event_id, (countMap.get(reg.event_id) || 0) + 1)
@@ -201,6 +221,9 @@ export async function registerForEvent(eventId: string, studentId: string): Prom
     if (error.code === '23505') { // Unique constraint violation
       throw new Error('Already registered for this event')
     }
+    if (isMissingEventRegistrationsTableError(error)) {
+      throw new Error('Event registration is still being set up. Please try again shortly.')
+    }
     throw error
   }
 }
@@ -222,7 +245,12 @@ export async function unregisterFromEvent(eventId: string, studentId: string): P
     .eq('event_id', eventId)
     .eq('student_id', user.id) // Use authenticated user ID
   
-  if (error) throw error
+  if (error) {
+    if (isMissingEventRegistrationsTableError(error)) {
+      throw new Error('Event registration is still being set up. Please try again shortly.')
+    }
+    throw error
+  }
 }
 
 /**

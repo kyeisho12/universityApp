@@ -181,7 +181,6 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
 
       await registerForEvent(eventId, supabaseUserId);
     } catch (err) {
-      console.error('Registration error:', err);
       const isAlreadyRegistered = err instanceof Error && err.message.toLowerCase().includes('already registered');
       if (!isAlreadyRegistered) {
         setRegisteredEvents(previousRegistered);

@@ -1,5 +1,21 @@
 import { supabase } from "../lib/supabaseClient";
 
+function isMissingEventRegistrationsTableError(error: any): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const message = String(error.message || "").toLowerCase();
+  const details = String(error.details || "").toLowerCase();
+  const hint = String(error.hint || "").toLowerCase();
+
+  return (
+    code === "PGRST205" ||
+    code === "42P01" ||
+    message.includes("event_registrations") ||
+    details.includes("event_registrations") ||
+    hint.includes("event_registrations")
+  );
+}
+
 export type MonthlyTrendPoint = { month: string; interviews: number; applications: number };
 export type ActivityTrendPoint = { month: string; newStudents: number; registrations: number };
 export type CountPoint = { label: string; count: number };
@@ -90,7 +106,9 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
   if (sessionsRes.error) throw sessionsRes.error;
   if (applicationsRes.error) throw applicationsRes.error;
   if (eventsRes.error) throw eventsRes.error;
-  if (registrationsRes.error) throw registrationsRes.error;
+  if (registrationsRes.error && !isMissingEventRegistrationsTableError(registrationsRes.error)) {
+    throw registrationsRes.error;
+  }
 
   const profiles = (profilesRes.data ?? []) as ProfileRow[];
   const sessions = (sessionsRes.data ?? []) as SessionRow[];
