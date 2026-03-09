@@ -9,6 +9,7 @@ interface ProfileForm {
   phone: string
   address: string
   university: string
+  college: string
   major: string
   graduation_year: string | number | null
   year_level: string | number | null  // Added year level field
@@ -40,6 +41,7 @@ const initialState: ProfileForm = {
   phone: '',
   address: '',
   university: '',
+  college: '',
   major: '',
   graduation_year: '',
   year_level: '',  // Added year level initial state
@@ -133,6 +135,7 @@ export default function CreateStudentProfilePage() {
         phone: toStringValue(profile.phone),
         address: toStringValue(profile.address),
         university: toStringValue(profile.university),
+        college: toStringValue(profile.college),
         major: toStringValue(profile.major),
         graduation_year: profile.graduation_year ?? '',
         year_level: profile.year_level ?? '',
@@ -364,6 +367,18 @@ export default function CreateStudentProfilePage() {
             required
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
         />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+          College *
+          <input
+            type="text"
+            name="college"
+            value={formData.college}
+            onChange={handleChange}
+            required
+            placeholder="e.g., CCS, CBA"
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          />
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
           Major *
