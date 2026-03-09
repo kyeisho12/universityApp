@@ -9,6 +9,7 @@ import { useStudent } from "../context/StudentContext";
 import { useStudentId } from "../hooks/useStudentId";
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
+import { generateCoverLetterPDF, generateResumePDF } from "../utils/pdfGenerator";
 import {
   ALLOWED_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
@@ -607,8 +608,6 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setStatusMessage(null);
 
     try {
-      // Generate PDF using the template
-      const { generateResumePDF } = await import("../utils/pdfGenerator");
       const pdfBlob = generateResumePDF({
         personalInfo,
         skills,
@@ -702,7 +701,6 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setErrorMessage(null);
 
     try {
-      const { generateCoverLetterPDF } = await import("../utils/pdfGenerator");
       const pdfBlob = generateCoverLetterPDF(coverLetterForm);
       const safeName = coverLetterName.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
       const fileName = `cover_letter_${safeName || "document"}.pdf`;
