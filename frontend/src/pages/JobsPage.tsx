@@ -90,7 +90,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
+  const [customJobType, setCustomJobType] = useState("");
   const [filterCategory, setFilterCategory] = useState("All Types");
+  const [customCategory, setCustomCategory] = useState("");
   const [optimisticAppliedJobs, setOptimisticAppliedJobs] = useState<Set<string>>(new Set());
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -200,6 +202,24 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const closeApplyModal = () => {
     setShowApplyModal(false);
     setApplyMessage(null);
+  };
+
+  // Handle filter type change
+  const handleFilterTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFilterType(value);
+    if (value !== 'Other') {
+      setCustomJobType('');
+    }
+  };
+
+  // Handle filter category change
+  const handleFilterCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFilterCategory(value);
+    if (value !== 'Other') {
+      setCustomCategory('');
+    }
   };
 
   // Fetch user profile data with caching
@@ -390,12 +410,29 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.employer_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesType = filterType === "All" || job.job_type === filterType;
+    // Handle job type filter including custom "Other" type
+    let matchesType = false;
+    if (filterType === "All") {
+      matchesType = true;
+    } else if (filterType === "Other" && customJobType) {
+      // For custom type, match if job type contains the custom input (case-insensitive partial match)
+      // This allows real-time filtering as user types
+      const jobTypeLower = (job.job_type || "").toLowerCase();
+      const customTypeLower = customJobType.toLowerCase();
+      matchesType = jobTypeLower.includes(customTypeLower) || customTypeLower.includes(jobTypeLower);
+    } else {
+      matchesType = job.job_type === filterType;
+    }
+
     const matchesCategory =
-      filterCategory === "All Types" || job.category === filterCategory;
+      filterCategory === "All Types" 
+        ? true 
+        : filterCategory === "Other" && customCategory
+          ? (job.category || "").toLowerCase().includes(customCategory.toLowerCase()) || customCategory.toLowerCase().includes((job.category || "").toLowerCase())
+          : job.category === filterCategory;
 
     return matchesSearch && matchesType && matchesCategory;
-  }), [jobs, searchTerm, filterType, filterCategory]);
+  }), [jobs, searchTerm, filterType, filterCategory, customJobType, customCategory]);
 
   const recommendedJobs = useMemo(() => {
     if (!jobs.length) return [];
@@ -683,7 +720,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
               <div className="flex gap-3">
                 <select
                   value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
+                  onChange={handleFilterTypeChange}
                   className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
                 >
                   <option>All</option>
@@ -691,10 +728,22 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   <option>Full-time</option>
                   <option>Part-time</option>
                   <option>Contract</option>
+                  <option value="Other">Other (Specify)</option>
                 </select>
+                
+                {/* Show custom job type input when "Other" is selected */}
+                {filterType === 'Other' && (
+                  <input
+                    type="text"
+                    placeholder="Enter job type..."
+                    value={customJobType}
+                    onChange={(e) => setCustomJobType(e.target.value)}
+                    className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[160px]"
+                  />
+                )}
                 <select
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
+                  onChange={handleFilterCategoryChange}
                   className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
                 >
                   <option>All Types</option>
@@ -704,7 +753,19 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   <option>Business Analytics</option>
                   <option>Finance</option>
                   <option>Marketing</option>
+                  <option value="Other">Other (Specify)</option>
                 </select>
+                
+                {/* Show custom category input when "Other" is selected */}
+                {filterCategory === 'Other' && (
+                  <input
+                    type="text"
+                    placeholder="Enter category..."
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[160px]"
+                  />
+                )}
                 <button className="px-4 py-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50">
                   <Filter className="w-5 h-5 text-gray-600" />
                 </button>

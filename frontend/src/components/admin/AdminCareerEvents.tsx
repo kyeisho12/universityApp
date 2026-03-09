@@ -55,6 +55,7 @@ export default function AdminCareerEvents() {
     time: "",
     location: "",
   });
+  const [customEventType, setCustomEventType] = React.useState("");
 
   const userName = user?.email?.split("@")[0] || "";
   const userID = "2024-00001";

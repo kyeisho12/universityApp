@@ -37,3 +37,17 @@
 - The attached cover letter is stored in the resumes table and referenced via cover_letter_id
 - The Apply Outlook page shows the attached cover letter with download option
 
+### 6. Additional Feature: "Other" option for job type filter ✅
+- Added custom job type input field in JobsPage.tsx
+- Students can now specify custom job types when filtering job listings
+- The dropdown shows "Other (Specify)" option
+- When selected, a text input appears for custom job type entry
+- Real-time filtering: as user types, jobs matching the input are filtered immediately (partial/substring matching)
+
+### 7. Additional Feature: "Other" option for job category filter ✅
+- Added custom category input field in JobsPage.tsx
+- Students can now specify custom categories when filtering job listings
+- The category dropdown shows "Other (Specify)" option
+- When selected, a text input appears for custom category entry
+- Real-time filtering: as user types, jobs matching the category are filtered immediately (partial/substring matching)
+
