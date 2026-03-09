@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 
 let liveTranscribePreferredBaseUrl = null
+const NEXT_QUESTION_DECISION_TIMEOUT_MS = 9000
 
 function normalizeApiBaseUrl(rawValue) {
 	if (!rawValue) return ''
@@ -542,11 +543,14 @@ export async function decideNextQuestionStep({
 			let decisionRouteUnavailable = false
 
 			for (const endpoint of decisionEndpoints) {
+				const controller = new AbortController()
+				const timeoutId = setTimeout(() => controller.abort(), NEXT_QUESTION_DECISION_TIMEOUT_MS)
 				const response = await fetch(`${baseUrl}${endpoint}`, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
 					},
+					signal: controller.signal,
 					body: JSON.stringify({
 						current_question: currentQuestion,
 						candidate_answer: candidateAnswer,
@@ -556,6 +560,7 @@ export async function decideNextQuestionStep({
 						followup_count_for_current: followupCountForCurrent,
 					}),
 				})
+				clearTimeout(timeoutId)
 
 				const payload = await response.json().catch(() => ({}))
 
@@ -576,11 +581,14 @@ export async function decideNextQuestionStep({
 				continue
 			}
 
+			const fallbackController = new AbortController()
+			const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), NEXT_QUESTION_DECISION_TIMEOUT_MS)
 			const followupFallbackResponse = await fetch(`${baseUrl}/interviews/follow-up-question`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
+				signal: fallbackController.signal,
 				body: JSON.stringify({
 					original_question: currentQuestion,
 					candidate_answer: candidateAnswer,
@@ -588,6 +596,7 @@ export async function decideNextQuestionStep({
 					ideal_answer: idealAnswer,
 				}),
 			})
+			clearTimeout(fallbackTimeoutId)
 
 			const followupFallbackPayload = await followupFallbackResponse.json().catch(() => ({}))
 			if (followupFallbackResponse.ok && followupFallbackPayload?.success !== false) {
@@ -605,7 +614,12 @@ export async function decideNextQuestionStep({
 				}
 			}
 		} catch (error) {
-			lastError = error instanceof Error ? error : new Error('Unknown next question decision error')
+			const asError = error instanceof Error ? error : new Error('Unknown next question decision error')
+			if (asError.name === 'AbortError') {
+				lastError = new Error(`Next question decision timed out after ${NEXT_QUESTION_DECISION_TIMEOUT_MS}ms`)
+			} else {
+				lastError = asError
+			}
 		}
 	}
 
