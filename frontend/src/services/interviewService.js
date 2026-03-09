@@ -2,6 +2,33 @@ import { supabase } from '../lib/supabaseClient'
 
 let liveTranscribePreferredBaseUrl = null
 
+function normalizeApiBaseUrl(rawValue) {
+	if (!rawValue) return ''
+	let value = String(rawValue).trim()
+	if (!value) return ''
+
+	if (value.includes('localhost:5000')) {
+		value = value.replace('localhost:5000', 'localhost:3001')
+	}
+
+	value = value.replace(/\/+$/, '')
+	if (!/\/api$/i.test(value)) {
+		value = `${value}/api`
+	}
+
+	return value
+}
+
+function getInterviewApiBaseUrls() {
+	const normalizedConfiguredBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || '')
+	const isLocalHost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)
+	const fallbackBaseUrls = isLocalHost
+		? ['http://localhost:3001/api', 'http://127.0.0.1:3001/api']
+		: []
+
+	return Array.from(new Set([normalizedConfiguredBaseUrl, ...fallbackBaseUrls].filter(Boolean)))
+}
+
 function delay(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -379,12 +406,7 @@ export async function triggerSegmentTranscription({ sessionId, segmentId, force 
 		return { data: null, error: new Error('Missing session id or segment id') }
 	}
 
-	const configuredBaseUrl = (import.meta.env.VITE_API_URL || '').trim()
-	const normalizedConfiguredBaseUrl = configuredBaseUrl.includes('localhost:5000')
-		? configuredBaseUrl.replace('localhost:5000', 'localhost:3001')
-		: configuredBaseUrl
-	const fallbackBaseUrls = ['http://localhost:3001/api', 'http://127.0.0.1:3001/api']
-	const baseUrls = Array.from(new Set([normalizedConfiguredBaseUrl, ...fallbackBaseUrls].filter(Boolean)))
+	const baseUrls = getInterviewApiBaseUrls()
 
 	let lastError = null
 
@@ -431,15 +453,10 @@ export async function transcribeLiveAudioChunk({ audioBlob, language = 'en' }) {
 		return { data: null, error: new Error('Missing audio chunk') }
 	}
 
-	const configuredBaseUrl = (import.meta.env.VITE_API_URL || '').trim()
-	const normalizedConfiguredBaseUrl = configuredBaseUrl.includes('localhost:5000')
-		? configuredBaseUrl.replace('localhost:5000', 'localhost:3001')
-		: configuredBaseUrl
-	const fallbackBaseUrls = ['http://localhost:3001/api', 'http://127.0.0.1:3001/api']
+	const interviewBaseUrls = getInterviewApiBaseUrls()
 	const orderedBaseUrls = [
-		liveTranscribePreferredBaseUrl,
-		normalizedConfiguredBaseUrl,
-		...fallbackBaseUrls,
+		normalizeApiBaseUrl(liveTranscribePreferredBaseUrl),
+		...interviewBaseUrls,
 	].filter(Boolean)
 	const baseUrls = Array.from(new Set(orderedBaseUrls))
 
@@ -511,12 +528,7 @@ export async function decideNextQuestionStep({
 		return { data: null, error: new Error('Missing currentQuestion or candidateAnswer') }
 	}
 
-	const configuredBaseUrl = (import.meta.env.VITE_API_URL || '').trim()
-	const normalizedConfiguredBaseUrl = configuredBaseUrl.includes('localhost:5000')
-		? configuredBaseUrl.replace('localhost:5000', 'localhost:3001')
-		: configuredBaseUrl
-	const fallbackBaseUrls = ['http://localhost:3001/api', 'http://127.0.0.1:3001/api']
-	const baseUrls = Array.from(new Set([normalizedConfiguredBaseUrl, ...fallbackBaseUrls].filter(Boolean)))
+	const baseUrls = getInterviewApiBaseUrls()
 
 	let lastError = null
 
