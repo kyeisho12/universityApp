@@ -66,6 +66,60 @@ function toStorageSafeName(value) {
 		.replace(/^_+|_+$/g, '')
 }
 
+function normalizeQuestionText(value) {
+	return String(value || '')
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+}
+
+export async function getPreferredOpeningQuestion(preferredQuestionId = null) {
+	const { data, error } = await supabase
+		.from('interview_question_bank')
+		.select('id, question_text, question_normalized, category')
+		.eq('is_active', true)
+
+	if (error) {
+		return { data: null, error }
+	}
+
+	const questions = data || []
+	if (questions.length === 0) {
+		return { data: null, error: new Error('No active questions found') }
+	}
+
+	const preferredPhrases = [
+		'tell me about yourself',
+		'tell me something about yourself',
+		'introduce yourself',
+	]
+
+	const preferredIdMatch = preferredQuestionId
+		? questions.find((item) => item.id === preferredQuestionId)
+		: null
+
+	const preferredTextMatch = questions.find((item) => {
+		const normalized = normalizeQuestionText(item.question_normalized || item.question_text)
+		return preferredPhrases.includes(normalized)
+	})
+
+	const selected = preferredTextMatch || preferredIdMatch || null
+	if (!selected) {
+		return { data: null, error: new Error('Preferred opening question not found') }
+	}
+
+	return {
+		data: {
+			id: selected.id,
+			type: toTitleCase(selected.category || 'general'),
+			question: selected.question_text,
+			tip: 'Use the STAR method and provide one concrete example in your response.',
+		},
+		error: null,
+	}
+}
+
 export async function getMockInterviewQuestions(limit = 5) {
 	const { data, error } = await supabase
 		.from('interview_question_bank')

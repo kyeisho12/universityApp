@@ -27,6 +27,7 @@ import {
   getLatestQuestionTranscript,
   getMockInterviewQuestionsExcluding,
   getQuestionById,
+  getPreferredOpeningQuestion,
   insertRecordingSegmentMetadata,
   startInterviewSession,
   triggerPendingSessionTranscriptions,
@@ -675,7 +676,7 @@ function MockInterviewPageContent({
     setQuestionsError(null);
 
     const [openingResult, bankResult] = await Promise.all([
-      getQuestionById(OPENING_QUESTION_ID),
+      getPreferredOpeningQuestion(OPENING_QUESTION_ID),
       getMockInterviewQuestionsExcludingTyped({
         limit: RANDOM_BANK_QUESTION_COUNT,
         excludeIds: [OPENING_QUESTION_ID],
