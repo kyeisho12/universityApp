@@ -342,9 +342,9 @@ export default function AdminCareerEvents() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
-      {/* Sidebar (hidden on small screens) */}
-      <div className="hidden md:block">
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <div className="fixed inset-y-0 left-0 w-72 z-40 hidden md:block">
         <AdminNavbar
           userName={userName}
           userID={userID}
@@ -386,7 +386,7 @@ export default function AdminCareerEvents() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="md:ml-72">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center justify-between px-6 py-4">
@@ -401,9 +401,7 @@ export default function AdminCareerEvents() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="p-4 sm:p-6 lg:p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
             {/* Header */}
             <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -563,7 +561,6 @@ export default function AdminCareerEvents() {
                 </div>
               )}
             </div>
-          </div>
         </main>
       </div>
 
