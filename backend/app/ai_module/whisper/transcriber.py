@@ -10,20 +10,34 @@ class WhisperTranscriber:
 	def __init__(self):
 		self.backend = os.getenv("WHISPER_BACKEND", "hybrid").lower()
 		self.hybrid_preference = os.getenv("WHISPER_HYBRID_PREFERENCE", "local_first").lower()
+		self.is_render_environment = bool(os.getenv("RENDER"))
 
 		self.local_model_name = os.getenv("WHISPER_LOCAL_MODEL", "base")
 		self.local_device = os.getenv("WHISPER_LOCAL_DEVICE", "cpu")
 		self.local_compute_type = os.getenv("WHISPER_LOCAL_COMPUTE_TYPE", "int8")
 		self.local_model = None
 		self.local_model_error: Optional[str] = None
+		self.local_model_load_attempted = False
 
 		self.api_key = os.getenv("OPENAI_API_KEY")
 		self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 		self.openai_model = os.getenv("OPENAI_WHISPER_MODEL", "whisper-1")
+		self.openai_timeout_seconds = int(os.getenv("OPENAI_WHISPER_TIMEOUT_SECONDS", "45"))
+
+		# Render free instances are resource-constrained; if OpenAI is configured,
+		# avoid local model first-attempt latency spikes on live transcription endpoints.
+		if self.is_render_environment and self.backend == "hybrid" and self.api_key:
+			if self.hybrid_preference in {"local", "local_first", "speed_first"}:
+				self.hybrid_preference = "openai_first"
 
 	def _ensure_local_model(self) -> bool:
 		if self.local_model is not None:
 			return True
+
+		if self.local_model_load_attempted:
+			return False
+
+		self.local_model_load_attempted = True
 
 		try:
 			from faster_whisper import WhisperModel  # type: ignore
@@ -123,7 +137,7 @@ class WhisperTranscriber:
 				headers=headers,
 				files=files,
 				data=data,
-				timeout=120,
+				timeout=self.openai_timeout_seconds,
 			)
 			if response.status_code not in [200, 201]:
 				return {

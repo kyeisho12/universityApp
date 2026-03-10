@@ -1,11 +1,14 @@
 from app import create_app
 import logging
+import os
 
 app = create_app()
 
-# Enable detailed error logging
-logging.basicConfig(level=logging.DEBUG)
-app.logger.setLevel(logging.DEBUG)
+# Use environment-driven logging to avoid DEBUG overhead in production.
+log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, log_level_name, logging.INFO)
+logging.basicConfig(level=log_level)
+app.logger.setLevel(log_level)
 
 if __name__ == "__main__":
 	# Disable reloader and debug mode to avoid module caching issues
