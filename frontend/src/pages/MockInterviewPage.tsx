@@ -2029,6 +2029,46 @@ function MockInterviewPageContent({
       const hasReachedMinimumQuestions = askedQuestionCount >= MIN_SESSION_QUESTION_COUNT;
       const hasReachedStarAverageTarget = sessionStarAverage >= STAR_AVERAGE_TARGET_SCORE;
 
+      const evaluationEntries = Object.entries(evaluations || {});
+      const evaluatedCount = evaluationEntries.length;
+      const currentScoreSum = evaluatedCount > 0 ? sessionStarAverage * evaluatedCount : 0;
+      const mandatoryQuestionsRemaining = Math.max(
+        MIN_SESSION_QUESTION_COUNT - askedQuestionCount,
+        0
+      );
+      const projectedBestCaseAverageAtMinimum =
+        evaluatedCount + mandatoryQuestionsRemaining > 0
+          ? (currentScoreSum + mandatoryQuestionsRemaining * 5) /
+            (evaluatedCount + mandatoryQuestionsRemaining)
+          : 5;
+
+      const currentEvaluation = evaluations[currentQuestion];
+      const currentBreakdown = currentEvaluation?.breakdown;
+      const currentDims = currentBreakdown
+        ? [
+            Number(currentBreakdown.situation),
+            Number(currentBreakdown.task),
+            Number(currentBreakdown.action),
+            Number(currentBreakdown.result),
+            Number(currentBreakdown.reflection),
+          ].filter(Number.isFinite)
+        : [];
+      const currentQuestionStarAverage =
+        currentDims.length === 5
+          ? currentDims.reduce((sum, value) => sum + value, 0) / 5
+          : Number.isFinite(Number(currentEvaluation?.score))
+          ? Number(currentEvaluation?.score)
+          : null;
+
+      const hasScoreDeficit = sessionStarAverage < STAR_AVERAGE_TARGET_SCORE;
+      const currentAnswerIsBelowTarget =
+        typeof currentQuestionStarAverage === "number" &&
+        currentQuestionStarAverage < STAR_AVERAGE_TARGET_SCORE;
+      const followupNeededForTarget =
+        hasScoreDeficit &&
+        (currentAnswerIsBelowTarget ||
+          projectedBestCaseAverageAtMinimum < STAR_AVERAGE_TARGET_SCORE);
+
       const preparedMessage =
         triggerSource === "auto"
           ? "No-speech capture finalized. Decision is ready. Click Next Question to continue, or Restart Answer to try again."
@@ -2073,7 +2113,8 @@ function MockInterviewPageContent({
       const shouldAskFollowup =
         !decisionResult.error &&
         decisionResult.data?.action === "follow_up" &&
-        Boolean(decisionResult.data?.followup_question);
+        Boolean(decisionResult.data?.followup_question) &&
+        followupNeededForTarget;
 
       if (shouldAskFollowup) {
         if (questions.length >= MAX_SESSION_QUESTION_COUNT) {
@@ -2145,6 +2186,7 @@ function MockInterviewPageContent({
       followupCountByBase,
       liveDraftTranscript,
       liveTranscriptText,
+      evaluations,
       questions,
     ]
   );

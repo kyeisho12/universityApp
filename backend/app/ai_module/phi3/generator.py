@@ -17,14 +17,122 @@ class Phi3FollowupGenerator:
 		self.base_url = os.getenv("PHI3_OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
 		self.timeout_seconds = int(os.getenv("PHI3_TIMEOUT_SECONDS", "60"))
 
+		self.openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
+		self.openai_base_url = os.getenv("PHI3_OPENAI_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
+		self.openai_model = os.getenv("PHI3_OPENAI_MODEL", "gpt-4o-mini").strip()
+
 		self.temperature = float(os.getenv("PHI3_TEMPERATURE", "0.25"))
 		self.top_p = float(os.getenv("PHI3_TOP_P", "0.9"))
 		self.max_tokens = int(os.getenv("PHI3_MAX_TOKENS", "90"))
 
 	def is_configured(self) -> bool:
-		if self.provider != "ollama":
-			return False
-		return bool(self.model and self.base_url)
+		if self.provider == "ollama":
+			return bool(self.model and self.base_url)
+		if self.provider == "openai":
+			return bool(self.openai_api_key and self.openai_model and self.openai_base_url)
+		return False
+
+	def _generate_with_ollama(self, prompt: str, temperature: float, top_p: float, max_tokens: int) -> Dict[str, Any]:
+		payload = {
+			"model": self.model,
+			"prompt": prompt,
+			"stream": False,
+			"options": {
+				"temperature": temperature,
+				"top_p": top_p,
+				"num_predict": max_tokens,
+			},
+		}
+
+		response = requests.post(
+			f"{self.base_url}/api/generate",
+			json=payload,
+			timeout=self.timeout_seconds,
+		)
+
+		if response.status_code != 200:
+			return {
+				"success": False,
+				"error": response.text or f"Ollama request failed ({response.status_code})",
+			}
+
+		response_payload = response.json() if response.text else {}
+		raw_text = str(response_payload.get("response") or "").strip()
+		return {
+			"success": True,
+			"text": raw_text,
+			"source": "phi3_local",
+			"raw": response_payload,
+		}
+
+	def _generate_with_openai(self, prompt: str, temperature: float, top_p: float, max_tokens: int) -> Dict[str, Any]:
+		headers = {
+			"Authorization": f"Bearer {self.openai_api_key}",
+			"Content-Type": "application/json",
+		}
+
+		payload = {
+			"model": self.openai_model,
+			"messages": [
+				{
+					"role": "system",
+					"content": "You are an expert interview assistant.",
+				},
+				{
+					"role": "user",
+					"content": prompt,
+				},
+			],
+			"temperature": temperature,
+			"top_p": top_p,
+			"max_tokens": max_tokens,
+		}
+
+		response = requests.post(
+			f"{self.openai_base_url}/chat/completions",
+			headers=headers,
+			json=payload,
+			timeout=self.timeout_seconds,
+		)
+
+		if response.status_code not in [200, 201]:
+			return {
+				"success": False,
+				"error": response.text or f"OpenAI request failed ({response.status_code})",
+			}
+
+		response_payload = response.json() if response.text else {}
+		choices = response_payload.get("choices") if isinstance(response_payload, dict) else []
+		first_choice = choices[0] if isinstance(choices, list) and choices else {}
+		message = first_choice.get("message") if isinstance(first_choice, dict) else {}
+		raw_text = str(message.get("content") or "").strip() if isinstance(message, dict) else ""
+
+		return {
+			"success": True,
+			"text": raw_text,
+			"source": "openai",
+			"raw": response_payload,
+		}
+
+	def _generate_text(self, prompt: str, temperature: float, top_p: float, max_tokens: int) -> Dict[str, Any]:
+		if self.provider == "ollama":
+			return self._generate_with_ollama(
+				prompt=prompt,
+				temperature=temperature,
+				top_p=top_p,
+				max_tokens=max_tokens,
+			)
+		if self.provider == "openai":
+			return self._generate_with_openai(
+				prompt=prompt,
+				temperature=temperature,
+				top_p=top_p,
+				max_tokens=max_tokens,
+			)
+		return {
+			"success": False,
+			"error": f"Unsupported PHI3_PROVIDER value: {self.provider}",
+		}
 
 	def generate_followup_question(
 		self,
@@ -39,7 +147,7 @@ class Phi3FollowupGenerator:
 				"success": True,
 				"question": fallback,
 				"source": "fallback",
-				"error": "Phi-3 provider is not configured",
+				"error": "Follow-up provider is not configured",
 			}
 
 		prompt = build_followup_prompt(
@@ -50,34 +158,23 @@ class Phi3FollowupGenerator:
 		)
 
 		try:
-			payload = {
-				"model": self.model,
-				"prompt": prompt,
-				"stream": False,
-				"options": {
-					"temperature": self.temperature,
-					"top_p": self.top_p,
-					"num_predict": self.max_tokens,
-				},
-			}
-
-			response = requests.post(
-				f"{self.base_url}/api/generate",
-				json=payload,
-				timeout=self.timeout_seconds,
+			generation = self._generate_text(
+				prompt=prompt,
+				temperature=self.temperature,
+				top_p=self.top_p,
+				max_tokens=self.max_tokens,
 			)
 
-			if response.status_code != 200:
+			if not generation.get("success"):
 				fallback = self._fallback_question(original_question, candidate_answer)
 				return {
 					"success": True,
 					"question": fallback,
 					"source": "fallback",
-					"error": response.text or f"Ollama request failed ({response.status_code})",
+					"error": generation.get("error") or "Generation request failed",
 				}
 
-			payload = response.json() if response.text else {}
-			raw_question = str(payload.get("response") or "").strip()
+			raw_question = str(generation.get("text") or "").strip()
 			question = self._normalize_question(raw_question)
 
 			if not question:
@@ -92,8 +189,8 @@ class Phi3FollowupGenerator:
 			return {
 				"success": True,
 				"question": question,
-				"source": "phi3_local",
-				"raw": payload,
+				"source": generation.get("source", "unknown"),
+				"raw": generation.get("raw"),
 			}
 		except Exception as error:
 			fallback = self._fallback_question(original_question, candidate_answer)
@@ -136,34 +233,23 @@ class Phi3FollowupGenerator:
 		)
 
 		try:
-			payload = {
-				"model": self.model,
-				"prompt": prompt,
-				"stream": False,
-				"options": {
-					"temperature": 0.1,
-					"top_p": 0.8,
-					"num_predict": 80,
-				},
-			}
-
-			response = requests.post(
-				f"{self.base_url}/api/generate",
-				json=payload,
-				timeout=self.timeout_seconds,
+			generation = self._generate_text(
+				prompt=prompt,
+				temperature=0.1,
+				top_p=0.8,
+				max_tokens=80,
 			)
 
-			if response.status_code != 200:
+			if not generation.get("success"):
 				default_action = self._fallback_action(candidate_answer)
 				return {
 					"success": True,
 					"action": default_action,
-					"reason": f"ollama_http_{response.status_code}",
+					"reason": "provider_request_failed",
 					"source": "fallback",
 				}
 
-			response_payload = response.json() if response.text else {}
-			raw_text = str(response_payload.get("response") or "").strip()
+			raw_text = str(generation.get("text") or "").strip()
 			parsed = self._parse_decision_json(raw_text)
 
 			if parsed["action"] not in {"follow_up", "next_bank_question"}:
@@ -174,7 +260,7 @@ class Phi3FollowupGenerator:
 				"success": True,
 				"action": parsed["action"],
 				"reason": parsed.get("reason") or "phi3_decision",
-				"source": "phi3_local",
+				"source": generation.get("source", "unknown"),
 			}
 		except Exception:
 			default_action = self._fallback_action(candidate_answer)
