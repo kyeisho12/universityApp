@@ -57,51 +57,72 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
         const { data: { user } } = await supabase.auth.getUser();
         const userId = user?.id;
 
-        // Fetch all active jobs
-        const { data: jobsData, error: jobsError } = await supabase
-          .from('jobs')
-          .select('id, title, job_type, location, employer:employer_id(name), deadline, created_at')
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(5);
+        const today = new Date().toISOString().split('T')[0];
 
-        if (!jobsError && jobsData) {
-          setJobsCount(jobsData.length);
-          setJobs(jobsData as JobData[]);
+        // Use dedicated count queries so stat cards are accurate and not capped by list limits.
+        const [
+          jobsCountResult,
+          jobsListResult,
+          eventsCountResult,
+          eventsListResult,
+        ] = await Promise.all([
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active'),
+          supabase
+            .from('jobs')
+            .select('id, title, job_type, location, employer:employer_id(name), deadline, created_at')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(5),
+          supabase
+            .from('career_events')
+            .select('id', { count: 'exact', head: true })
+            .gte('date', today),
+          supabase
+            .from('career_events')
+            .select('id, title, event_type, date, time, location')
+            .gte('date', today)
+            .order('date', { ascending: true })
+            .limit(10),
+        ]);
+
+        if (!jobsCountResult.error) {
+          setJobsCount(jobsCountResult.count ?? 0);
         }
 
-        // Fetch all career events (for count)
-        const { data: eventsData, error: eventsError } = await supabase
-          .from('career_events')
-          .select('id, title, event_type, date, time, location')
-          .gte('date', new Date().toISOString().split('T')[0])
-          .order('date', { ascending: true })
-          .limit(10);
+        if (!jobsListResult.error && jobsListResult.data) {
+          setJobs(jobsListResult.data as JobData[]);
+        }
 
-        if (!eventsError && eventsData) {
-          setEventsCount(eventsData.length);
-          setEvents(eventsData as EventData[]);
+        if (!eventsCountResult.error) {
+          setEventsCount(eventsCountResult.count ?? 0);
+        }
+
+        if (!eventsListResult.error && eventsListResult.data) {
+          setEvents(eventsListResult.data as EventData[]);
         }
 
         // Fetch user resumes if user is logged in
         if (userId) {
-          const { data: resumesData, error: resumesError } = await supabase
+          const { count: resumesCountValue, error: resumesError } = await supabase
             .from('resumes')
-            .select('id')
+            .select('id', { count: 'exact', head: true })
             .eq('user_id', userId);
 
-          if (!resumesError && resumesData) {
-            setResumesCount(resumesData.length);
+          if (!resumesError) {
+            setResumesCount(resumesCountValue ?? 0);
           }
 
           // Fetch user interview sessions count if user is logged in
-          const { data: interviewsData, error: interviewsError } = await supabase
+          const { count: interviewsCountValue, error: interviewsError } = await supabase
             .from('interview_sessions')
-            .select('id')
+            .select('id', { count: 'exact', head: true })
             .eq('user_id', userId);
 
-          if (!interviewsError && interviewsData) {
-            setInterviewsCount(interviewsData.length);
+          if (!interviewsError) {
+            setInterviewsCount(interviewsCountValue ?? 0);
           }
         }
       } catch (error) {

@@ -5,7 +5,8 @@ import {
   Clock,
   MapPin,
   Users,
-  ExternalLink,
+  ClipboardList,
+  X,
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
@@ -47,6 +48,8 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [eventsView, setEventsView] = useState<EventWithRegistration[]>([]);
+  const [showMyRegistrations, setShowMyRegistrations] = useState(false);
+  const [spotlightEventId, setSpotlightEventId] = useState<string | null>(null);
   const filterStorageKey = `student_events_active_filter_${userId || "anon"}`;
   const registrationStorageKey = `student_events_registered_${userId || "anon"}`;
 
@@ -210,7 +213,30 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
       ? eventsView
       : eventsView.filter((e) => e.event_type.toLowerCase() === activeFilter.toLowerCase());
 
-  const filterOptions = ["all", "job fair", "workshop", "seminar", "webinar", "announcement"];
+  const myRegisteredEvents = useMemo(() => {
+    return eventsView.filter((event) => registeredEvents.has(event.id) || event.isRegistered);
+  }, [eventsView, registeredEvents]);
+
+  const handleViewRegisteredEvent = (eventId: string) => {
+    setActiveFilter("all");
+    setShowMyRegistrations(false);
+    setSpotlightEventId(eventId);
+
+    window.setTimeout(() => {
+      const target = document.getElementById(`event-card-${eventId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 140);
+  };
+
+  useEffect(() => {
+    if (!spotlightEventId) return;
+    const timeoutId = window.setTimeout(() => {
+      setSpotlightEventId(null);
+    }, 2200);
+    return () => window.clearTimeout(timeoutId);
+  }, [spotlightEventId]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -232,11 +258,20 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
         {/* Content Area */}
         <div className="p-8">
           {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Career Events</h1>
-            <p className="text-gray-500">
-              Discover and attend career development events and networking opportunities
-            </p>
+          <div className="mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Career Events</h1>
+              <p className="text-gray-500">
+                Discover and attend career development events and networking opportunities
+              </p>
+            </div>
+            <button
+              onClick={() => setShowMyRegistrations(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <ClipboardList className="w-4 h-4" />
+              My Event Registrations ({myRegisteredEvents.length})
+            </button>
           </div>
 
           {/* Filter Tabs */}
@@ -286,8 +321,75 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
                   event={event}
                   isRegistered={registeredEvents.has(event.id)}
                   onRegister={() => handleRegister(event.id)}
+                  cardId={`event-card-${event.id}`}
+                  spotlighted={spotlightEventId === event.id}
                 />
               ))}
+            </div>
+          )}
+
+          {/* My Event Registrations Modal */}
+          {showMyRegistrations && (
+            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl border border-gray-200 max-h-[85vh] flex flex-col">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">My Event Registrations</h2>
+                    <p className="text-sm text-gray-500">
+                      {myRegisteredEvents.length} registered event{myRegisteredEvents.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowMyRegistrations(false)}
+                    aria-label="Close registrations modal"
+                    className="p-2 rounded-md hover:bg-gray-100 text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto space-y-4">
+                  {myRegisteredEvents.length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-sm text-gray-500">No registered events yet.</p>
+                    </div>
+                  ) : (
+                    myRegisteredEvents.map((event) => (
+                      <div key={`registered-${event.id}`} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 mb-2">
+                              Registered
+                            </span>
+                            <h3 className="text-lg font-bold text-gray-900">{event.title}</h3>
+                            <p className="text-sm text-gray-600 mt-1">{event.event_type}</p>
+                          </div>
+                          <button
+                            onClick={() => handleViewRegisteredEvent(event.id)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2744] text-white hover:bg-[#131d33]"
+                          >
+                            View
+                          </button>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            {event.date}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-400" />
+                            {event.time || "TBA"}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-gray-400" />
+                            {event.location || "TBA"}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -300,10 +402,14 @@ function EventCard({
   event,
   isRegistered,
   onRegister,
+  cardId,
+  spotlighted,
 }: {
   event: Event;
   isRegistered: boolean;
   onRegister: () => void;
+  cardId?: string;
+  spotlighted?: boolean;
 }) {
   const getTypeBadgeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -323,7 +429,14 @@ function EventCard({
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full">
+    <div
+      id={cardId}
+      className={`bg-white rounded-2xl p-6 shadow-sm border hover:shadow-md transition-all flex flex-col h-full ${
+        spotlighted
+          ? "border-cyan-400 ring-2 ring-cyan-200"
+          : "border-gray-100"
+      }`}
+    >
       {/* Header with Badge and Status */}
       <div className="flex items-start justify-between mb-4">
         <span

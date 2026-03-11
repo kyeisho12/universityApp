@@ -226,11 +226,6 @@ const MyApplicationsPage: React.FC = () => {
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-              My Applications
-            </h2>
-          </div>
           <button
             onClick={handleLogout}
             className="ml-auto p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900"

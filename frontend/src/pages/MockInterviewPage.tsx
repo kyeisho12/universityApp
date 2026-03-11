@@ -3162,6 +3162,16 @@ function MockInterviewPageContent({
     );
   }
 
+  const askedQuestionCountForUi =
+    isSessionStarted && questions.length > 0
+      ? Math.max(1, Math.min(questions.length, currentQuestion + 1))
+      : 0;
+  const remainingQuestionsForCount = Math.max(
+    MIN_SESSION_QUESTION_COUNT - askedQuestionCountForUi,
+    0
+  );
+  const hasMetMinimumQuestionRequirement = remainingQuestionsForCount === 0;
+
   // Interview Recording Screen
   return (
     <div className="flex h-screen bg-gray-50">
@@ -3448,7 +3458,13 @@ function MockInterviewPageContent({
                       ? "px-4 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed"
                       : "px-4 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-2"
                   }
-                  title="End session"
+                  title={
+                    !isSessionStarted
+                      ? "Start session first"
+                      : remainingQuestionsForCount > 0
+                      ? `Ending now will void this session. Complete ${remainingQuestionsForCount} more question${remainingQuestionsForCount === 1 ? "" : "s"} to count it.`
+                      : "End session"
+                  }
                 >
                   <Square className="w-4 h-4" />
                   End Session
@@ -3488,6 +3504,30 @@ function MockInterviewPageContent({
                     {isSessionStarted
                       ? (questions[currentQuestion]?.tip || "Please wait while we fetch your question.")
                       : "When ready, click Start Session to begin recording and show your first interview question."}
+                  </span>
+                </p>
+              </div>
+              <div
+                className={
+                  hasMetMinimumQuestionRequirement
+                    ? "mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3"
+                    : "mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3"
+                }
+              >
+                <p
+                  className={
+                    hasMetMinimumQuestionRequirement
+                      ? "text-xs text-emerald-800 flex items-start gap-2"
+                      : "text-xs text-amber-900 flex items-start gap-2"
+                  }
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    {!isSessionStarted
+                      ? `Complete at least ${MIN_SESSION_QUESTION_COUNT} questions for this mock interview session to be counted.`
+                      : hasMetMinimumQuestionRequirement
+                      ? `Minimum requirement met: ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} questions completed. This session will count if you end now.`
+                      : `Session count requirement: ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} questions completed. Answer ${remainingQuestionsForCount} more before ending, otherwise this session will be voided.`}
                   </span>
                 </p>
               </div>

@@ -68,6 +68,10 @@ function extractSkills(rawSkills) {
     .flatMap((item) => tokenize(item));
 }
 
+function normalize(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
 interface JobApplicationDraft {
   selectedResume: string | null;
   selectedCoverLetter: string | null;
@@ -410,26 +414,34 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.employer_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
+    const customType = normalize(customJobType);
+    const customCat = normalize(customCategory);
+    const jobType = normalize(job.job_type);
+    const jobCategory = normalize(job.category);
+
     // Handle job type filter including custom "Other" type
     let matchesType = false;
     if (filterType === "All") {
       matchesType = true;
-    } else if (filterType === "Other" && customJobType) {
+    } else if (filterType === "Other") {
+      // Keep all jobs visible until user specifies custom text.
+      if (!customType) {
+        matchesType = true;
+      } else {
       // For custom type, match if job type contains the custom input (case-insensitive partial match)
       // This allows real-time filtering as user types
-      const jobTypeLower = (job.job_type || "").toLowerCase();
-      const customTypeLower = customJobType.toLowerCase();
-      matchesType = jobTypeLower.includes(customTypeLower) || customTypeLower.includes(jobTypeLower);
+        matchesType = jobType.includes(customType) || customType.includes(jobType);
+      }
     } else {
-      matchesType = job.job_type === filterType;
+      matchesType = jobType === normalize(filterType);
     }
 
     const matchesCategory =
       filterCategory === "All Types" 
         ? true 
-        : filterCategory === "Other" && customCategory
-          ? (job.category || "").toLowerCase().includes(customCategory.toLowerCase()) || customCategory.toLowerCase().includes((job.category || "").toLowerCase())
-          : job.category === filterCategory;
+        : filterCategory === "Other"
+          ? (!customCat || jobCategory.includes(customCat) || customCat.includes(jobCategory))
+          : jobCategory === normalize(filterCategory);
 
     return matchesSearch && matchesType && matchesCategory;
   }), [jobs, searchTerm, filterType, filterCategory, customJobType, customCategory]);
