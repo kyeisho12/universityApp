@@ -139,6 +139,14 @@ interface SessionHistoryItem {
   evaluatedCount: number | null;
 }
 
+function normalizeQuestionKey(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Increase live chunk interval to reduce live transcription request rate (avoid 429)
 const LIVE_CHUNK_INTERVAL_MS = 4000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
@@ -675,13 +683,21 @@ function MockInterviewPageContent({
     setQuestionsLoading(true);
     setQuestionsError(null);
 
-    const [openingResult, bankResult] = await Promise.all([
-      getPreferredOpeningQuestion(OPENING_QUESTION_ID),
-      getMockInterviewQuestionsExcludingTyped({
-        limit: RANDOM_BANK_QUESTION_COUNT,
-        excludeIds: [OPENING_QUESTION_ID],
-      }),
-    ]);
+    const openingResult = await getPreferredOpeningQuestion(OPENING_QUESTION_ID);
+
+    const openingQuestion: Question | null = openingResult.data
+      ? {
+          ...openingResult.data,
+          source: "fixed",
+          baseQuestionId: openingResult.data.id,
+        }
+      : null;
+
+    const excludedIds = [openingQuestion?.id || OPENING_QUESTION_ID].filter(Boolean);
+    const bankResult = await getMockInterviewQuestionsExcludingTyped({
+      limit: RANDOM_BANK_QUESTION_COUNT,
+      excludeIds: excludedIds,
+    });
 
     if (bankResult.error) {
       setQuestions([]);
@@ -692,19 +708,23 @@ function MockInterviewPageContent({
       return [];
     }
 
-    const bankPool = (bankResult.data || []).map((question: Question) => ({
+    const openingKey = normalizeQuestionKey(openingQuestion?.question || "");
+    const seenQuestionKeys = new Set<string>(openingKey ? [openingKey] : []);
+
+    const bankPool = (bankResult.data || [])
+      .filter((question: Question) => {
+        const key = normalizeQuestionKey(question.question);
+        if (!key || seenQuestionKeys.has(key)) {
+          return false;
+        }
+        seenQuestionKeys.add(key);
+        return true;
+      })
+      .map((question: Question) => ({
       ...question,
       source: "bank" as const,
       baseQuestionId: question.id,
     }));
-
-    const openingQuestion: Question | null = openingResult.data
-      ? {
-          ...openingResult.data,
-          source: "fixed",
-          baseQuestionId: openingResult.data.id,
-        }
-      : null;
 
     if (!openingQuestion && bankPool.length === 0) {
       setQuestions([]);
@@ -768,11 +788,24 @@ function MockInterviewPageContent({
       return [];
     }
 
-    return (bankResult.data || []).map((question: Question) => ({
-      ...question,
-      source: "bank" as const,
-      baseQuestionId: question.id,
-    }));
+    const seenQuestionKeys = new Set(
+      questions.map((question) => normalizeQuestionKey(question.question)).filter(Boolean)
+    );
+
+    return (bankResult.data || [])
+      .filter((question: Question) => {
+        const key = normalizeQuestionKey(question.question);
+        if (!key || seenQuestionKeys.has(key)) {
+          return false;
+        }
+        seenQuestionKeys.add(key);
+        return true;
+      })
+      .map((question: Question) => ({
+        ...question,
+        source: "bank" as const,
+        baseQuestionId: question.id,
+      }));
   }, [questions]);
 
   const calculateSessionStarAverage = useCallback(() => {

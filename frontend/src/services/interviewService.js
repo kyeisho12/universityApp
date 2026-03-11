@@ -104,7 +104,7 @@ export async function getPreferredOpeningQuestion(preferredQuestionId = null) {
 		return preferredPhrases.includes(normalized)
 	})
 
-	const selected = preferredTextMatch || preferredIdMatch || null
+	const selected = preferredIdMatch || preferredTextMatch || null
 	if (!selected) {
 		return { data: null, error: new Error('Preferred opening question not found') }
 	}
