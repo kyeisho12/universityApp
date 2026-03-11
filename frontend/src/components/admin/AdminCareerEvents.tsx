@@ -25,6 +25,9 @@ import {
 } from "../../services/careerEventService";
 
 export default function AdminCareerEvents() {
+  const DEFAULT_EVENT_TYPE = "Workshop";
+  const OTHER_EVENT_TYPE = "Other";
+
   const messageBox = useMessageBox();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -50,7 +53,7 @@ export default function AdminCareerEvents() {
   const [formData, setFormData] = React.useState({
     title: "",
     description: "",
-    event_type: "Workshop",
+    event_type: DEFAULT_EVENT_TYPE,
     date: "",
     time: "",
     location: "",
@@ -79,7 +82,17 @@ export default function AdminCareerEvents() {
       }
 
       if (parsed.formData) {
-        setFormData(parsed.formData);
+        const parsedType = String(parsed.formData.event_type || "").trim();
+        const knownTypes = new Set(["Workshop", "Seminar", "Job Fair", "Webinar", "Announcement", OTHER_EVENT_TYPE]);
+        if (parsedType && !knownTypes.has(parsedType)) {
+          setFormData({ ...parsed.formData, event_type: OTHER_EVENT_TYPE });
+          setCustomEventType(parsedType);
+        } else {
+          setFormData(parsed.formData);
+          if (parsedType === OTHER_EVENT_TYPE) {
+            setCustomEventType("");
+          }
+        }
       }
 
       setShowAddModal(Boolean(parsed.showAddModal));
@@ -224,24 +237,28 @@ export default function AdminCareerEvents() {
     setFormData({
       title: "",
       description: "",
-      event_type: "Workshop",
+      event_type: DEFAULT_EVENT_TYPE,
       date: "",
       time: "",
       location: "",
     });
+    setCustomEventType("");
     setShowAddModal(true);
   }
 
   function handleEditEvent(event: any) {
+    const knownTypes = new Set(["Workshop", "Seminar", "Job Fair", "Webinar", "Announcement"]);
+    const isKnownType = knownTypes.has(event.event_type);
     setSelectedEvent(event);
     setFormData({
       title: event.title,
       description: event.description,
-      event_type: event.event_type,
+      event_type: isKnownType ? event.event_type : OTHER_EVENT_TYPE,
       date: event.date,
       time: event.time,
       location: event.location,
     });
+    setCustomEventType(isKnownType ? "" : String(event.event_type || ""));
     setShowEditModal(true);
   }
 
@@ -252,11 +269,12 @@ export default function AdminCareerEvents() {
     setFormData({
       title: "",
       description: "",
-      event_type: "Workshop",
+      event_type: DEFAULT_EVENT_TYPE,
       date: "",
       time: "",
       location: "",
     });
+    setCustomEventType("");
   }
 
   async function handleSubmit() {
@@ -267,13 +285,37 @@ export default function AdminCareerEvents() {
       return;
     }
 
+    const resolvedEventType =
+      formData.event_type === OTHER_EVENT_TYPE
+        ? customEventType.trim()
+        : formData.event_type;
+
+    if (!resolvedEventType) {
+      setError("Please specify an event type");
+      return;
+    }
+
+    const isAnnouncement = resolvedEventType === "Announcement";
+
+    if (!isAnnouncement && (!formData.date || !formData.location?.trim())) {
+      setError("Please provide date and location for non-announcement events");
+      return;
+    }
+
+    const todayIso = new Date().toISOString().split("T")[0];
+    const resolvedDate = isAnnouncement ? (formData.date || todayIso) : formData.date;
+    const resolvedTime = formData.time || null;
+    const resolvedLocation = isAnnouncement
+      ? (formData.location?.trim() || "TBA")
+      : (formData.location || null);
+
     const eventData = {
       title: formData.title,
       description: formData.description,
-      event_type: formData.event_type,
-      date: formData.date || null,  // Convert empty string to null
-      time: formData.time || null,  // Convert empty string to null
-      location: formData.location || null,  // Convert empty string to null
+      event_type: resolvedEventType,
+      date: resolvedDate || null,
+      time: resolvedTime,
+      location: resolvedLocation,
     };
 
     if (showEditModal && selectedEvent) {
@@ -605,7 +647,13 @@ export default function AdminCareerEvents() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
                 <select
                   value={formData.event_type}
-                  onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({ ...formData, event_type: value });
+                    if (value !== OTHER_EVENT_TYPE) {
+                      setCustomEventType("");
+                    }
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
                   <option value="Workshop">Workshop</option>
@@ -613,8 +661,22 @@ export default function AdminCareerEvents() {
                   <option value="Job Fair">Job Fair</option>
                   <option value="Webinar">Webinar</option>
                   <option value="Announcement">Announcement</option>
+                  <option value={OTHER_EVENT_TYPE}>Other (Specify)</option>
                 </select>
               </div>
+
+              {formData.event_type === OTHER_EVENT_TYPE && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Type</label>
+                  <input
+                    type="text"
+                    placeholder="Enter event type"
+                    value={customEventType}
+                    onChange={(e) => setCustomEventType(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              )}
 
               {formData.event_type !== "Announcement" && (
                 <>
@@ -754,7 +816,13 @@ export default function AdminCareerEvents() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
                 <select
                   value={formData.event_type}
-                  onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({ ...formData, event_type: value });
+                    if (value !== OTHER_EVENT_TYPE) {
+                      setCustomEventType("");
+                    }
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
                   <option value="Workshop">Workshop</option>
@@ -762,8 +830,22 @@ export default function AdminCareerEvents() {
                   <option value="Job Fair">Job Fair</option>
                   <option value="Webinar">Webinar</option>
                   <option value="Announcement">Announcement</option>
+                  <option value={OTHER_EVENT_TYPE}>Other (Specify)</option>
                 </select>
               </div>
+
+              {formData.event_type === OTHER_EVENT_TYPE && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Type</label>
+                  <input
+                    type="text"
+                    placeholder="Enter event type"
+                    value={customEventType}
+                    onChange={(e) => setCustomEventType(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              )}
 
               {formData.event_type !== "Announcement" && (
                 <>

@@ -26,6 +26,31 @@ interface Activity {
   timestamp: string;
 }
 
+function formatTimeAgo(timestamp: string): string {
+  const created = new Date(timestamp);
+  if (Number.isNaN(created.getTime())) {
+    return "Unknown time";
+  }
+
+  const diffMs = Date.now() - created.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return created.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
   const userName = email.split("@")[0];
   const userID = "2024-00001";
@@ -106,25 +131,14 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
         }
 
         recentInterviews.forEach((interview) => {
-          const created = new Date(interview.created_at);
-          const now = new Date();
-          const diffMs = now.getTime() - created.getTime();
-          const diffMins = Math.floor(diffMs / 60000);
           const displayName = interview.user_id
             ? (studentNameById[interview.user_id] || interview.user_id.substring(0, 8))
             : 'Unknown';
-          
-          let timeAgo = 'Just now';
-          if (diffMins < 60) {
-            timeAgo = `${diffMins}m ago`;
-          } else if (diffMins < 1440) {
-            timeAgo = `${Math.floor(diffMins / 60)}h ago`;
-          }
 
           recentActivities.push({
             type: 'interview',
             text: `Student ${displayName} completed mock interview`,
-            time_ago: timeAgo,
+            time_ago: formatTimeAgo(interview.created_at),
             timestamp: interview.created_at,
           });
         });
@@ -140,22 +154,10 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
 
       if (recentStudents) {
         recentStudents.forEach((student) => {
-          const created = new Date(student.created_at);
-          const now = new Date();
-          const diffMs = now.getTime() - created.getTime();
-          const diffMins = Math.floor(diffMs / 60000);
-          
-          let timeAgo = 'Just now';
-          if (diffMins < 60) {
-            timeAgo = `${diffMins}m ago`;
-          } else if (diffMins < 1440) {
-            timeAgo = `${Math.floor(diffMins / 60)}h ago`;
-          }
-
           recentActivities.push({
             type: 'registration',
             text: `New student registration: ${student.full_name || 'Unknown'}`,
-            time_ago: timeAgo,
+            time_ago: formatTimeAgo(student.created_at),
             timestamp: student.created_at,
           });
         });
@@ -170,22 +172,10 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
 
       if (recentJobs) {
         recentJobs.forEach((job) => {
-          const created = new Date(job.created_at);
-          const now = new Date();
-          const diffMs = now.getTime() - created.getTime();
-          const diffMins = Math.floor(diffMs / 60000);
-          
-          let timeAgo = 'Just now';
-          if (diffMins < 60) {
-            timeAgo = `${diffMins}m ago`;
-          } else if (diffMins < 1440) {
-            timeAgo = `${Math.floor(diffMins / 60)}h ago`;
-          }
-
           recentActivities.push({
             type: 'job',
             text: `New job posted: ${job.title}`,
-            time_ago: timeAgo,
+            time_ago: formatTimeAgo(job.created_at),
             timestamp: job.created_at,
           });
         });
