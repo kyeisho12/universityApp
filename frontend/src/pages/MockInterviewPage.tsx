@@ -172,6 +172,20 @@ function buildEmergencyFollowupQuestion(candidateAnswer: string): string {
   return "If you faced the same situation again, what would you do differently and why?";
 }
 
+function extractSegmentTranscriptFallback(
+  segmentMeta: ActiveSegmentMeta,
+  liveDraftTranscriptValue: string,
+  liveTranscriptTextValue: string | null
+): string {
+  const draftText = (liveDraftTranscriptValue || "").trim();
+  const liveText = (liveTranscriptTextValue || "").trim();
+
+  const draftDelta = draftText.slice(Math.max(0, segmentMeta.baselineDraftChars)).trim();
+  const liveDelta = liveText.slice(Math.max(0, segmentMeta.baselineLiveChars)).trim();
+
+  return draftDelta || liveDelta || draftText || liveText || "";
+}
+
 // Increase live chunk interval to reduce live transcription request rate (avoid 429)
 const LIVE_CHUNK_INTERVAL_MS = 4000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
@@ -1739,6 +1753,16 @@ function MockInterviewPageContent({
       const directTranscriptText =
         (directTranscriptionResult.data?.transcript_text || "").trim();
       const directTranscriptionFailed = Boolean(directTranscriptionResult?.error);
+      const draftTranscriptFallback = extractSegmentTranscriptFallback(
+        segmentMeta,
+        liveDraftTranscriptRef.current,
+        liveTranscriptTextRef.current
+      );
+      const hasDraftTranscriptFallback = Boolean(draftTranscriptFallback);
+      const transcriptToPersist = directTranscriptionFailed
+        ? draftTranscriptFallback
+        : directTranscriptText;
+      const shouldMarkCompleted = !directTranscriptionFailed || hasDraftTranscriptFallback;
 
       if (!directTranscriptionFailed) {
         setLatestWhisperStatus("completed");
@@ -1764,15 +1788,19 @@ function MockInterviewPageContent({
         mimeType: segmentBlob.type || "video/webm",
         durationSeconds,
         fileSizeBytes: segmentBlob.size,
-        status: directTranscriptionFailed ? "uploaded" : "transcribed",
-        whisperStatus: directTranscriptionFailed ? "pending" : "completed",
-        transcriptText: directTranscriptionFailed ? null : directTranscriptText,
+        status: shouldMarkCompleted ? "transcribed" : "uploaded",
+        whisperStatus: shouldMarkCompleted ? "completed" : "pending",
+        transcriptText: transcriptToPersist || null,
         metadata: {
           recorded_at: new Date(segmentMeta.startedAt).toISOString(),
           direct_transcription: {
             success: !directTranscriptionFailed,
             source: "frontend_blob_to_backend_whisper",
             error: directTranscriptionResult.error?.message || null,
+          },
+          draft_transcript_fallback: {
+            used: hasDraftTranscriptFallback,
+            source: hasDraftTranscriptFallback ? "browser_live_draft" : null,
           },
         },
       });
@@ -1784,7 +1812,7 @@ function MockInterviewPageContent({
       }
 
       const createdSegmentId = segmentResult.data?.id;
-      if (createdSegmentId && directTranscriptionFailed) {
+      if (createdSegmentId && directTranscriptionFailed && !hasDraftTranscriptFallback) {
         void (async () => {
           const transcriptionResult = await triggerSegmentTranscription({
             sessionId: activeSessionId,
@@ -1805,9 +1833,13 @@ function MockInterviewPageContent({
             setRecordingError("Segment saved. Final transcription completed after retry.");
           }
         })();
-      } else if (directTranscriptionFailed) {
+      } else if (directTranscriptionFailed && !hasDraftTranscriptFallback) {
         setRecordingError(
           "Segment saved. Fast transcription is temporarily unavailable; the system will retry."
+        );
+      } else if (directTranscriptionFailed && hasDraftTranscriptFallback) {
+        setRecordingError(
+          "Segment saved with draft transcript fallback while server transcription is unavailable."
         );
       }
 
