@@ -147,6 +147,31 @@ function normalizeQuestionKey(value: string): string {
     .trim();
 }
 
+function buildEmergencyFollowupQuestion(candidateAnswer: string): string {
+  const answer = (candidateAnswer || "").trim().toLowerCase();
+  if (answer.length < 30) {
+    return "Can you walk me through one specific example and what you personally did?";
+  }
+  if (
+    answer.includes("result") ||
+    answer.includes("outcome") ||
+    answer.includes("impact") ||
+    answer.includes("improved") ||
+    answer.includes("increased")
+  ) {
+    return "What metric or concrete evidence best proves that impact?";
+  }
+  if (
+    answer.includes("challenge") ||
+    answer.includes("difficult") ||
+    answer.includes("problem") ||
+    answer.includes("issue")
+  ) {
+    return "What was the hardest decision you made in that situation, and why?";
+  }
+  return "If you faced the same situation again, what would you do differently and why?";
+}
+
 // Increase live chunk interval to reduce live transcription request rate (avoid 429)
 const LIVE_CHUNK_INTERVAL_MS = 4000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
@@ -2149,6 +2174,11 @@ function MockInterviewPageContent({
         Boolean(decisionResult.data?.followup_question) &&
         followupNeededForTarget;
 
+      const shouldUseEmergencyFollowup =
+        Boolean(decisionResult.error) &&
+        followupNeededForTarget &&
+        followupCountForCurrent < 1;
+
       if (shouldAskFollowup) {
         if (questions.length >= MAX_SESSION_QUESTION_COUNT) {
           setPreparedNextAction({
@@ -2175,6 +2205,37 @@ function MockInterviewPageContent({
           baseQuestionId,
         });
         setRecordingError(preparedMessage);
+        return;
+      }
+
+      if (shouldUseEmergencyFollowup) {
+        if (questions.length >= MAX_SESSION_QUESTION_COUNT) {
+          setPreparedNextAction({
+            kind: "complete",
+            message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions.`,
+          });
+          setRecordingError(completeMessage);
+          return;
+        }
+
+        const emergencyQuestion: Question = {
+          id: `fallback-followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          type: "Follow-up",
+          question: buildEmergencyFollowupQuestion(candidateAnswer),
+          tip: "Answer with concrete details and measurable outcomes.",
+          source: "followup",
+          baseQuestionId,
+        };
+
+        setPreparedNextAction({
+          kind: "followup",
+          question: emergencyQuestion,
+          nextQuestionIndex: questions.length,
+          baseQuestionId,
+        });
+        setRecordingError(
+          "Decision API is temporarily unavailable. A recovery follow-up is ready. Click Next Question again to continue."
+        );
         return;
       }
 
