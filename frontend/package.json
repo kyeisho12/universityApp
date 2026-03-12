@@ -5,7 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build",
+		"build": "vite build && tsc server/hf-proxy.ts --outDir dist-server --esModuleInterop --module commonjs --target es2020 --skipLibCheck",
+		"start": "node dist-server/hf-proxy.js",
 		"preview": "vite preview"
 	},
 	"dependencies": {
@@ -14,6 +15,8 @@
 		"axios": "^1.7.2",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
+		"express": "^5.2.1",
+		"http-proxy-middleware": "^3.0.5",
 		"jspdf": "^4.1.0",
 		"lucide-react": "^0.562.0",
 		"react": "^18.3.1",
@@ -24,6 +27,7 @@
 	},
 	"devDependencies": {
 		"@shadcn/ui": "^0.0.4",
+		"@types/express": "^5.0.6",
 		"@types/node": "^25.0.3",
 		"@types/react": "^19.2.7",
 		"@types/react-dom": "^19.2.3",
