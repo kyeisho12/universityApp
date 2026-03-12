@@ -32,7 +32,6 @@ import robertaDataset, { DatasetItem, STARBreakdown } from '../data/robertaDatas
 // Config
 // ---------------------------------------------------------------------------
 
-const HF_API_TOKEN = import.meta.env.VITE_HF_TOKEN as string | undefined;
 const HF_TIMEOUT_MS = 15000;
 
 // sentence-transformers/all-roberta-large-v1 — feature-extraction endpoint
@@ -40,7 +39,7 @@ const HF_TIMEOUT_MS = 15000;
 // Proxied via Vite dev server → router.huggingface.co (avoids browser CORS).
 // In production (Render), the Vite proxy is gone — a server-side proxy is needed.
 // See: vite.config.ts proxy block and Render deployment notes.
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined)?.replace(/\/$/, '');
 
 const DATASET_MATCH_THRESHOLD = 0.25;
 const TOP_K_ANSWERS = 5;
@@ -146,16 +145,13 @@ async function callRoBERTaSimilarity(
 
   const controller = new AbortController();
   const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
-
   const referenceText = `${question} ${referenceAnswer}`.slice(0, 512);
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/hf-embed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        inputs: [referenceText, answer],
-      }),
+      body: JSON.stringify({ inputs: [referenceText, answer] }),
       signal: controller.signal,
     });
 
