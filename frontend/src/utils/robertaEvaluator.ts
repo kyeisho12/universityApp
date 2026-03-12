@@ -40,8 +40,7 @@ const HF_TIMEOUT_MS = 15000;
 // Proxied via Vite dev server → router.huggingface.co (avoids browser CORS).
 // In production (Render), the Vite proxy is gone — a server-side proxy is needed.
 // See: vite.config.ts proxy block and Render deployment notes.
-const HF_ROBERTA_URL =
-  '/hf-api/hf-inference/models/sentence-transformers/all-roberta-large-v1';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
 
 const DATASET_MATCH_THRESHOLD = 0.25;
 const TOP_K_ANSWERS = 5;
@@ -143,7 +142,7 @@ async function callRoBERTaSimilarity(
   answer: string,
   referenceAnswer: string
 ): Promise<number> {
-  if (!HF_API_TOKEN) throw new Error('VITE_HF_TOKEN is not set.');
+  if (!BACKEND_URL) throw new Error('VITE_BACKEND_URL is not set.');
 
   const controller = new AbortController();
   const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
@@ -151,27 +150,18 @@ async function callRoBERTaSimilarity(
   const referenceText = `${question} ${referenceAnswer}`.slice(0, 512);
 
   try {
-    const res = await fetch(HF_ROBERTA_URL, {
+    const res = await fetch(`${BACKEND_URL}/api/hf-embed`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${HF_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         inputs: [referenceText, answer],
-        options: { wait_for_model: true },
       }),
       signal: controller.signal,
     });
 
-    if (!res.ok) {
-      if (res.status === 503) throw new Error('RoBERTa model loading (~20s), retrying on next evaluation.');
-      if (res.status === 401) throw new Error('Invalid HF token. Check VITE_HF_TOKEN env variable.');
-      throw new Error(`RoBERTa API error ${res.status}: ${await res.text().catch(() => '')}`);
-    }
+    if (!res.ok) throw new Error(`Backend proxy error ${res.status}`);
 
     const data = await res.json();
-    // data is an array of two embeddings: [embeddingA, embeddingB]
     const embA = toSentenceEmbedding(data[0]);
     const embB = toSentenceEmbedding(data[1]);
     return cosineSimilarity(embA, embB);
