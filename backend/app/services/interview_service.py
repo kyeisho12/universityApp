@@ -754,6 +754,13 @@ class InterviewService:
                 ideal_answer=ideal_answer,
             )
 
+            logger.info(
+                "followup_generation source=%s success=%s warning=%s",
+                generation_result.get("source", "unknown"),
+                generation_result.get("success", False),
+                generation_result.get("error") or "",
+            )
+
             if not generation_result.get("success"):
                 return {
                     "success": False,
@@ -835,6 +842,13 @@ class InterviewService:
                 followup_count_for_current=followup_count_for_current,
             )
 
+            logger.info(
+                "next_question_decision action=%s source=%s reason=%s",
+                decision_result.get("action", "unknown"),
+                decision_result.get("source", "unknown"),
+                decision_result.get("reason", ""),
+            )
+
             if not decision_result.get("success"):
                 return {
                     "success": False,
@@ -855,6 +869,12 @@ class InterviewService:
                     candidate_answer=candidate_answer,
                     category=category,
                     ideal_answer=ideal_answer,
+                )
+
+                logger.info(
+                    "decision_followup_generation source=%s warning=%s",
+                    followup_result.get("source", "unknown"),
+                    followup_result.get("error") or "",
                 )
 
                 followup_question_text = followup_result.get("question", "")

@@ -1,11 +1,15 @@
 import os
 import re
 import json
+import logging
 from typing import Any, Dict, Optional
 
 import requests
 
 from .prompt_templates import build_followup_prompt, build_next_step_decision_prompt
+
+
+logger = logging.getLogger(__name__)
 
 
 class Phi3FollowupGenerator:
@@ -24,6 +28,15 @@ class Phi3FollowupGenerator:
 		self.temperature = float(os.getenv("PHI3_TEMPERATURE", "0.25"))
 		self.top_p = float(os.getenv("PHI3_TOP_P", "0.9"))
 		self.max_tokens = int(os.getenv("PHI3_MAX_TOKENS", "90"))
+
+		logger.info(
+			"Phi3FollowupGenerator initialized provider=%s openai_configured=%s ollama_model=%s openai_model=%s timeout=%ss",
+			self.provider,
+			bool(self.openai_api_key),
+			self.model,
+			self.openai_model,
+			self.timeout_seconds,
+		)
 
 	def is_configured(self) -> bool:
 		if self.provider == "ollama":
