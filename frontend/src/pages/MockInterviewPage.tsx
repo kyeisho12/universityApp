@@ -15,6 +15,7 @@ import {
   Sparkles,
   Bot,
   PlayCircle,
+  AlertCircle,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
