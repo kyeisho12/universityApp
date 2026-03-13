@@ -2,10 +2,17 @@
 
 import requests
 import os
-from flask import request, jsonify, Blueprint, current_app, Response
-import logging
+import time
+import json
+from flask import request, jsonify, Blueprint
 
 hf_proxy_bp = Blueprint('hf_proxy', __name__)
+
+HF_URL = (
+    'https://router.huggingface.co/hf-inference/models/'
+    'sentence-transformers/all-roberta-large-v1/pipeline/feature-extraction'
+)
+
 
 @hf_proxy_bp.route('/hf-embed', methods=['POST', 'OPTIONS'])
 def hf_embed():
@@ -13,112 +20,62 @@ def hf_embed():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
+    # Check token
     hf_token = os.environ.get('HF_TOKEN')
     if not hf_token:
-        try:
-            current_app.logger.error('HF_TOKEN not set on server')
-        except Exception:
-            logging.error('HF_TOKEN not set on server')
         return jsonify({'error': 'HF_TOKEN not set on server'}), 500
 
-    # Try to parse JSON — handle cases where Content-Type might be missing
-    data = None
-    try:
-        data = request.get_json(force=True, silent=True)
-    except Exception:
-        pass
-
-    # Fallback: try reading raw body
+    # Parse request body — force=True handles missing Content-Type header
+    data = request.get_json(force=True, silent=True)
     if data is None:
         try:
-            import json
             data = json.loads(request.data.decode('utf-8'))
         except Exception:
             pass
 
     if not data:
-        return jsonify({
-            'error': 'Could not parse request body as JSON',
-            'content_type': request.content_type,
-            'body_length': len(request.data),
-        }), 400
+        return jsonify({'error': 'Could not parse request body as JSON'}), 400
 
-    if 'inputs' not in data:
-        return jsonify({
-            'error': 'Missing inputs field',
-            'received_keys': list(data.keys()),
-        }), 400
+    inputs = data.get('inputs')
+    if not inputs or not isinstance(inputs, list) or len(inputs) != 2:
+        return jsonify({'error': 'inputs must be a list of exactly 2 strings'}), 400
 
-    inputs = data['inputs']
-    if not isinstance(inputs, list) or len(inputs) != 2:
-        return jsonify({
-            'error': 'inputs must be a list of exactly 2 strings',
-            'received': str(inputs)[:200],
-        }), 400
+    headers = {
+        'Authorization': f'Bearer {hf_token}',
+        'Content-Type': 'application/json',
+    }
+    payload = {
+        'inputs': inputs,
+        'options': {'wait_for_model': True},
+    }
 
-    hf_urls = [
-        (
-            'https://router.huggingface.co/hf-inference/models/'
-            'sentence-transformers/all-roberta-large-v1/pipeline/feature-extraction'
-        ),
-        (
-            'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/'
-            'sentence-transformers/all-roberta-large-v1'
-        ),
-        (
-            'https://api-inference.huggingface.co/pipeline/feature-extraction/'
-            'sentence-transformers/all-roberta-large-v1'
-        ),
-    ]
+    # Retry up to 3 times — HF free tier returns 503 while model warms up
+    last_status = 503
+    last_body = {}
 
-    try:
-        last_status = 502
-        last_error = 'Unknown HuggingFace proxy error'
-
-        for hf_url in hf_urls:
-            resp = requests.post(
-                hf_url,
-                headers={
-                    'Authorization': f'Bearer {hf_token}',
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                json={
-                    'inputs': inputs,
-                    'options': {'wait_for_model': True},
-                },
-                timeout=20,
-            )
-
-            try:
-                payload = resp.json() if resp.text else {}
-            except ValueError:
-                payload = {'raw': (resp.text or '').strip()[:500]}
-
-            if 200 <= resp.status_code < 300:
-                return jsonify(payload), resp.status_code
-
-            if isinstance(payload, dict):
-                last_error = payload.get('error') or payload.get('raw') or f'Upstream error {resp.status_code}'
-            else:
-                last_error = str(payload)
+    for attempt in range(3):
+        try:
+            resp = requests.post(HF_URL, headers=headers, json=payload, timeout=60)
             last_status = resp.status_code
+            last_body = resp.json()
 
-            if resp.status_code in [401, 403]:
-                break
+            if resp.status_code == 503:
+                # Model still loading — wait then retry
+                estimated_wait = int(resp.headers.get('X-Wait-For-Model', 20))
+                time.sleep(min(estimated_wait, 20))
+                continue
 
-        mapped_status = last_status if 400 <= last_status < 600 else 502
-        return jsonify({'error': last_error}), mapped_status
+            # Any other response (200 or error) — return immediately
+            return jsonify(last_body), last_status
 
-    except requests.exceptions.Timeout:
-        try:
-            current_app.logger.warning('HuggingFace inference request timed out')
-        except Exception:
-            logging.warning('HuggingFace inference request timed out')
-        return jsonify({'error': 'HuggingFace timed out'}), 504
-    except Exception as e:
-        try:
-            current_app.logger.exception('Error proxying to HuggingFace: %s', e)
-        except Exception:
-            logging.exception('Error proxying to HuggingFace: %s', e)
-        return jsonify({'error': 'Failed to proxy request to HuggingFace'}), 502
+        except requests.exceptions.Timeout:
+            last_body = {'error': f'HuggingFace timed out on attempt {attempt + 1}'}
+            last_status = 504
+            time.sleep(5)
+            continue
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
+
+    # All retries exhausted
+    return jsonify(last_body), last_status
