@@ -1,29 +1,58 @@
+# backend/app/api/hf_proxy.py
+
 import requests
 import os
 from flask import request, jsonify, Blueprint
 
 hf_proxy_bp = Blueprint('hf_proxy', __name__)
 
-@hf_proxy_bp.route('/hf-embed', methods=['POST'])
+@hf_proxy_bp.route('/hf-embed', methods=['POST', 'OPTIONS'])
 def hf_embed():
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
     hf_token = os.environ.get('HF_TOKEN')
     if not hf_token:
         return jsonify({'error': 'HF_TOKEN not set on server'}), 500
 
-    data = request.get_json()
-    if not data or 'inputs' not in data:
-        return jsonify({'error': 'Missing inputs field'}), 400
+    # Try to parse JSON — handle cases where Content-Type might be missing
+    data = None
+    try:
+        data = request.get_json(force=True, silent=True)
+    except Exception:
+        pass
 
-    inputs = data.get('inputs')
+    # Fallback: try reading raw body
+    if data is None:
+        try:
+            import json
+            data = json.loads(request.data.decode('utf-8'))
+        except Exception:
+            pass
+
+    if not data:
+        return jsonify({
+            'error': 'Could not parse request body as JSON',
+            'content_type': request.content_type,
+            'body_length': len(request.data),
+        }), 400
+
+    if 'inputs' not in data:
+        return jsonify({
+            'error': 'Missing inputs field',
+            'received_keys': list(data.keys()),
+        }), 400
+
+    inputs = data['inputs']
     if not isinstance(inputs, list) or len(inputs) != 2:
-        return jsonify({'error': 'inputs must be an array of exactly two strings'}), 400
-    if not all(isinstance(item, str) and item.strip() for item in inputs):
-        return jsonify({'error': 'inputs must contain non-empty strings'}), 400
+        return jsonify({
+            'error': 'inputs must be a list of exactly 2 strings',
+            'received': str(inputs)[:200],
+        }), 400
 
-    # Force feature-extraction pipeline to return embeddings for both input texts.
-    # This matches frontend logic which computes cosine similarity client-side.
     hf_url = (
-        'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/'
+        'https://router.huggingface.co/hf-inference/models/'
         'sentence-transformers/all-roberta-large-v1'
     )
 
@@ -40,12 +69,7 @@ def hf_embed():
             },
             timeout=20,
         )
-
-        payload = resp.json() if resp.text else {}
-        if resp.status_code >= 400:
-            return jsonify({'error': payload.get('error') if isinstance(payload, dict) else payload}), resp.status_code
-
-        return jsonify(payload), resp.status_code
+        return jsonify(resp.json()), resp.status_code
 
     except requests.exceptions.Timeout:
         return jsonify({'error': 'HuggingFace timed out'}), 504
