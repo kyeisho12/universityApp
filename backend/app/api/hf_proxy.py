@@ -2,7 +2,8 @@
 
 import requests
 import os
-from flask import request, jsonify, Blueprint
+from flask import request, jsonify, Blueprint, current_app, Response
+import logging
 
 hf_proxy_bp = Blueprint('hf_proxy', __name__)
 
@@ -14,6 +15,10 @@ def hf_embed():
 
     hf_token = os.environ.get('HF_TOKEN')
     if not hf_token:
+        try:
+            current_app.logger.error('HF_TOKEN not set on server')
+        except Exception:
+            logging.error('HF_TOKEN not set on server')
         return jsonify({'error': 'HF_TOKEN not set on server'}), 500
 
     # Try to parse JSON — handle cases where Content-Type might be missing
@@ -102,6 +107,14 @@ def hf_embed():
         return jsonify({'error': last_error}), mapped_status
 
     except requests.exceptions.Timeout:
+        try:
+            current_app.logger.warning('HuggingFace inference request timed out')
+        except Exception:
+            logging.warning('HuggingFace inference request timed out')
         return jsonify({'error': 'HuggingFace timed out'}), 504
     except Exception as e:
-        return jsonify({'error': str(e)}), 502
+        try:
+            current_app.logger.exception('Error proxying to HuggingFace: %s', e)
+        except Exception:
+            logging.exception('Error proxying to HuggingFace: %s', e)
+        return jsonify({'error': 'Failed to proxy request to HuggingFace'}), 502
