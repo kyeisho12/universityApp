@@ -14,8 +14,16 @@ def hf_embed():
     if not data or 'inputs' not in data:
         return jsonify({'error': 'Missing inputs field'}), 400
 
+    inputs = data.get('inputs')
+    if not isinstance(inputs, list) or len(inputs) != 2:
+        return jsonify({'error': 'inputs must be an array of exactly two strings'}), 400
+    if not all(isinstance(item, str) and item.strip() for item in inputs):
+        return jsonify({'error': 'inputs must contain non-empty strings'}), 400
+
+    # Force feature-extraction pipeline to return embeddings for both input texts.
+    # This matches frontend logic which computes cosine similarity client-side.
     hf_url = (
-        'https://router.huggingface.co/hf-inference/models/'
+        'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/'
         'sentence-transformers/all-roberta-large-v1'
     )
 
@@ -27,12 +35,17 @@ def hf_embed():
                 'Content-Type': 'application/json',
             },
             json={
-                'inputs': data['inputs'],
+                'inputs': inputs,
                 'options': {'wait_for_model': True},
             },
             timeout=20,
         )
-        return jsonify(resp.json()), resp.status_code
+
+        payload = resp.json() if resp.text else {}
+        if resp.status_code >= 400:
+            return jsonify({'error': payload.get('error') if isinstance(payload, dict) else payload}), resp.status_code
+
+        return jsonify(payload), resp.status_code
 
     except requests.exceptions.Timeout:
         return jsonify({'error': 'HuggingFace timed out'}), 504
