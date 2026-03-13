@@ -32,7 +32,7 @@ import robertaDataset, { DatasetItem, STARBreakdown } from '../data/robertaDatas
 // Config
 // ---------------------------------------------------------------------------
 
-const HF_TIMEOUT_MS = 15000;
+const HF_TIMEOUT_MS = 60000;
 
 // sentence-transformers/all-roberta-large-v1 — feature-extraction endpoint
 // Returns sentence embeddings; we compute cosine similarity ourselves.
