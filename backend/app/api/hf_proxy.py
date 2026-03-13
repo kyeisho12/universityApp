@@ -51,25 +51,55 @@ def hf_embed():
             'received': str(inputs)[:200],
         }), 400
 
-    hf_url = (
-        'https://router.huggingface.co/hf-inference/models/'
-        'sentence-transformers/all-roberta-large-v1'
-    )
+    hf_urls = [
+        (
+            'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/'
+            'sentence-transformers/all-roberta-large-v1'
+        ),
+        (
+            'https://api-inference.huggingface.co/pipeline/feature-extraction/'
+            'sentence-transformers/all-roberta-large-v1'
+        ),
+    ]
 
     try:
-        resp = requests.post(
-            hf_url,
-            headers={
-                'Authorization': f'Bearer {hf_token}',
-                'Content-Type': 'application/json',
-            },
-            json={
-                'inputs': inputs,
-                'options': {'wait_for_model': True},
-            },
-            timeout=20,
-        )
-        return jsonify(resp.json()), resp.status_code
+        last_status = 502
+        last_error = 'Unknown HuggingFace proxy error'
+
+        for hf_url in hf_urls:
+            resp = requests.post(
+                hf_url,
+                headers={
+                    'Authorization': f'Bearer {hf_token}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                json={
+                    'inputs': inputs,
+                    'options': {'wait_for_model': True},
+                },
+                timeout=20,
+            )
+
+            try:
+                payload = resp.json() if resp.text else {}
+            except ValueError:
+                payload = {'raw': (resp.text or '').strip()[:500]}
+
+            if 200 <= resp.status_code < 300:
+                return jsonify(payload), resp.status_code
+
+            if isinstance(payload, dict):
+                last_error = payload.get('error') or payload.get('raw') or f'Upstream error {resp.status_code}'
+            else:
+                last_error = str(payload)
+            last_status = resp.status_code
+
+            if resp.status_code in [401, 403]:
+                break
+
+        mapped_status = last_status if 400 <= last_status < 600 else 502
+        return jsonify({'error': last_error}), mapped_status
 
     except requests.exceptions.Timeout:
         return jsonify({'error': 'HuggingFace timed out'}), 504
