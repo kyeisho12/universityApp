@@ -58,7 +58,7 @@ def hf_embed():
 
     hf_url = (
         'https://router.huggingface.co/hf-inference/models/'
-        'sentence-transformers/all-roberta-large-v1'
+        'sentence-transformers/all-roberta-large-v1/pipeline/feature-extraction'
     )
 
     try:
