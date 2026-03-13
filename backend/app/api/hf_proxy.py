@@ -58,6 +58,10 @@ def hf_embed():
 
     hf_urls = [
         (
+            'https://router.huggingface.co/hf-inference/models/'
+            'sentence-transformers/all-roberta-large-v1/pipeline/feature-extraction'
+        ),
+        (
             'https://router.huggingface.co/hf-inference/pipeline/feature-extraction/'
             'sentence-transformers/all-roberta-large-v1'
         ),
