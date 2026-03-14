@@ -6,4 +6,5 @@ faster-whisper==1.0.3
 supabase==2.28.0
 websockets==14.1
 gunicorn
-
+sentence-transformers==2.7.0
+torch==2.2.2
