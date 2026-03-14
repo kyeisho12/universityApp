@@ -15,12 +15,14 @@ def get_model():
     global _model
     if _model is None:
         try:
-            logger.info("Loading all-roberta-large-v1...")
+            print("Loading all-roberta-large-v1...", flush=True)
             from sentence_transformers import SentenceTransformer
             _model = SentenceTransformer('sentence-transformers/all-roberta-large-v1')
-            logger.info("Model loaded successfully.")
+            print("Model loaded successfully.", flush=True)
         except Exception as e:
-            logger.error(f"Failed to load model: {e}")
+            print(f"FAILED to load model: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             return None
     return _model
 
