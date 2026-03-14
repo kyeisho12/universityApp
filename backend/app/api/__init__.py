@@ -8,7 +8,7 @@ from .interviews import interviews_bp
 from .analytics import analytics_bp
 from .students import students_bp
 from .applications import applications_bp
-from .hf_proxy import hf_proxy_bp 
+# from .hf_proxy import hf_proxy_bp 
 
 api_bp = Blueprint("api", __name__)
 
