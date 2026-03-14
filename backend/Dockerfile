@@ -1,6 +1,5 @@
 FROM python:3.10
 
-# Cache bust: v2
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libavformat-dev \
@@ -15,4 +14,6 @@ WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
 
-CMD ["sh", "-c", "echo PORT is $PORT; gunicorn --bind 0.0.0.0:${PORT:-8000} run:app"]
+EXPOSE 8000
+
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--threads", "4", "--workers", "1", "--timeout", "180"]
