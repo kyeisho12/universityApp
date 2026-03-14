@@ -15,4 +15,4 @@ WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} run:app"]
+CMD ["sh", "-c", "echo PORT is $PORT; gunicorn --bind 0.0.0.0:${PORT:-8000} run:app"]
