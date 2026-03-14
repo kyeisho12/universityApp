@@ -15,9 +15,6 @@ COPY . /app
 RUN pip install -r requirements.txt
 EXPOSE 8000
 CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--threads", "4", "--workers", "1", "--timeout", "180"]
-
-<<<<<<< HEAD
-CMD ["python", "start.py"]
 =======
 EXPOSE 8000
 
