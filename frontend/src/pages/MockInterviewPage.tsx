@@ -951,7 +951,7 @@ function MockInterviewPageContent({
     }
 
     // If transcript is complete and we have text, run automatic evaluation once
-    try {
+   try {
       const qIndex = targetQuestionIndex;
       const hasText = Boolean(transcriptText);
       const alreadyEvaluated = evaluations[qIndex];
@@ -968,6 +968,36 @@ function MockInterviewPageContent({
 
           const questionText = questions[qIndex]?.question || "";
           const result = await evaluateAnswer(questionText, transcriptText);
+
+          // ── Evaluation result console log ────────────────────────────
+          console.log(
+            `%c[Evaluation] Q${qIndex + 1}: "${questionText.slice(0, 50)}..."`,
+            'color: #6366f1; font-weight: bold'
+          );
+          console.log(
+            `%c  Source:     ${result.source === 'roberta_similarity' ? '✅ RoBERTa Semantic Similarity' : '⚠️  ZSL STAR Fallback'}`,
+            result.source === 'roberta_similarity' ? 'color: #22c55e' : 'color: #f59e0b'
+          );
+          console.log(
+            `%c  Score:      ${result.score} / 5  (${result.hrLabel})`,
+            'color: #e2e8f0'
+          );
+          if (result.source === 'roberta_similarity') {
+            console.log(
+              `%c  RoBERTa Similarity: ${(result.roberta_similarity * 100).toFixed(1)}%`,
+              'color: #e2e8f0'
+            );
+          }
+          console.log(
+            `%c  Anchor Score: ${result.datasetAnchorScore ?? 'N/A'}  |  Dataset Similarity: ${(result.datasetSimilarity * 100).toFixed(1)}%`,
+            'color: #94a3b8'
+          );
+          console.log(`%c  STAR Breakdown:`, 'color: #94a3b8', result.breakdown);
+          if (result.error) {
+            console.warn(`  [Fallback reason] ${result.error}`);
+          }
+          // ─────────────────────────────────────────────────────────────
+
           setEvaluations((prev) => {
             const next = { ...(prev || {}), [qIndex]: { ...result, evaluatedAt: new Date().toISOString() } };
             // persist per-stateKey so results survive reloads for this mock interview
@@ -981,8 +1011,7 @@ function MockInterviewPageContent({
         }
       }
     } catch (err) {
-      // swallow evaluation errors to keep UI stable
-      // console.error("Evaluation failed", err);
+      console.error("[Evaluation] Failed completely:", err);
     }
 
     return {

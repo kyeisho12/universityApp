@@ -9,7 +9,7 @@ from flask import request, jsonify, Blueprint
 hf_proxy_bp = Blueprint('hf_proxy', __name__)
 
 HF_URL = (
-    'https://router.huggingface.co/hf-inference/models/'
+    'https://api-inference.huggingface.co/hf-inference/models/'
     'sentence-transformers/all-roberta-large-v1/pipeline/feature-extraction'
 )
 
