@@ -1,14 +1,10 @@
 # backend/app/api/hf_proxy.py
 import json
-import logging
 import traceback
 from flask import request, jsonify, Blueprint
 
-logger = logging.getLogger(__name__)
 hf_proxy_bp = Blueprint('hf_proxy', __name__)
 
-# Load model lazily on first request instead of at startup
-# This prevents gunicorn worker from dying during boot
 _model = None
 
 def get_model():
@@ -16,12 +12,16 @@ def get_model():
     if _model is None:
         try:
             print("Loading all-roberta-large-v1...", flush=True)
+            # Import INSIDE the function — not at module level
+            # This prevents startup crash when gunicorn loads the module
             from sentence_transformers import SentenceTransformer
-            _model = SentenceTransformer('sentence-transformers/all-roberta-large-v1')
+            _model = SentenceTransformer(
+                'sentence-transformers/all-roberta-large-v1',
+                device='cpu'
+            )
             print("Model loaded successfully.", flush=True)
         except Exception as e:
             print(f"FAILED to load model: {e}", flush=True)
-            import traceback
             traceback.print_exc()
             return None
     return _model
@@ -45,7 +45,7 @@ def hf_embed():
 
     model = get_model()
     if model is None:
-        return jsonify({'error': 'Model failed to load'}), 500
+        return jsonify({'error': 'Model failed to load — check Railway deploy logs'}), 500
 
     try:
         embeddings = model.encode(inputs, convert_to_list=True)
