@@ -1,6 +1,5 @@
 FROM python:3.10
 
-# Cache bust: v2
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libavformat-dev \
@@ -14,5 +13,13 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
+EXPOSE 8000
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--threads", "4", "--workers", "1", "--timeout", "180"]
 
+<<<<<<< HEAD
 CMD ["python", "start.py"]
+=======
+EXPOSE 8000
+
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--threads", "4", "--workers", "1", "--timeout", "180"]
+>>>>>>> origin/tomas_branch
