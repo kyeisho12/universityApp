@@ -12,7 +12,7 @@ RUN apt-get update && \
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
 # Copy startup script
-COPY start.sh /start.sh
+COPY backend/ollama/start.sh /start.sh
 RUN chmod +x /start.sh
 
 # Expose Ollama API port
