@@ -56,6 +56,7 @@ def hf_embed():
     try:
         embeddings = model.encode(inputs, convert_to_numpy=True)
         return jsonify(embeddings.tolist()), 200
+
     except Exception as e:
         return jsonify({
             'error': str(e),
