@@ -106,6 +106,7 @@ type PreparedNextAction =
   | {
       kind: "complete";
       message: string;
+      completionReason: "score_threshold" | "question_cap" | "exhausted" | "manual";
     };
 
 interface PersistedMockInterviewState {
@@ -193,8 +194,8 @@ const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
 const OPENING_QUESTION_ID = "890b7831-97c4-4f25-bf26-590ca44fbee7";
 const RANDOM_BANK_QUESTION_COUNT = 5;
 const MIN_SESSION_QUESTION_COUNT = 10;
-const MAX_SESSION_QUESTION_COUNT = 30;
-const STAR_AVERAGE_TARGET_SCORE = 4;
+const MAX_SESSION_QUESTION_COUNT = 20;
+const STAR_AVERAGE_TARGET_SCORE = 3.5;
 const AUTO_SILENCE_RMS_THRESHOLD = 0.015;
 const AUTO_SILENCE_DURATION_MS = 1700;
 const AUTO_MIN_SPEECH_MS = 800;
@@ -1209,7 +1210,7 @@ function MockInterviewPageContent({
     };
   }, []);
 
-  const completeSession = useCallback(async (message?: string) => {
+  const completeSession = useCallback(async (message?: string, completionReason: "score_threshold" | "question_cap" | "exhausted" | "manual" = "manual") => {
     setIsSessionStarted(false);
     setIsPaused(false);
     setShowFinishSpeakingPrompt(false);
@@ -1231,6 +1232,7 @@ function MockInterviewPageContent({
         metadata: {
           ...getSessionTranscriptMetadata(),
           questions_attempted: askedQuestionCount,
+          completion_reason: completionReason,
           score_summary: {
             overall_average: Number(sessionStats.overallAverage.toFixed(2)),
             situation: Number(sessionStats.situation.toFixed(2)),
@@ -1239,6 +1241,13 @@ function MockInterviewPageContent({
             result: Number(sessionStats.result.toFixed(2)),
             reflection: Number(sessionStats.reflection.toFixed(2)),
             evaluated_count: sessionStats.evaluatedCount,
+            per_question_scores: Object.entries(evaluations || {}).map(([idx, ev]: [string, any]) => ({
+              question_index: Number(idx),
+              score: ev?.score ?? null,
+              source: ev?.source ?? null,
+              roberta_similarity: ev?.roberta_similarity ?? null,
+              breakdown: ev?.breakdown ?? null,
+            })),
           },
         },
       });
@@ -1257,7 +1266,7 @@ function MockInterviewPageContent({
         );
       }
     }
-  }, [computeSessionSTARStats, currentQuestion, getSessionTranscriptMetadata, questions.length, sessionId]);
+  }, [computeSessionSTARStats, currentQuestion, evaluations, getSessionTranscriptMetadata, questions.length, sessionId]);
 
   const stopLiveChunkTranscription = useCallback(() => {
     const recorder = liveTranscriptionRecorderRef.current;
@@ -2202,6 +2211,7 @@ function MockInterviewPageContent({
         setPreparedNextAction({
           kind: "complete",
           message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions. Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`,
+          completionReason: "question_cap",
         });
         setRecordingError(completeMessage);
         return;
@@ -2211,6 +2221,7 @@ function MockInterviewPageContent({
         setPreparedNextAction({
           kind: "complete",
           message: `Session completed successfully after ${askedQuestionCount} questions. STAR average reached ${sessionStarAverage.toFixed(2)} / 5 (target ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)}).`,
+          completionReason: "score_threshold",
         });
         setRecordingError(completeMessage);
         return;
@@ -2246,6 +2257,7 @@ function MockInterviewPageContent({
           setPreparedNextAction({
             kind: "complete",
             message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions.`,
+            completionReason: "question_cap",
           });
           setRecordingError(completeMessage);
           return;
@@ -2275,6 +2287,7 @@ function MockInterviewPageContent({
           setPreparedNextAction({
             kind: "complete",
             message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions.`,
+            completionReason: "question_cap",
           });
           setRecordingError(completeMessage);
           return;
@@ -2331,6 +2344,7 @@ function MockInterviewPageContent({
       setPreparedNextAction({
         kind: "complete",
         message: `Session ended because no more questions are available in the bank.${minimumMsg} Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`,
+        completionReason: "exhausted",
       });
       setRecordingError(completeMessage);
     },
@@ -2367,7 +2381,7 @@ function MockInterviewPageContent({
       if (preparedNextAction) {
         if (preparedNextAction.kind === "complete") {
           setPreparedNextAction(null);
-          await completeSession(preparedNextAction.message);
+          await completeSession(preparedNextAction.message, preparedNextAction.completionReason);
           return;
         }
 
@@ -2738,7 +2752,7 @@ function MockInterviewPageContent({
       return;
     }
 
-    await completeSession();
+    await completeSession(undefined, "manual");
   }, [completeSession, currentQuestion, handlePracticeAgain, questions.length, sessionId, stopActiveRecording, storagePrefix]);
 
   const startCamera = useCallback(async (): Promise<MediaStream | null> => {
@@ -3233,6 +3247,8 @@ function MockInterviewPageContent({
     0
   );
   const hasMetMinimumQuestionRequirement = remainingQuestionsForCount === 0;
+  const runningAverage = calculateSessionStarAverage();
+  const evaluatedCountForUi = Object.keys(evaluations || {}).length;
 
   // Interview Recording Screen
   return (
@@ -3593,6 +3609,32 @@ function MockInterviewPageContent({
                   </span>
                 </p>
               </div>
+              {isSessionStarted && evaluatedCountForUi > 0 && (
+                <div
+                  className={
+                    runningAverage >= STAR_AVERAGE_TARGET_SCORE
+                      ? "mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3"
+                      : "mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3"
+                  }
+                >
+                  <p
+                    className={
+                      runningAverage >= STAR_AVERAGE_TARGET_SCORE
+                        ? "text-xs text-emerald-800 flex items-center justify-between"
+                        : "text-xs text-indigo-800 flex items-center justify-between"
+                    }
+                  >
+                    <span>
+                      {runningAverage >= STAR_AVERAGE_TARGET_SCORE
+                        ? `✅ Score target reached! Avg: ${runningAverage.toFixed(2)} / 5`
+                        : `📊 Running avg: ${runningAverage.toFixed(2)} / 5 — need ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)} to finish early`}
+                    </span>
+                    <span className="ml-2 font-semibold whitespace-nowrap">
+                      {evaluatedCountForUi} scored
+                    </span>
+                  </p>
+                </div>
+              )}
               {isSessionStarted && (
                 <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-lg p-3">
                   <p className="text-xs text-cyan-800">
