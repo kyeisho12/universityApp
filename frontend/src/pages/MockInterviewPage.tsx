@@ -2277,14 +2277,20 @@ function MockInterviewPageContent({
           baseQuestionId,
         };
 
-        setPreparedNextAction({
-          kind: "followup",
-          question: followupQuestion,
-          nextQuestionIndex: questions.length,
-          baseQuestionId,
-        });
-        setRecordingError(preparedMessage);
-        return;
+        // Skip if this follow-up is a duplicate of any already-asked question
+        const existingKeys = new Set(questions.map((q) => normalizeQuestionKey(q.question)).filter(Boolean));
+        if (existingKeys.has(normalizeQuestionKey(followupQuestion.question))) {
+          // Fall through to bank question instead
+        } else {
+          setPreparedNextAction({
+            kind: "followup",
+            question: followupQuestion,
+            nextQuestionIndex: questions.length,
+            baseQuestionId,
+          });
+          setRecordingError(preparedMessage);
+          return;
+        }
       }
 
       if (shouldUseEmergencyFollowup) {
@@ -2307,16 +2313,20 @@ function MockInterviewPageContent({
           baseQuestionId,
         };
 
-        setPreparedNextAction({
-          kind: "followup",
-          question: emergencyQuestion,
-          nextQuestionIndex: questions.length,
-          baseQuestionId,
-        });
-        setRecordingError(
-          "Decision API is temporarily unavailable. A recovery follow-up is ready. Click Next Question again to continue."
-        );
-        return;
+        // Skip if emergency follow-up duplicates an existing question
+        const existingKeysEmergency = new Set(questions.map((q) => normalizeQuestionKey(q.question)).filter(Boolean));
+        if (!existingKeysEmergency.has(normalizeQuestionKey(emergencyQuestion.question))) {
+          setPreparedNextAction({
+            kind: "followup",
+            question: emergencyQuestion,
+            nextQuestionIndex: questions.length,
+            baseQuestionId,
+          });
+          setRecordingError(
+            "Decision API is temporarily unavailable. A recovery follow-up is ready. Click Next Question again to continue."
+          );
+          return;
+        }
       }
 
       let nextPool = bankQuestionPool;
