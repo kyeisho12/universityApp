@@ -64,7 +64,7 @@ function Get-FakeScores {
 # ════════════════════════════════════════════════════════════════
 # TEST 1: score_threshold — 10 questions, avg 3.7 (above 3.5)
 # ════════════════════════════════════════════════════════════════
-Write-Host "`n[TEST 1] Score threshold exit (10 questions, avg 3.7)" -ForegroundColor Cyan
+Write-Host "`n[TEST 1] Score threshold exit (10 questions, avg 3.2)" -ForegroundColor Cyan
 
 $start1 = Invoke-API -Label "Start session" -Url "$BaseUrl/api/interviews/sessions/start" -Method POST -Body @{
     user_id         = $UserId
@@ -75,7 +75,7 @@ else {
     $sid1 = $start1.Data.data.id
     Write-Host "  ✅ Session created: $sid1" -ForegroundColor Green
 
-    $scores1 = Get-FakeScores -Count 10 -BaseScore 3.7
+    $scores1 = Get-FakeScores -Count 10 -BaseScore 3.2
     $avg1 = ($scores1 | ForEach-Object { $_["score"] } | Measure-Object -Average).Average
 
     $end1 = Invoke-API -Label "End session" -Url "$BaseUrl/api/interviews/sessions/$sid1/end" -Method POST -Body @{
