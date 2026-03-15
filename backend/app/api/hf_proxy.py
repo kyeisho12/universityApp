@@ -71,8 +71,8 @@ def hf_embed():
             return jsonify({'error': 'Could not parse request body as JSON'}), 400
 
     inputs = data.get('inputs')
-    if not inputs or not isinstance(inputs, list) or len(inputs) != 2:
-        return jsonify({'error': 'inputs must be a list of exactly 2 strings'}), 400
+    if not inputs or not isinstance(inputs, list) or len(inputs) < 1:
+        return jsonify({'error': 'inputs must be a list of 1 or more strings'}), 400
 
     model = get_model()
     if model is None:
