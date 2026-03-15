@@ -1,5 +1,5 @@
 # Ollama Dockerfile for Railway (CPU-only)
-# This Dockerfile installs Ollama and pulls the phi3 model
+# Starts Ollama, pulls phi3.5:mini at runtime, then keeps serving
 
 FROM ubuntu:22.04
 
@@ -11,11 +11,12 @@ RUN apt-get update && \
 # Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
+# Copy startup script
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # Expose Ollama API port
 EXPOSE 11434
 
-# Pull phi3 model on build (optional, can be done at runtime)
-RUN ollama pull phi3:mini || true
-
-# Start Ollama server
-CMD ["ollama", "serve"]
+# Run startup script (starts daemon, pulls model, then keeps serving)
+CMD ["/start.sh"]
