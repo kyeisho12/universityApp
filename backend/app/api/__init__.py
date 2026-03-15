@@ -8,7 +8,7 @@ from .interviews import interviews_bp
 from .analytics import analytics_bp
 from .students import students_bp
 from .applications import applications_bp
-# from .hf_proxy import hf_proxy_bp 
+from .hf_proxy import hf_proxy_bp 
 
 api_bp = Blueprint("api", __name__)
 
@@ -23,7 +23,7 @@ api_bp.register_blueprint(interviews_bp, url_prefix="/interviews")
 api_bp.register_blueprint(analytics_bp, url_prefix="/analytics")
 api_bp.register_blueprint(students_bp, url_prefix="/students")
 api_bp.register_blueprint(applications_bp, url_prefix="/applications")
-# api_bp.register_blueprint(hf_proxy_bp) 
+api_bp.register_blueprint(hf_proxy_bp) 
 
 
 @api_bp.route("/health", methods=["GET"])
