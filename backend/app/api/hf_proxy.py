@@ -48,7 +48,7 @@ def hf_embed():
         return jsonify({'error': 'Model failed to load — check Railway deploy logs'}), 500
 
     try:
-        embeddings = model.encode(inputs, convert_to_numpy=False)
+        embeddings = model.encode(inputs, convert_to_numpy=True).tolist()
         return jsonify(embeddings), 200
     except Exception as e:
         return jsonify({
