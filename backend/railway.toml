@@ -5,3 +5,7 @@ healthcheckTimeout = 300
 
 [[services]]
 internalPort = 8000
+
+[deploy]
+healthcheckPath = ""
+healthcheckTimeout = 300

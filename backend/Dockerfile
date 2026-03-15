@@ -20,5 +20,4 @@ COPY . /app
 
 EXPOSE 8000
 
-RUN python -c "from app import create_app; app = create_app(); print('APP LOADS OK')" 2>&1 || true
 CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--threads", "2", "--workers", "1", "--timeout", "300", "--graceful-timeout", "300"]
