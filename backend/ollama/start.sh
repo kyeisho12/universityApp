@@ -12,10 +12,10 @@ echo "Waiting for Ollama to start..."
 until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do
   sleep 2
 done
-echo "Ollama is ready. Pulling phi3.5:mini..."
+echo "Ollama is ready. Pulling phi3.5..."
 
 # Pull the model
-ollama pull phi3.5:mini
+ollama pull phi3.5
 
 echo "Model ready. Ollama serving on 0.0.0.0:11434"
 
