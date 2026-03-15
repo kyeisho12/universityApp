@@ -27,7 +27,15 @@
 // ---------------------------------------------------------------------------
 
 import robertaDataset, { DatasetItem, STARBreakdown } from '../data/robertaDataset';
+import questionEmbeddings from '../data/questionEmbeddings.generated';
 
+
+(function injectEmbeddings() {
+  for (const item of robertaDataset) {
+    const emb = questionEmbeddings[item.question];
+    if (emb) item.questionEmbedding = emb;
+  }
+})();
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -285,53 +293,86 @@ export interface DatasetLookupResult {
   topAnswer: string | null;    // best HR-scored answer (reference for RoBERTa)
 }
 
-export function lookupDataset(question: string, candidateAnswer: string): DatasetLookupResult {
-  if (!robertaDataset || !Array.isArray(robertaDataset) || robertaDataset.length === 0) {
-    console.error('[lookupDataset] Dataset empty or failed to load. Check import path.');
+export function lookupDataset(
+  question: string,
+  candidateAnswer: string,
+  questionEmbedding?: number[]    // ← pass the live embedding if you already have it
+): DatasetLookupResult {
+ 
+  if (!robertaDataset?.length) {
+    console.error('[lookupDataset] Dataset empty or failed to load.');
     return { item: null, questionSimilarity: 0, anchorScore: null, bestAnswerSimilarity: 0, topAnswer: null };
   }
-
-  const qTokens = tokenSet(question);
-  const aTokens = tokenSet(candidateAnswer);
-
-  // Find closest question by Jaccard
+ 
+  // ── Question matching ─────────────────────────────────────────────────────
   let bestItem: DatasetItem | null = null;
   let bestQSim = 0;
-  for (const it of robertaDataset) {
-    const sim = jaccard(qTokens, tokenSet(it.question));
-    if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
+ 
+  // Check whether dataset items have embeddings injected
+  const hasEmbeddings = robertaDataset.some(it => it.questionEmbedding?.length);
+ 
+  if (hasEmbeddings && questionEmbedding?.length) {
+    // ── Semantic path: cosine similarity on RoBERTa embeddings ───────────────
+    for (const it of robertaDataset) {
+      if (!it.questionEmbedding?.length) continue;
+      const sim = cosineSimilarity(questionEmbedding, it.questionEmbedding);
+      if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
+    }
+ 
+    console.debug(
+      `[lookupDataset] semantic  question="${question.slice(0,40)}" ` +
+      `bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0,40) ?? 'none'}"`
+    );
+  } else {
+    // ── Fallback: Jaccard (used when embeddings aren't ready yet) ─────────────
+    const qTokens = tokenSet(question);
+    for (const it of robertaDataset) {
+      const sim = jaccard(qTokens, tokenSet(it.question));
+      if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
+    }
+ 
+    console.debug(
+      `[lookupDataset] jaccard   question="${question.slice(0,40)}" ` +
+      `bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0,40) ?? 'none'}"`
+    );
   }
-
-  console.debug(`[lookupDataset] question="${question.slice(0,40)}" bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0,40) ?? 'none'}"`);
-
+ 
   if (!bestItem || bestQSim < DATASET_MATCH_THRESHOLD) {
     return { item: null, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0, topAnswer: null };
   }
-
-  // Score each answer by Jaccard similarity to the candidate
+ 
+  // ── Answer scoring (unchanged from original) ──────────────────────────────
+  const aTokens = tokenSet(candidateAnswer);
+ 
   const scored = bestItem.answers
-    .map(ans => ({ similarity: jaccard(aTokens, tokenSet(ans.text)), avgScore: ans.avgScore, text: ans.text }))
+    .map(ans => ({
+      similarity: jaccard(aTokens, tokenSet(ans.text)),
+      avgScore:   ans.avgScore,
+      text:       ans.text,
+    }))
     .sort((a, b) => b.similarity - a.similarity);
-
+ 
   const topK = scored.slice(0, TOP_K_ANSWERS).filter(s => s.similarity > 0);
-
-  // The reference answer for RoBERTa = the highest HR-scored answer in dataset
+ 
+  // Reference answer for RoBERTa = highest HR-scored answer in matched question
   const topByScore = [...bestItem.answers].sort((a, b) => b.avgScore - a.avgScore)[0];
-
+ 
   if (!topK.length) {
     return {
-      item: bestItem, questionSimilarity: bestQSim,
-      anchorScore: null, bestAnswerSimilarity: 0,
+      item: bestItem,
+      questionSimilarity: bestQSim,
+      anchorScore: null,
+      bestAnswerSimilarity: 0,
       topAnswer: topByScore?.text ?? null,
     };
   }
-
-  // Weighted average of HR scores, weighted by Jaccard similarity
-  const totalWeight = topK.reduce((s, x) => s + x.similarity, 0);
-  const anchorScore = parseFloat(
+ 
+  // Weighted average of HR scores, weighted by Jaccard similarity to candidate
+  const totalWeight  = topK.reduce((s, x) => s + x.similarity, 0);
+  const anchorScore  = parseFloat(
     (topK.reduce((s, x) => s + x.avgScore * x.similarity, 0) / totalWeight).toFixed(2)
   );
-
+ 
   return {
     item: bestItem,
     questionSimilarity: bestQSim,
@@ -445,11 +486,37 @@ export async function evaluateAnswer(
   const norm = normalizeText(answer);
   const wordCount = norm.split(' ').filter(Boolean).length;
 
-  // Step 1: Dataset lookup
-  const lookup = lookupDataset(question, answer);
+  // Step 1: Fetch question embedding for semantic dataset lookup
+  // Reused by lookupDataset (question matching) — avoids a second API call later
+  let questionEmb: number[] | undefined;
+  try {
+    if (BACKEND_URL) {
+      const controller = new AbortController();
+      const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/hf-embed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputs: [question] }),
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          questionEmb = toSentenceEmbedding(data[0]);
+        }
+      } finally {
+        window.clearTimeout(tid);
+      }
+    }
+  } catch {
+    // silently fall back to Jaccard question matching
+  }
+
+  // Step 2: Dataset lookup — uses cosine sim if questionEmb available, else Jaccard
+  const lookup = lookupDataset(question, answer, questionEmb);
   const hasDataset = lookup.item !== null && lookup.anchorScore !== null;
 
-  // Step 2: STAR breakdown (used as fallback signal in both paths)
+  // Step 3: STAR breakdown (used as fallback signal in both paths)
   const rawBD = computeBreakdown(norm, wordCount);
   const blendedBD: STARBreakdown =
     hasDataset && lookup.bestAnswerSimilarity > 0.1
@@ -460,10 +527,7 @@ export async function evaluateAnswer(
   // ── Path 1: RoBERTa Sentence Similarity ────────────────────────────────────
   if (hasDataset && lookup.topAnswer) {
     try {
-      // Get true semantic similarity (0–1) from RoBERTa
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
-
-      // Convert the 0–1 similarity to 1–5 Likert — this is the thesis claim
       const targetScore = similarityToLikert(similarity, lookup.anchorScore!, starScore);
       const scaledBD = scaleBDToTarget(blendedBD, targetScore);
       const finalScore = breakdownToScore(scaledBD);
@@ -485,14 +549,11 @@ export async function evaluateAnswer(
     }
   }
 
-  // ── Path 2: ZSL RoBERTa Classification (genuine zero-shot) ─────────────────
-  // Uses cross-encoder/nli-roberta-base to score each STAR dimension independently.
-  // No reference answer needed — works on any question cold.
+  // ── Path 2: ZSL RoBERTa Classification ─────────────────────────────────────
   try {
     const zslBD = await callZSLClassify(question, answer);
     const zslScore = breakdownToScore(zslBD);
 
-    // Blend ZSL score with dataset anchor if available
     const targetScore = Math.max(1, Math.min(5,
       hasDataset && lookup.anchorScore !== null
         ? similarityToLikert(lookup.bestAnswerSimilarity, lookup.anchorScore, zslScore)
@@ -518,7 +579,7 @@ export async function evaluateAnswer(
       err instanceof Error ? err.message : err);
   }
 
-  // ── Path 3: Regex STAR fallback (last resort, no network required) ──────────
+  // ── Path 3: Regex STAR fallback ─────────────────────────────────────────────
   const jaccardSim = lookup.bestAnswerSimilarity;
   const targetScore = Math.max(1, Math.min(5,
     hasDataset && lookup.anchorScore !== null
