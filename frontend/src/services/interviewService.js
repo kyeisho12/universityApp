@@ -145,6 +145,33 @@ export async function getMockInterviewQuestions(limit = 5) {
 }
 
 /**
+ * Category order for soft sequencing: behavioral → situational → career_development → general → anything else
+ */
+const CATEGORY_ORDER = ['behavioral', 'situational', 'career_development', 'general']
+
+function sortByCategory(questions) {
+	const groups = {}
+	for (const q of questions) {
+		const cat = (q.category || 'general').toLowerCase()
+		if (!groups[cat]) groups[cat] = []
+		groups[cat].push(q)
+	}
+	// Shuffle within each category group for variety
+	for (const cat of Object.keys(groups)) {
+		groups[cat].sort(() => Math.random() - 0.5)
+	}
+	// Return in category priority order, then any remaining unknown categories
+	const ordered = []
+	for (const cat of CATEGORY_ORDER) {
+		if (groups[cat]) ordered.push(...groups[cat])
+	}
+	for (const cat of Object.keys(groups)) {
+		if (!CATEGORY_ORDER.includes(cat)) ordered.push(...groups[cat])
+	}
+	return ordered
+}
+
+/**
  * @param {{ limit?: number, excludeIds?: string[] }} [options]
  */
 export async function getMockInterviewQuestionsExcluding({ limit = 5, excludeIds = [] } = {}) {
@@ -160,8 +187,8 @@ export async function getMockInterviewQuestionsExcluding({ limit = 5, excludeIds
 
 	const normalizedLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 5
 	const filtered = (data || []).filter((item) => !excluded.has(item.id))
-	const shuffled = [...filtered].sort(() => Math.random() - 0.5)
-	const selected = shuffled.slice(0, normalizedLimit)
+	const sorted = sortByCategory(filtered)
+	const selected = sorted.slice(0, normalizedLimit)
 
 	const questions = selected.map((item) => ({
 		id: item.id,
