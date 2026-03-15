@@ -31,6 +31,7 @@ export interface DatasetItem {
   totalAnswers: number;
   breakdown: STARBreakdown;
   answers: DatasetAnswer[];
+  questionEmbedding?: number[]; 
 }
 
 const robertaDataset: DatasetItem[] = 
