@@ -3,8 +3,6 @@ Flask-CORS==4.0.0
 python-dotenv==1.0.0
 requests==2.31.0
 faster-whisper==1.0.3
-supabase==2.28.0
-websockets==14.1
 gunicorn
 numpy<2
 sentence-transformers==2.7.0
