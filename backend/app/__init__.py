@@ -1,3 +1,4 @@
+import threading
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -44,6 +45,10 @@ def create_app():
 	# Register blueprints
 	from app.api import api_bp
 	app.register_blueprint(api_bp, url_prefix="/api")
+
+	# Pre-warm RoBERTa model in background so first request isn't slow
+	from app.api.hf_proxy import _prewarm_model
+	threading.Thread(target=_prewarm_model, daemon=True).start()
 
 	return app
 

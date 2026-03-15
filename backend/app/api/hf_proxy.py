@@ -5,7 +5,13 @@ from flask import request, jsonify, Blueprint
 
 hf_proxy_bp = Blueprint('hf_proxy', __name__)
 
+import threading
+
 _model = None
+
+def _prewarm_model():
+    """Load model in background at startup so first request isn't slow."""
+    get_model()
 
 def get_model():
     global _model
