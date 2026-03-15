@@ -32,14 +32,10 @@ import robertaDataset, { DatasetItem, STARBreakdown } from '../data/robertaDatas
 // Config
 // ---------------------------------------------------------------------------
 
-const HF_TIMEOUT_MS = 90000;
-
-// sentence-transformers/all-roberta-large-v1 — feature-extraction endpoint
-// Returns sentence embeddings; we compute cosine similarity ourselves.
-// Proxied via Vite dev server → router.huggingface.co (avoids browser CORS).
-// In production (Render), the Vite proxy is gone — a server-side proxy is needed.
-// See: vite.config.ts proxy block and Render deployment notes.
+// Your Flask backend on Render — set VITE_BACKEND_URL in Vercel env vars
+// e.g. https://universityapp-backend.onrender.com
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined)?.replace(/\/$/, '');
+const HF_TIMEOUT_MS = 90000; // 90s — covers Render sleep + HF cold start
 
 const DATASET_MATCH_THRESHOLD = 0.25;
 const TOP_K_ANSWERS = 5;
@@ -49,7 +45,7 @@ const TOP_K_ANSWERS = 5;
 // ---------------------------------------------------------------------------
 
 export interface EvaluationResult {
-  source: 'roberta_similarity' | 'zsl_star_fallback';
+  source: 'roberta_similarity' | 'zsl_roberta' | 'zsl_star_fallback';
   matchedQuestion: string | null;
   questionAvgScore: number | null;
   datasetAnchorScore: number | null;
@@ -141,23 +137,35 @@ async function callRoBERTaSimilarity(
   answer: string,
   referenceAnswer: string
 ): Promise<number> {
-  if (!BACKEND_URL) throw new Error('VITE_BACKEND_URL is not set.');
+  if (!HF_API_TOKEN) throw new Error('VITE_HF_TOKEN is not set.');
 
   const controller = new AbortController();
   const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
+
   const referenceText = `${question} ${referenceAnswer}`.slice(0, 512);
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/hf-embed`, {
+    const res = await fetch(HF_ROBERTA_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputs: [referenceText, answer] }),
+      headers: {
+        Authorization: `Bearer ${HF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: [referenceText, answer],
+        options: { wait_for_model: true },
+      }),
       signal: controller.signal,
     });
 
-    if (!res.ok) throw new Error(`Backend proxy error ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 503) throw new Error('RoBERTa model loading (~20s), retrying on next evaluation.');
+      if (res.status === 401) throw new Error('Invalid HF token. Check VITE_HF_TOKEN env variable.');
+      throw new Error(`RoBERTa API error ${res.status}: ${await res.text().catch(() => '')}`);
+    }
 
     const data = await res.json();
+    // data is an array of two embeddings: [embeddingA, embeddingB]
     const embA = toSentenceEmbedding(data[0]);
     const embB = toSentenceEmbedding(data[1]);
     return cosineSimilarity(embA, embB);
@@ -166,6 +174,91 @@ async function callRoBERTaSimilarity(
     window.clearTimeout(tid);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Path 2 — ZSL RoBERTa Classification (cross-encoder/nli-roberta-base)
+//
+// Calls /api/hf-classify with candidate labels per STAR dimension.
+// The NLI model judges which label best fits — genuinely zero-shot.
+// No reference answer needed — works on any question.
+// ---------------------------------------------------------------------------
+
+const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
+  situation: [
+    'the answer describes a specific real situation or past experience',
+    'the answer mentions a vague or general situation',
+    'the answer provides no situation or context at all',
+  ],
+  task: [
+    'the answer clearly states the speaker role and responsibility',
+    'the answer vaguely mentions a role or goal',
+    'the answer does not mention any role or task',
+  ],
+  action: [
+    'the answer describes specific concrete actions taken',
+    'the answer mentions some actions but lacks detail',
+    'the answer describes no clear action taken',
+  ],
+  result: [
+    'the answer provides measurable outcomes or clear results',
+    'the answer mentions results but they are vague',
+    'the answer provides no result or outcome',
+  ],
+  reflection: [
+    'the answer shows deep self-awareness and learning from experience',
+    'the answer mentions some lesson learned',
+    'the answer shows no reflection or self-awareness',
+  ],
+};
+
+function probabilityToLikert(strongProb: number, weakProb: number): number {
+  const raw = strongProb * 5 - weakProb * 2;
+  return Math.max(1, Math.min(5, Math.round(raw)));
+}
+
+async function callZSLClassify(
+  question: string,
+  answer: string
+): Promise<STARBreakdown> {
+  if (!BACKEND_URL) throw new Error('VITE_BACKEND_URL is not set.');
+  const text = `Question: ${question.slice(0, 200)} Answer: ${answer.slice(0, 400)}`;
+  const scores: Partial<STARBreakdown> = {};
+
+  for (const dim of ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[]) {
+    const controller = new AbortController();
+    const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/hf-classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: text,
+          candidate_labels: ZSL_LABELS[dim],
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`ZSL classify error ${res.status}`);
+      const data = await res.json();
+      const labelIdx = (label: string) => (data.labels as string[]).indexOf(label);
+      const strongIdx = labelIdx(ZSL_LABELS[dim][0]);
+      const weakIdx   = labelIdx(ZSL_LABELS[dim][2]);
+      const strongProb = strongIdx >= 0 ? data.scores[strongIdx] : 0;
+      const weakProb   = weakIdx   >= 0 ? data.scores[weakIdx]   : 0;
+      scores[dim] = probabilityToLikert(strongProb, weakProb);
+    } finally {
+      window.clearTimeout(tid);
+    }
+  }
+
+  return {
+    situation:  scores.situation  ?? 1,
+    task:       scores.task       ?? 1,
+    action:     scores.action     ?? 1,
+    result:     scores.result     ?? 1,
+    reflection: scores.reflection ?? 1,
+  };
+}
+
 
 // ---------------------------------------------------------------------------
 // THE CORE CONVERSION: RoBERTa similarity (0–1) → 1–5 Likert scale
@@ -404,7 +497,40 @@ export async function evaluateAnswer(
     }
   }
 
-  // ── Path 2: ZSL STAR + Jaccard anchor fallback ─────────────────────────────
+  // ── Path 2: ZSL RoBERTa Classification (genuine zero-shot) ─────────────────
+  // Uses cross-encoder/nli-roberta-base to score each STAR dimension independently.
+  // No reference answer needed — works on any question cold.
+  try {
+    const zslBD = await callZSLClassify(question, answer);
+    const zslScore = breakdownToScore(zslBD);
+
+    // Blend ZSL score with dataset anchor if available
+    const targetScore = Math.max(1, Math.min(5,
+      hasDataset && lookup.anchorScore !== null
+        ? similarityToLikert(lookup.bestAnswerSimilarity, lookup.anchorScore, zslScore)
+        : zslScore
+    ));
+
+    const scaledBD = scaleBDToTarget(zslBD, targetScore);
+    const finalScore = breakdownToScore(scaledBD);
+
+    return {
+      source: 'zsl_roberta',
+      matchedQuestion: lookup.item?.question ?? null,
+      questionAvgScore: lookup.item?.questionAvgScore ?? null,
+      datasetAnchorScore: lookup.anchorScore,
+      datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
+      roberta_similarity: 0,
+      score: finalScore,
+      breakdown: scaledBD,
+      hrLabel: getHRLabel(finalScore),
+    };
+  } catch (err) {
+    console.warn('[evaluateAnswer] ZSL RoBERTa failed, using regex STAR:',
+      err instanceof Error ? err.message : err);
+  }
+
+  // ── Path 3: Regex STAR fallback (last resort, no network required) ──────────
   const jaccardSim = lookup.bestAnswerSimilarity;
   const targetScore = Math.max(1, Math.min(5,
     hasDataset && lookup.anchorScore !== null
@@ -425,7 +551,7 @@ export async function evaluateAnswer(
     score: finalScore,
     breakdown: scaledBD,
     hrLabel: getHRLabel(finalScore),
-    error: 'RoBERTa API unavailable. Jaccard similarity used as fallback proxy.',
+    error: 'All RoBERTa paths unavailable. Regex STAR heuristic used as last resort.',
   };
 }
 

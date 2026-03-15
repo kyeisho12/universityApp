@@ -975,8 +975,13 @@ function MockInterviewPageContent({
             'color: #6366f1; font-weight: bold'
           );
           console.log(
-            `%c  Source:     ${result.source === 'roberta_similarity' ? '✅ RoBERTa Semantic Similarity' : '⚠️  ZSL STAR Fallback'}`,
-            result.source === 'roberta_similarity' ? 'color: #22c55e' : 'color: #f59e0b'
+            `%c  Source:     ${
+              result.source === 'roberta_similarity' ? '✅ RoBERTa Semantic Similarity' :
+              result.source === 'zsl_roberta'        ? '🟡 ZSL RoBERTa Classification' :
+                                                        '⚠️  Regex STAR Fallback'
+            }`,
+            result.source === 'roberta_similarity' ? 'color: #22c55e' :
+            result.source === 'zsl_roberta'        ? 'color: #eab308' : 'color: #f59e0b'
           );
           console.log(
             `%c  Score:      ${result.score} / 5  (${result.hrLabel})`,
