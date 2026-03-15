@@ -14,6 +14,11 @@ hf_proxy_bp = Blueprint('hf_proxy', __name__)
 # ── Embedding model (Path 1: all-roberta-large-v1) ───────────────────────────
 _model = None
 
+def _prewarm_model():
+    """Pre-warm the embedding model so the first request isn't slow."""
+    get_model()
+
+
 def get_model():
     global _model
     if _model is None:
