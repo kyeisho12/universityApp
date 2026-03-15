@@ -55,10 +55,8 @@ def get_classify_model():
 
 
 # ── /hf-embed (Path 1) ────────────────────────────────────────────────────────
-@hf_proxy_bp.route('/hf-embed', methods=['POST', 'OPTIONS'])
+@hf_proxy_bp.route('/hf-embed', methods=['POST'])
 def hf_embed():
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
 
     data = request.get_json(force=True, silent=True)
     if data is None:
@@ -86,10 +84,8 @@ def hf_embed():
 
 
 # ── /hf-classify (Path 2: ZSL per STAR dimension) ────────────────────────────
-@hf_proxy_bp.route('/hf-classify', methods=['POST', 'OPTIONS'])
+@hf_proxy_bp.route('/hf-classify', methods=['POST'])
 def hf_classify():
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
 
     data = request.get_json(force=True, silent=True)
     if data is None:
