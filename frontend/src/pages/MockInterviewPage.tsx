@@ -3200,6 +3200,21 @@ function MockInterviewPageContent({
                   <h2 className="text-2xl font-bold text-gray-900">
                     {sessionStats.overallAverage.toFixed(2)} / 5 ({sessionStats.evaluatedCount} answers)
                   </h2>
+                  {(() => {
+                    const avg = sessionStats.overallAverage;
+                    let label = "";
+                    let colorClass = "";
+                    if (avg >= 4.5) { label = "Excellent"; colorClass = "text-emerald-700 bg-emerald-50 border-emerald-200"; }
+                    else if (avg >= 3.5) { label = "Very Good"; colorClass = "text-blue-700 bg-blue-50 border-blue-200"; }
+                    else if (avg >= 2.5) { label = "Good"; colorClass = "text-indigo-700 bg-indigo-50 border-indigo-200"; }
+                    else if (avg >= 1.5) { label = "Fair"; colorClass = "text-amber-700 bg-amber-50 border-amber-200"; }
+                    else { label = "Needs Improvement"; colorClass = "text-red-700 bg-red-50 border-red-200"; }
+                    return (
+                      <span className={`inline-block mt-2 px-3 py-1 text-sm font-semibold rounded-full border ${colorClass}`}>
+                        {label}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -3212,27 +3227,62 @@ function MockInterviewPageContent({
                   <MetricCard
                     label="Situation clarity"
                     percentage={Math.round((sessionStats.situation / 5) * 100)}
-                    description="Clearly describes the situation or context"
+                    score={sessionStats.situation}
+                    feedbacks={{
+                      5: "Clearly and fully describes the situation with all relevant details.",
+                      4: "Describes the situation well with only minor missing details.",
+                      3: "Situation is somewhat clear but lacks specifics.",
+                      2: "Situation is vague or partially unclear.",
+                      1: "Situation is missing, unclear, or confusing.",
+                    }}
                   />
                   <MetricCard
                     label="Task ownership"
                     percentage={Math.round((sessionStats.task / 5) * 100)}
-                    description="States the task and shows ownership/responsibility"
+                    score={sessionStats.task}
+                    feedbacks={{
+                      5: "Clearly defines the challenge or responsibility with precision and ownership.",
+                      4: "Defines the task well but could be more specific.",
+                      3: "Task is somewhat clear but lacks specifics.",
+                      2: "Task is vague or lacks relevance.",
+                      1: "Task is missing or unclear.",
+                    }}
                   />
                   <MetricCard
                     label="Action specificity"
                     percentage={Math.round((sessionStats.action / 5) * 100)}
-                    description="Provides specific actions taken with detail"
+                    score={sessionStats.action}
+                    feedbacks={{
+                      5: "Provides detailed, relevant actions; demonstrates initiative and skills.",
+                      4: "Actions are clear and mostly relevant.",
+                      3: "Actions are mentioned but generic or partially relevant.",
+                      2: "Actions are vague or minimally relevant.",
+                      1: "Actions are missing or irrelevant.",
+                    }}
                   />
                   <MetricCard
                     label="Result measurability"
                     percentage={Math.round((sessionStats.result / 5) * 100)}
-                    description="Describes measurable outcomes or impact"
+                    score={sessionStats.result}
+                    feedbacks={{
+                      5: "Clearly explains measurable outcomes and meaningful impact.",
+                      4: "Result is explained with some specifics and positive impact.",
+                      3: "Result is mentioned but vague or minimal.",
+                      2: "Result is unclear or only partially connected to actions.",
+                      1: "Result is missing, unclear, or disorganized.",
+                    }}
                   />
                   <MetricCard
                     label="Reflection & learning"
                     percentage={Math.round((sessionStats.reflection / 5) * 100)}
-                    description="Shows learning and reflection from the experience"
+                    score={sessionStats.reflection}
+                    feedbacks={{
+                      5: "Applicant reflects meaningfully on lessons learned and demonstrates professional growth.",
+                      4: "Some reflection provided; response is organized and professional.",
+                      3: "Limited reflection; some structure but not fully developed.",
+                      2: "No reflection or learning insight; response lacks organization.",
+                      1: "No reflection provided; response is disorganized or off-topic.",
+                    }}
                   />
                 </div>
               </div>
@@ -3756,14 +3806,34 @@ function ChecklistItem({ text }: { text: string }) {
 function MetricCard({
   label,
   percentage,
-  description,
+  score,
+  feedbacks,
 }: {
   label: string;
   percentage: number | null;
-  description: string;
+  score?: number | null;
+  feedbacks?: Record<number, string>;
 }) {
   const hasPercentage = typeof percentage === "number";
   const barWidth = hasPercentage ? Math.max(0, Math.min(100, percentage)) : 0;
+
+  const getFeedback = () => {
+    if (!feedbacks || score == null) return null;
+    const rounded = Math.round(score);
+    const key = Math.max(1, Math.min(5, rounded)) as 1 | 2 | 3 | 4 | 5;
+    return feedbacks[key] ?? null;
+  };
+
+  const getBarColor = () => {
+    if (score == null) return "bg-[#1B2744]";
+    if (score >= 4.5) return "bg-emerald-500";
+    if (score >= 3.5) return "bg-blue-500";
+    if (score >= 2.5) return "bg-indigo-500";
+    if (score >= 1.5) return "bg-amber-500";
+    return "bg-red-400";
+  };
+
+  const feedback = getFeedback();
 
   return (
     <div>
@@ -3775,11 +3845,13 @@ function MetricCard({
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
         <div
-          className="bg-[#1B2744] h-2 rounded-full"
+          className={`${getBarColor()} h-2 rounded-full`}
           style={{ width: `${barWidth}%` }}
         />
       </div>
-      <p className="text-xs text-gray-500">{description}</p>
+      {feedback && (
+        <p className="text-xs text-gray-600">{feedback}</p>
+      )}
     </div>
   );
 }
