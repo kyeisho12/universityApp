@@ -438,7 +438,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   )
 }
 
-
+export default function Login() {
   const { signIn, signUp } = useAuth()
   const messageBox = useMessageBox()
   const navigate = useNavigate()
