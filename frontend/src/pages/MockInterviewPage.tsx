@@ -16,6 +16,8 @@ import {
   Bot,
   PlayCircle,
   AlertCircle,
+  Menu,
+  X,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
@@ -321,6 +323,7 @@ function MockInterviewPageContent({
     initialStateRef.current?.isMicOn ?? true
   );
   const [isMicLoopbackOn, setIsMicLoopbackOn] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(
     initialStateRef.current?.isPaused ?? false
   );
@@ -2915,17 +2918,44 @@ function MockInterviewPageContent({
 
       return (
         <div className="flex h-screen bg-gray-50">
-          <Sidebar
-            userName={userName}
-            userID={userID}
-            onLogout={onLogout}
-            onNavigate={onNavigate}
-            activeNav="student/interview"
-          />
+          {/* Sidebar (desktop) */}
+          <div className="hidden md:block flex-shrink-0">
+            <Sidebar
+              userName={userName}
+              userID={userID}
+              onLogout={onLogout}
+              onNavigate={onNavigate}
+              activeNav="student/interview"
+            />
+          </div>
+
+          {/* Mobile sidebar overlay */}
+          {mobileOpen && (
+            <div className="fixed inset-0 z-50 md:hidden">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+              <div className="relative h-full">
+                <div className="absolute left-0 top-0 bottom-0">
+                  <Sidebar
+                    userName={userName}
+                    userID={userID}
+                    onLogout={() => { setMobileOpen(false); onLogout(); }}
+                    onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                    activeNav="student/interview"
+                  />
+                </div>
+                <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
+                  <X className="w-5 h-5 text-gray-800" />
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-auto">
             <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-                <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
+              <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
+                <Menu className="w-5 h-5 text-gray-700" />
+              </button>
+              <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
             </div>
 
             <div className="p-4 sm:p-8 space-y-8">
@@ -3014,19 +3044,45 @@ function MockInterviewPageContent({
 
     return (
       <div className="flex h-screen bg-gray-50">
-        {/* Sidebar */}
-        <Sidebar
-          userName={userName}
-          userID={userID}
-          onLogout={onLogout}
-          onNavigate={onNavigate}
-          activeNav="student/interview"
-        />
+        {/* Sidebar (desktop) */}
+        <div className="hidden md:block flex-shrink-0">
+          <Sidebar
+            userName={userName}
+            userID={userID}
+            onLogout={onLogout}
+            onNavigate={onNavigate}
+            activeNav="student/interview"
+          />
+        </div>
+
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+            <div className="relative h-full">
+              <div className="absolute left-0 top-0 bottom-0">
+                <Sidebar
+                  userName={userName}
+                  userID={userID}
+                  onLogout={() => { setMobileOpen(false); onLogout(); }}
+                  onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                  activeNav="student/interview"
+                />
+              </div>
+              <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
+                <X className="w-5 h-5 text-gray-800" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
           <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
             <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
           </div>
 
@@ -3132,19 +3188,45 @@ function MockInterviewPageContent({
     const overallPercent = Math.max(0, Math.min(100, (sessionStats.overallAverage / 5) * 100));
     return (
       <div className="flex h-screen bg-gray-50">
-        {/* Sidebar */}
-        <Sidebar
-          userName={userName}
-          userID={userID}
-          onLogout={onLogout}
-          onNavigate={onNavigate}
-          activeNav="student/interview"
-        />
+        {/* Sidebar (desktop) */}
+        <div className="hidden md:block flex-shrink-0">
+          <Sidebar
+            userName={userName}
+            userID={userID}
+            onLogout={onLogout}
+            onNavigate={onNavigate}
+            activeNav="student/interview"
+          />
+        </div>
+
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+            <div className="relative h-full">
+              <div className="absolute left-0 top-0 bottom-0">
+                <Sidebar
+                  userName={userName}
+                  userID={userID}
+                  onLogout={() => { setMobileOpen(false); onLogout(); }}
+                  onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                  activeNav="student/interview"
+                />
+              </div>
+              <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
+                <X className="w-5 h-5 text-gray-800" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
           <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
             <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
           </div>
 
@@ -3318,19 +3400,45 @@ function MockInterviewPageContent({
   // Interview Recording Screen
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar
-        userName={userName}
-        userID={userID}
-        onLogout={onLogout}
-        onNavigate={onNavigate}
-        activeNav="student/interview"
-      />
+      {/* Sidebar (desktop) */}
+      <div className="hidden md:block flex-shrink-0">
+        <Sidebar
+          userName={userName}
+          userID={userID}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          activeNav="student/interview"
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <Sidebar
+                userName={userName}
+                userID={userID}
+                onLogout={() => { setMobileOpen(false); onLogout(); }}
+                onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                activeNav="student/interview"
+              />
+            </div>
+            <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+          <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
+            <Menu className="w-5 h-5 text-gray-700" />
+          </button>
           <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
