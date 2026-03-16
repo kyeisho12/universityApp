@@ -2924,13 +2924,13 @@ function MockInterviewPageContent({
           />
 
           <div className="flex-1 overflow-auto">
-            <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
                 <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
             </div>
 
-            <div className="p-8 space-y-8">
+            <div className="p-4 sm:p-8 space-y-8">
               <div>
-                <h1 className="text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
+                <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
                 <p className="text-gray-500 mt-1">Review your past interview attempts and scores.</p>
               </div>
 
@@ -3026,16 +3026,16 @@ function MockInterviewPageContent({
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
-          <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
             <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
           </div>
 
           {/* Content Area */}
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             {/* Page Header */}
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-4xl font-bold text-gray-900">
+                <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">
                   AI Mock Interview
                 </h1>
                 <span className="inline-flex items-center gap-2 bg-cyan-50 text-cyan-700 px-3 py-1 rounded-full text-sm font-semibold">
@@ -3049,14 +3049,14 @@ function MockInterviewPageContent({
             </div>
 
             {/* Main Content Card */}
-            <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 max-w-3xl mx-auto">
+            <div className="bg-white rounded-2xl p-6 sm:p-12 shadow-sm border border-gray-100 max-w-3xl mx-auto">
               {/* Video Icon */}
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Bot className="w-12 h-12 text-cyan-700" />
+              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Bot className="w-8 h-8 sm:w-12 sm:h-12 text-cyan-700" />
               </div>
 
               {/* Title */}
-              <h2 className="text-4xl font-bold text-gray-900 text-center mb-4">
+              <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 text-center mb-4">
                 Ready to Practice?
               </h2>
 
@@ -3144,21 +3144,21 @@ function MockInterviewPageContent({
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
-          <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
             <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
           </div>
 
           {/* Content Area */}
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             {/* Completion Card */}
-            <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 max-w-2xl mx-auto">
+            <div className="bg-white rounded-2xl p-6 sm:p-12 shadow-sm border border-gray-100 max-w-2xl mx-auto">
               {/* Success Icon */}
-              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-8 h-8 sm:w-12 sm:h-12 text-green-600" />
               </div>
 
               {/* Heading */}
-              <h1 className="text-4xl font-bold text-gray-900 text-center mb-2">
+              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 text-center mb-2">
                 Interview Complete!
               </h1>
               <p className="text-gray-500 text-center mb-8">
@@ -3166,8 +3166,8 @@ function MockInterviewPageContent({
               </p>
 
               {/* Overall Score Card */}
-              <div className="bg-gray-50 rounded-2xl p-6 mb-8 flex items-center gap-6">
-                <div className="relative w-32 h-32 flex-shrink-0">
+              <div className="bg-gray-50 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                <div className="relative w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
                   <svg
                     className="w-full h-full transform -rotate-90"
                     viewBox="0 0 120 120"
@@ -3330,12 +3330,12 @@ function MockInterviewPageContent({
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
           <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         {/* Recording Interface */}
-        <div className="flex-1 flex gap-6 p-6 overflow-y-auto">
+        <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-6 overflow-y-auto">
           {/* Left - Camera Preview */}
           <div className="flex-1 flex flex-col min-h-0">
             {/* Recording Status and Controls */}
@@ -3345,10 +3345,10 @@ function MockInterviewPageContent({
                 <div
                   className={
                     isPauseTranscriptPending
-                      ? "absolute top-6 left-6 inline-flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-full"
+                      ? "absolute top-2 sm:top-6 left-2 sm:left-6 inline-flex items-center gap-2 bg-amber-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm"
                       : isPaused
-                      ? "absolute top-6 left-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-full"
-                      : "absolute top-6 left-6 inline-flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-full"
+                      ? "absolute top-2 sm:top-6 left-2 sm:left-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm"
+                      : "absolute top-2 sm:top-6 left-2 sm:left-6 inline-flex items-center gap-2 bg-red-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm"
                   }
                 >
                   <span
@@ -3369,7 +3369,7 @@ function MockInterviewPageContent({
                 !isAdvancingNextQuestion &&
                 !isDecidingNextQuestion &&
                 !isPauseTranscriptPending && (
-                  <div className="absolute top-6 right-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-full">
+                  <div className="absolute top-2 sm:top-6 right-2 sm:right-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm">
                     <CheckCircle className="w-4 h-4" />
                     Done
                   </div>
@@ -3378,7 +3378,7 @@ function MockInterviewPageContent({
               {/* Camera Preview */}
               <div className="flex-1 min-h-0 w-full flex items-center justify-center">
                 {isCameraOn && !mediaError ? (
-                  <div className="w-full h-full min-h-[340px] rounded-xl overflow-hidden bg-black shadow-inner">
+                  <div className="w-full h-full min-h-[200px] sm:min-h-[340px] rounded-xl overflow-hidden bg-black shadow-inner">
                     <video
                       ref={videoRef}
                       autoPlay
@@ -3388,7 +3388,7 @@ function MockInterviewPageContent({
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-full min-h-[340px] rounded-xl bg-gray-100 flex flex-col items-center justify-center">
+                  <div className="w-full h-full min-h-[200px] sm:min-h-[340px] rounded-xl bg-gray-100 flex flex-col items-center justify-center">
                     <div className="w-28 h-28 bg-gray-300 rounded-full flex items-center justify-center mb-4">
                       <Camera className="w-14 h-14 text-gray-600" />
                     </div>
@@ -3627,7 +3627,7 @@ function MockInterviewPageContent({
           </div>
 
           {/* Right - Question and Transcription */}
-          <div className="w-96 flex flex-col gap-6 overflow-y-auto">
+          <div className="w-full lg:w-96 flex flex-col gap-4 sm:gap-6 overflow-y-auto">
             {/* Question Card */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <p className="text-cyan-600 text-sm font-semibold mb-2 uppercase">
@@ -3635,7 +3635,7 @@ function MockInterviewPageContent({
                   ? (questions[currentQuestion]?.type || "Question")
                   : "Preview"}
               </p>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
                 {isSessionStarted
                   ? (questions[currentQuestion]?.question || "Loading question...")
                   : "Test your camera and microphone before starting the session."}
