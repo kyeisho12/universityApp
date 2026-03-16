@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X } from "lucide-react";
+import { Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X, Menu } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
@@ -34,6 +34,7 @@ interface ResumesPageContentProps {
 function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate }: ResumesPageContentProps & { studentId?: string }) {
   const messageBox = useMessageBox();
   const userID = studentId || "2024-00001";
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -758,26 +759,60 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar
-        userName={userName}
-        userID={userID}
-        onLogout={onLogout}
-        onNavigate={onNavigate}
-        activeNav="student/resumes"
-      />
+      {/* Sidebar (desktop) */}
+      <div className="hidden md:block flex-shrink-0">
+        <Sidebar
+          userName={userName}
+          userID={userID}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          activeNav="student/resumes"
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <Sidebar
+                userName={userName}
+                userID={userID}
+                onLogout={() => { setMobileOpen(false); onLogout(); }}
+                onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                activeNav="student/resumes"
+              />
+            </div>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-10">
+          <button
+            aria-label="Open sidebar"
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden p-2 rounded-md hover:bg-gray-100"
+          >
+            <Menu className="w-5 h-5 text-gray-700" />
+          </button>
         </div>
 
         {/* Content Area */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Résumé Management</h1>
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Résumé Management</h1>
             <p className="text-gray-500">Upload, create, and manage your résumés and cover letters</p>
           </div>
 
@@ -791,7 +826,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
           )}
 
           {/* Upload Section */}
-          <div className="bg-white rounded-2xl p-12 shadow-sm border-2 border-dashed border-gray-300 mb-8 text-center">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-12 shadow-sm border-2 border-dashed border-gray-300 mb-6 sm:mb-8 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Upload className="w-8 h-8 text-gray-600" />
             </div>
@@ -801,7 +836,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               <br />
               Supported: {allowedFormatsLabel} • Max {(MAX_FILE_SIZE_BYTES / (1024 * 1024)).toFixed(0)}MB
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-wrap gap-3 justify-center">
               <input
                 ref={fileInputRef}
                 type="file"

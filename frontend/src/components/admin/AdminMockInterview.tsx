@@ -703,9 +703,9 @@ export default function AdminMockInterview() {
           </div>
         </div>
 
-        <main className="p-8 space-y-8">
+        <main className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900">Mock Interviews</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Mock Interviews</h1>
             <p className="text-gray-500 mt-1">View interview results and recordings</p>
           </div>
 
@@ -717,7 +717,7 @@ export default function AdminMockInterview() {
                   <Icon className={`w-6 h-6 ${color}`} />
                 </div>
                 <div>
-                  <div className="text-3xl font-bold text-gray-900">
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900">
                     {value == null ? <span className="text-gray-300 animate-pulse">—</span> : value}
                   </div>
                   <div className="text-sm text-gray-500 mt-0.5">{label}</div>

@@ -7,6 +7,7 @@ import {
   Users,
   ClipboardList,
   X,
+  Menu,
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
@@ -45,6 +46,7 @@ interface Event {
 function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavigate }: CareerEventsPageContentProps & { studentId?: string }) {
   const messageBox = useMessageBox();
   const userID = studentId || "2024-00001";
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [eventsView, setEventsView] = useState<EventWithRegistration[]>([]);
@@ -240,27 +242,61 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar
-        userName={userName}
-        userID={userID}
-        onLogout={onLogout}
-        onNavigate={onNavigate}
-        activeNav="student/events"
-      />
+      {/* Sidebar (desktop) */}
+      <div className="hidden md:block flex-shrink-0">
+        <Sidebar
+          userName={userName}
+          userID={userID}
+          onLogout={onLogout}
+          onNavigate={onNavigate}
+          activeNav="student/events"
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <Sidebar
+                userName={userName}
+                userID={userID}
+                onLogout={() => { setMobileOpen(false); onLogout(); }}
+                onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                activeNav="student/events"
+              />
+            </div>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-10">
+          <button
+            aria-label="Open sidebar"
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden p-2 rounded-md hover:bg-gray-100"
+          >
+            <Menu className="w-5 h-5 text-gray-700" />
+          </button>
         </div>
 
         {/* Content Area */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Page Header */}
-          <div className="mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Career Events</h1>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Career Events</h1>
               <p className="text-gray-500">
                 Discover and attend career development events and networking opportunities
               </p>
@@ -275,7 +311,7 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
           </div>
 
           {/* Filter Tabs */}
-          <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
+          <div className="mb-4 sm:mb-6 flex gap-2 sm:gap-3 overflow-x-auto pb-2">
             {["all", "job fair", "workshop", "seminar", "webinar", "announcement"].map((filter) => (
               <button
                 key={filter}

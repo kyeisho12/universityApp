@@ -597,11 +597,11 @@ const EmployerPartners = () => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Page Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
               <div>
-                <h1 className="text-4xl font-bold text-gray-900">Employer Partners</h1>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Employer Partners</h1>
                 <p className="text-gray-500 mt-1">Manage verified employer profiles and job postings</p>
               </div>
               <button
@@ -614,7 +614,7 @@ const EmployerPartners = () => {
             </div>
 
             {/* Search and Filters */}
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex flex-wrap items-center gap-3 mb-6">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input

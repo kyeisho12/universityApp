@@ -447,7 +447,7 @@ export default function AdminCareerEvents() {
             {/* Header */}
             <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Career Events</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Career Events</h1>
                 <p className="text-gray-600">Manage job fairs, workshops, seminars, and announcements</p>
               </div>
               <button className="w-full md:w-auto bg-[#1B2744] text-white px-6 py-3 rounded-lg hover:bg-[#15203a] transition-colors flex items-center justify-center gap-2 font-semibold" onClick={handleAddEvent}>
@@ -468,7 +468,7 @@ export default function AdminCareerEvents() {
               {stats.map((stat, index) => (
                 <div key={index} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                   <p className="text-gray-600 text-sm font-medium mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stat.value}</p>
                 </div>
               ))}
             </div>
@@ -490,7 +490,7 @@ export default function AdminCareerEvents() {
             {/* Events Table */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               {loading ? (
-                <div className="p-8 text-center text-gray-500">Loading events...</div>
+                <div className="p-4 sm:p-8 text-center text-gray-500">Loading events...</div>
               ) : events.filter((event) => {
                 if (!searchQuery) return true;
                 const query = searchQuery.toLowerCase();
@@ -501,7 +501,7 @@ export default function AdminCareerEvents() {
                   event.location?.toLowerCase().includes(query)
                 );
               }).length === 0 ? (
-                <div className="p-8 text-center text-gray-500">No events found. Click "Add Event" to create one.</div>
+                <div className="p-4 sm:p-8 text-center text-gray-500">No events found. Click "Add Event" to create one.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-[980px] w-full">

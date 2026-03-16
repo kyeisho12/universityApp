@@ -706,7 +706,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto flex flex-col">
           {/* Page Header */}
           <div className="mb-4 sm:mb-6 flex-shrink-0">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
               Job & Internship Listings
             </h1>
             <p className="text-gray-500">
@@ -729,7 +729,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   />
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <select
                   value={filterType}
                   onChange={handleFilterTypeChange}
@@ -870,7 +870,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             {/* Job Details */}
             <div className="lg:col-span-2 flex flex-col overflow-hidden sticky top-0 h-fit">
               {currentJob ? (
-                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 overflow-y-auto">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 overflow-y-auto">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-start gap-4">
@@ -987,7 +987,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex items-center justify-center h-full">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 flex items-center justify-center h-full">
                   <div className="text-center py-16">
                     <Search className="w-20 h-20 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 font-medium text-lg mb-2">No job selected</p>
