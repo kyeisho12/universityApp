@@ -286,6 +286,7 @@ export default function App() {
               </RequireAuth>
             }
           />
+          <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/dashboard" element={<RequireAdmin>
                 <AdminPage />
