@@ -343,7 +343,7 @@ export default function Login() {
 
   const handleLogin = async (email: string, password: string) => {
     await signIn(email, password)
-    const redirectPath = email.endsWith(ADMIN_DOMAIN) ? '/admin' : '/'
+    const redirectPath = email.endsWith(ADMIN_DOMAIN) ? '/admin' : '/student'
     navigate(redirectPath)
   }
 

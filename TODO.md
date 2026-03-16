@@ -1,2 +1,2 @@
-- [ ] Update App.jsx to add routes for '/student' and '/admin'
-- [ ] Modify Login.jsx to redirect based on user role after sign-in/sign-up
+- [x] Update App.jsx to add routes for '/student' and '/admin'
+- [x] Modify Login.jsx to redirect based on user role after sign-in/sign-up
