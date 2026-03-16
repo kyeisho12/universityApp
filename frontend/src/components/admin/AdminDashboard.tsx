@@ -263,10 +263,10 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
 
         {/* Dashboard Content */}
         <main className="flex-1 overflow-auto">
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
           {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
             <p className="text-gray-500">Overview of career service activities</p>
           </div>
 

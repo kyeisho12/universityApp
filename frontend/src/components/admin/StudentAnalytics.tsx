@@ -164,10 +164,10 @@ export default function StudentAnalytics() {
 
                 {/* Page Content */}
                 <main className="flex-1 overflow-auto">
-                    <div className="p-8 space-y-8">
+                    <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
-                                <h1 className="text-4xl font-bold text-gray-900">Reports &amp; Analytics</h1>
+                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Reports &amp; Analytics</h1>
                                 <p className="text-gray-500 mt-1">Student engagement and interview statistics</p>
                             </div>
                         </div>
@@ -180,7 +180,7 @@ export default function StudentAnalytics() {
                                         {item.icon}
                                         <span>{item.label}</span>
                                     </div>
-                                    <div className="text-3xl font-semibold text-gray-900">
+                                    <div className="text-2xl sm:text-3xl font-semibold text-gray-900">
                                         {loading ? "..." : item.value}
                                     </div>
                                 </div>

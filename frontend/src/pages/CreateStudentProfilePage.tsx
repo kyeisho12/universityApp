@@ -335,7 +335,8 @@ export default function CreateStudentProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200/60">
+    <div className="min-h-screen bg-neutral-50 px-3 py-6 sm:px-4 sm:py-8">
+    <div className="mx-auto max-w-3xl rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-neutral-200/60">
       <div className="mb-6 space-y-2">
         <h1 className="text-2xl font-bold text-neutral-900">{pageTitle}</h1>
         <p className="text-sm text-neutral-600">Please complete all required fields (*) including your bio to access your dashboard.</p>
@@ -761,6 +762,7 @@ export default function CreateStudentProfilePage() {
       </form>
       {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
       {message && <p className="mt-3 text-sm font-semibold text-green-600">{message}</p>}
+    </div>
     </div>
   )
 }

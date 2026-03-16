@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Phone, MapPin, GraduationCap, Briefcase, PencilLine } from "lucide-react";
+import { User, Mail, Phone, MapPin, GraduationCap, Briefcase, PencilLine, Menu, X } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabaseClient";
@@ -10,6 +10,7 @@ export default function StudentProfilePage() {
   const navigate = useNavigate();
   const [profile, setProfile] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
   React.useEffect(() => {
     let active = true;
@@ -108,7 +109,8 @@ export default function StudentProfilePage() {
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
-      <div className="hidden md:block">
+      {/* Sidebar (desktop) */}
+      <div className="hidden md:block flex-shrink-0">
         <Sidebar
           userName={displayName}
           userID={studentId}
@@ -118,14 +120,46 @@ export default function StudentProfilePage() {
         />
       </div>
 
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <Sidebar
+                userName={displayName}
+                userID={studentId}
+                onLogout={() => { setMobileOpen(false); handleLogout(); }}
+                onNavigate={(r) => { setMobileOpen(false); handleNavigate(r); }}
+                activeNav="student/profile"
+              />
+            </div>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between">
+          <button
+            aria-label="Open sidebar"
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden p-2 rounded-md hover:bg-gray-100"
+          >
+            <Menu className="w-5 h-5 text-gray-700" />
+          </button>
         </div>
 
-        <div className="p-8 overflow-y-auto">
-          <div className="flex items-center justify-between mb-6">
+        <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Profile</h1>
               <p className="text-gray-500">Manage your personal information, education, and skills</p>
             </div>
             <button
