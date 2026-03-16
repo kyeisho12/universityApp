@@ -16,6 +16,7 @@ import ApplicationsPage from './pages/ApplicationsPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
 import ApplyOutlookPage from './pages/ApplyOutlookPage'
 import MessagePreviewPage from './pages/MessagePreviewPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import EmployerPartners from './components/admin/EmployerPartners'
 import StudentAnalytics from './components/admin/StudentAnalytics'
 import AdminMockInterview from './components/admin/AdminMockInterview'
@@ -275,6 +276,7 @@ export default function App() {
           />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/test/events" element={<TestEventsPage />} />
           <Route path="/test/admin/events" element={<TestAdminEventsPage />} />
           <Route path="/test/messages" element={<MessagePreviewPage />} />

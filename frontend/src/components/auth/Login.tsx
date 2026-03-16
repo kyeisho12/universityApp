@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useMessageBox } from '../common/MessageBoxProvider'
+import { supabase } from '../../lib/supabaseClient'
 
 const STUDENT_DOMAIN = '@student.tsu.edu.ph'
 const ADMIN_DOMAIN = '@admin.tsu.edu.ph'
 
-type View = 'login' | 'signup'
+type View = 'login' | 'signup' | 'forgot'
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>
   onSignUpClick: () => void
+  onForgotClick: () => void
 }
 
 type SignUpFormProps = {
@@ -19,7 +21,7 @@ type SignUpFormProps = {
   onBack: () => void
 }
 
-function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
+function LoginForm({ onLogin, onSignUpClick, onForgotClick }: LoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
@@ -148,7 +150,7 @@ function LoginForm({ onLogin, onSignUpClick }: LoginFormProps) {
             />
             <span className="text-gray-600">Remember me</span>
           </label>
-          <button type="button" className="text-gray-600 hover:text-[#1B2744] transition-colors font-medium">
+          <button type="button" onClick={onForgotClick} className="text-gray-600 hover:text-[#1B2744] transition-colors font-medium">
             Forgot password?
           </button>
         </div>
@@ -335,7 +337,108 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
   )
 }
 
-export default function Login() {
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError('')
+
+    if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
+      setError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (supabaseError) throw new Error(supabaseError.message)
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset email')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 md:p-12 w-full max-w-md">
+      <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-12">
+        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#1B2744] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-[#1B2744] text-base sm:text-xl font-bold font-serif leading-tight">TSU Career</h1>
+          <p className="text-gray-400 text-xs sm:text-sm font-medium">Management System</p>
+        </div>
+      </div>
+
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-[#1B2744] text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2 italic font-serif">Reset Password</h2>
+        <p className="text-gray-500 text-sm sm:text-base">Enter your university email to receive a reset link</p>
+      </div>
+
+      {sent ? (
+        <div className="space-y-6">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-green-700 text-sm">
+            ✅ Reset link sent! Check your email inbox and follow the link to set a new password.
+          </div>
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full bg-[#1B2744] text-white py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-sm sm:text-base font-semibold flex items-center justify-center gap-2 hover:bg-[#131d33] transition-all"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <div className="space-y-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-800">Email Address</label>
+            <input
+              type="email"
+              placeholder="Enter your university email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl sm:rounded-2xl border-2 border-gray-200 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
+              required
+            />
+            {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-[#1B2744] text-white py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-sm sm:text-base font-semibold flex items-center justify-center gap-2 hover:bg-[#131d33] transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-6 sm:mt-8"
+          >
+            {isLoading ? (
+              <span className="border-2 border-white/30 border-t-white rounded-full w-4 h-4 sm:w-5 sm:h-5 animate-spin"></span>
+            ) : (
+              <>Send Reset Link <ArrowRight size={18} className="sm:w-5 sm:h-5" strokeWidth={2.5} /></>
+            )}
+          </button>
+
+          <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-600">
+            Remember your password?{' '}
+            <button type="button" onClick={onBack} className="text-[#1B2744] font-semibold hover:underline">
+              Sign In
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
+
   const { signIn, signUp } = useAuth()
   const messageBox = useMessageBox()
   const navigate = useNavigate()
@@ -378,12 +481,15 @@ export default function Login() {
         <LoginForm
           onLogin={handleLogin}
           onSignUpClick={() => setView('signup')}
+          onForgotClick={() => setView('forgot')}
         />
-      ) : (
+      ) : view === 'signup' ? (
         <SignUpForm
           onSignUp={handleSignUp}
           onBack={() => setView('login')}
         />
+      ) : (
+        <ForgotPasswordForm onBack={() => setView('login')} />
       )}
 
       <div className="hidden">

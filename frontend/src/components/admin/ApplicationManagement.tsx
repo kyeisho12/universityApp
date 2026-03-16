@@ -228,12 +228,7 @@ export function ApplicationManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Job Applications</h2>
-          <p className="text-gray-500 mt-1">
-            Review student applications and details
-          </p>
-        </div>
+        <p className="text-gray-500">Review student applications and details</p>
         <div className="text-right">
           <div className="text-3xl font-bold text-[#00B4D8]">
             {applications.length}

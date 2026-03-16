@@ -301,17 +301,77 @@ class Phi3FollowupGenerator:
 		return cleaned
 
 	def _fallback_question(self, original_question: str, candidate_answer: str) -> str:
-		answer = (candidate_answer or "").strip()
+		answer = (candidate_answer or "").strip().lower()
+
+		# Short answers need more detail
 		if len(answer) < 30:
 			return "Can you walk me through a specific example with more detail on what you did and what happened after?"
 
-		if any(keyword in answer.lower() for keyword in ["result", "outcome", "impact", "improved", "increased"]):
+		# Impact/results - expanded keyword coverage
+		impact_keywords = [
+			"result", "outcome", "impact", "improved", "increased", "reduced", "decreased",
+			"achieved", "accomplished", "delivered", "saved", "gained", "success", "benefit",
+			"performance", "efficiency", "revenue", "cost", "metric", "kpi", "roi", "value"
+		]
+		if any(keyword in answer for keyword in impact_keywords):
 			return "What specific metric or concrete evidence best shows the impact of that approach?"
 
-		if any(keyword in answer.lower() for keyword in ["challenge", "difficult", "problem", "issue"]):
+		# Challenges/problems - expanded keyword coverage
+		challenge_keywords = [
+			"challenge", "difficult", "problem", "issue", "struggle", "obstacle", "barrier",
+			"conflict", "disagreement", "mistake", "error", "failure", "setback", "blocker",
+			"constraint", "limitation", "risk", "crisis", "pressure", "deadline", "urgent"
+		]
+		if any(keyword in answer for keyword in challenge_keywords):
 			return "What was the hardest decision you made in that situation, and why did you choose that approach?"
 
-		return "If you faced the same situation again, what would you do differently and why?"
+		# Technical implementation details
+		technical_keywords = [
+			"code", "coding", "programming", "algorithm", "database", "api", "framework",
+			"language", "library", "tool", "technology", "system", "architecture", "design",
+			"development", "software", "implementation", "debug", "optimize", "scale"
+		]
+		if any(keyword in answer for keyword in technical_keywords):
+			return "What technical trade-offs did you consider when implementing that solution?"
+
+		# Teamwork/collaboration
+		team_keywords = [
+			"team", "colleague", "manager", "stakeholder", "client", "customer", "user",
+			"collaborate", "communication", "meeting", "discussion", "feedback", "review",
+			"leadership", "mentoring", "training", "presentation", "documentation"
+		]
+		if any(keyword in answer for keyword in team_keywords):
+			return "How did you ensure everyone was aligned on that approach?"
+
+		# Learning/growth
+		learning_keywords = [
+			"learn", "learned", "learning", "new", "first time", "research", "study",
+			"skill", "knowledge", "experience", "growth", "development", "training",
+			"course", "tutorial", "documentation", "best practice", "pattern"
+		]
+		if any(keyword in answer for keyword in learning_keywords):
+			return "What was the most valuable insight you gained from that experience?"
+
+		# Process/methodology
+		process_keywords = [
+			"process", "methodology", "approach", "strategy", "plan", "workflow", "procedure",
+			"agile", "scrum", "testing", "deployment", "ci/cd", "review", "quality", "standard"
+		]
+		if any(keyword in answer for keyword in process_keywords):
+			return "What made you choose that particular approach over alternatives?"
+
+		# Diverse fallback rotation - no more repetitive "same situation" question
+		fallback_questions = [
+			"What was the most important factor in your decision-making process there?",
+			"How did you validate that your approach was working as expected?",
+			"What would you tell someone facing a similar situation?",
+			"What aspect of that experience do you think was most critical to the outcome?",
+			"How did you know you were on the right track during that process?"
+		]
+
+		# Simple rotation based on answer length to add variety
+		fallback_index = len(answer) % len(fallback_questions)
+		return fallback_questions[fallback_index]
 
 	def _fallback_action(self, candidate_answer: str) -> str:
 		answer = (candidate_answer or "").strip()

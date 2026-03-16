@@ -11,33 +11,19 @@ def build_followup_prompt(
 	ideal_context = (ideal_answer or "").strip()
 
 	prompt = (
-		"You are an expert interviewer. Generate exactly ONE follow-up question.\n"
-		"Goal: probe deeper into the candidate's OWN answer only.\n"
-		"Rules:\n"
-		"1) Return only one concise question.\n"
-		"2) Do not include explanations, bullets, labels, or quotes.\n"
-		"3) Keep it conversational and job-interview appropriate.\n"
-		"4) Base the follow-up SOLELY on details explicitly present in the candidate answer.\n"
-		"5) Do NOT introduce new scenarios, tools, metrics, roles, or facts not mentioned by the candidate.\n"
-		"6) Ask about one specific detail the candidate already mentioned (decision, action, challenge, or outcome).\n"
-		"7) If the answer is vague, ask for clarification of the candidate's existing statement instead of shifting topics.\n"
-		"8) The question must stay on the same topic as the original question and the candidate answer.\n\n"
-		f"Interview category: {interview_category}\n"
+		"You are a job interviewer. Write ONE follow-up question based only on what the candidate said.\n"
+		"- One short question only. No labels, bullets, quotes, or explanations.\n"
+		"- Use only details the candidate explicitly mentioned. Do not introduce new topics.\n"
+		"- If the answer is vague, ask the candidate to clarify something they already said.\n\n"
+		f"Category: {interview_category}\n"
 		f"Original question: {original_question.strip()}\n"
 		f"Candidate answer: {candidate_answer.strip()}\n"
 	)
 
 	if ideal_context:
-		prompt += (
-			"Ideal-answer guidance (use only as evaluation lens; do not add new facts): "
-			f"{ideal_context}\n"
-		)
+		prompt += f"What a strong answer covers: {ideal_context}\n"
 
-	prompt += (
-		"\nBefore writing the question, check: Is every part grounded in the candidate answer text? "
-		"If not, rewrite it.\n"
-		"Generate one follow-up question now:"
-	)
+	prompt += "\nFollow-up question:"
 	return prompt
 
 
@@ -48,20 +34,16 @@ def build_next_step_decision_prompt(
 	followup_count_for_current: int,
 ) -> str:
 	return (
-		"You are an interview flow controller. Decide the next step after a candidate answer.\n"
-		"Choose exactly one action:\n"
-		"- follow_up: ask one deeper follow-up for the same topic\n"
-		"- next_bank_question: move to the next question from the question bank\n\n"
-		"Decision policy:\n"
-		"1) If remaining_bank_questions <= 0, choose next_bank_question.\n"
-		"2) If followup_count_for_current >= 1, choose next_bank_question.\n"
-		"3) Prefer follow_up only when the answer is vague, missing details, or lacks measurable outcomes.\n"
-		"4) Prefer next_bank_question when the answer is already specific and complete.\n\n"
-		f"Current question: {current_question.strip()}\n"
-		f"Candidate answer: {candidate_answer.strip()}\n"
+		"You are an interview flow controller. Output JSON only.\n"
+		"Choose action:\n"
+		"- \"follow_up\" if the answer is vague, missing key details, or lacks a measurable outcome\n"
+		"- \"next_bank_question\" if the answer is specific and complete\n\n"
+		"Rules: always choose next_bank_question if followup_count_for_current >= 1 or remaining_bank_questions <= 0.\n\n"
+		f"current_question: {current_question.strip()}\n"
+		f"candidate_answer: {candidate_answer.strip()}\n"
 		f"remaining_bank_questions: {remaining_bank_questions}\n"
 		f"followup_count_for_current: {followup_count_for_current}\n\n"
-		"Return strict JSON only with this shape:\n"
-		"{\"action\":\"follow_up\"|\"next_bank_question\",\"reason\":\"short reason\"}"
+		'Output exactly: {"action":"follow_up","reason":"one short reason"} or {"action":"next_bank_question","reason":"one short reason"}\n'
+		"JSON:"
 	)
 
