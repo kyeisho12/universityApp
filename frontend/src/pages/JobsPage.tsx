@@ -703,7 +703,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto flex flex-col">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 flex flex-col h-screen overflow-hidden">
           {/* Page Header */}
           <div className="mb-4 sm:mb-6 flex-shrink-0">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
@@ -790,9 +790,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             Showing {filteredJobs.length} of {jobs.length} opportunities
           </p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
             {/* Jobs List - Left Side */}
-            <div className="lg:col-span-1 flex flex-col gap-8">
+            <div className="lg:col-span-1 flex flex-col gap-8 overflow-y-auto h-full">
               {/* Recommended Jobs Section */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 {recommendedJobs.length > 0 && (
@@ -868,9 +868,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
             </div>
 
             {/* Job Details */}
-            <div className="lg:col-span-2 flex flex-col overflow-hidden sticky top-0 h-fit">
+            <div className="lg:col-span-2 h-full overflow-y-auto">
               {currentJob ? (
-                <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 overflow-y-auto">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-start gap-4">
