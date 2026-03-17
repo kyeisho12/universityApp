@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Menu,
   X,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
@@ -213,6 +215,8 @@ const AUTO_CAPTURE_ARM_DELAY_MS = 3000;
 const LIVE_TRANSCRIBE_REQUEST_TIMEOUT_MS = 3500;
 const SEGMENT_PERSIST_TIMEOUT_MS = 15000;
 const STOP_RECORDING_FALLBACK_TIMEOUT_MS = 12000;
+const MOBILE_FLOATING_MESSAGE_SHOW_MS = 3200;
+const MOBILE_FLOATING_MESSAGE_HIDE_MS = 1200;
 
 function MockInterviewPageContent({
   email,
@@ -324,6 +328,9 @@ function MockInterviewPageContent({
   );
   const [isMicLoopbackOn, setIsMicLoopbackOn] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [mobileFloatingMessageIndex, setMobileFloatingMessageIndex] = useState(0);
+  const [isMobileFloatingMessageVisible, setIsMobileFloatingMessageVisible] = useState(true);
   const [isPaused, setIsPaused] = useState(
     initialStateRef.current?.isPaused ?? false
   );
@@ -2951,37 +2958,37 @@ function MockInterviewPageContent({
           )}
 
           <div className="flex-1 overflow-auto">
-            <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
               <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
                 <Menu className="w-5 h-5 text-gray-700" />
               </button>
               <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
             </div>
 
-            <div className="p-4 sm:p-8 space-y-8">
+            <div className="p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-8">
               <div>
-                <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
                 <p className="text-gray-500 mt-1">Review your past interview attempts and scores.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="text-3xl font-semibold text-gray-900 mb-1">{historySessions.length}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
+                  <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-1">{historySessions.length}</div>
                   <div className="text-sm text-gray-600">Total Sessions</div>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="text-3xl font-semibold text-gray-900 mb-1">{completedSessions}</div>
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
+                  <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-1">{completedSessions}</div>
                   <div className="text-sm text-gray-600">Completed Sessions</div>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="text-3xl font-semibold text-gray-900 mb-1">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm">
+                  <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-1">
                     {averageScore !== null ? averageScore.toFixed(2) : "—"}
                   </div>
                   <div className="text-sm text-gray-600">Average Score (1-5)</div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Past Sessions</h3>
                   <button
@@ -2993,7 +3000,7 @@ function MockInterviewPageContent({
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="min-w-[620px] w-full">
                     <thead className="border-b border-gray-200">
                       <tr>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Date</th>
@@ -3079,7 +3086,7 @@ function MockInterviewPageContent({
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
-          <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
             <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
@@ -3087,14 +3094,14 @@ function MockInterviewPageContent({
           </div>
 
           {/* Content Area */}
-          <div className="p-4 sm:p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Page Header */}
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">
+            <div className="mb-5 sm:mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
                   AI Mock Interview
                 </h1>
-                <span className="inline-flex items-center gap-2 bg-cyan-50 text-cyan-700 px-3 py-1 rounded-full text-sm font-semibold">
+                <span className="inline-flex items-center gap-2 bg-cyan-50 text-cyan-700 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold w-fit">
                   <Sparkles className="w-4 h-4" />
                   AI-Powered
                 </span>
@@ -3105,26 +3112,26 @@ function MockInterviewPageContent({
             </div>
 
             {/* Main Content Card */}
-            <div className="bg-white rounded-2xl p-6 sm:p-12 shadow-sm border border-gray-100 max-w-3xl mx-auto">
+            <div className="bg-white rounded-2xl p-4 sm:p-8 lg:p-12 shadow-sm border border-gray-100 max-w-3xl mx-auto">
               {/* Video Icon */}
               <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Bot className="w-8 h-8 sm:w-12 sm:h-12 text-cyan-700" />
               </div>
 
               {/* Title */}
-              <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 text-center mb-4">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 text-center mb-3 sm:mb-4">
                 Ready to Practice?
               </h2>
 
               {/* Description */}
-              <p className="text-gray-600 text-center mb-8 text-lg leading-relaxed">
+              <p className="text-gray-600 text-center mb-6 sm:mb-8 text-sm sm:text-base lg:text-lg leading-relaxed">
                 This AI-powered mock interview will help you practice answering
                 common interview questions. Your responses will be recorded,
                 transcribed, and evaluated based on HR-validated criteria.
               </p>
 
               {/* Checklist */}
-              <div className="bg-cyan-50 rounded-xl p-6 mb-8">
+              <div className="bg-cyan-50 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
                 <h3 className="font-semibold text-gray-900 mb-4">
                   Before You Start
                 </h3>
@@ -3223,7 +3230,7 @@ function MockInterviewPageContent({
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
-          <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
             <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
@@ -3231,16 +3238,16 @@ function MockInterviewPageContent({
           </div>
 
           {/* Content Area */}
-          <div className="p-4 sm:p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Completion Card */}
-            <div className="bg-white rounded-2xl p-6 sm:p-12 shadow-sm border border-gray-100 max-w-2xl mx-auto">
+            <div className="bg-white rounded-2xl p-4 sm:p-8 lg:p-12 shadow-sm border border-gray-100 max-w-2xl mx-auto">
               {/* Success Icon */}
               <div className="w-16 h-16 sm:w-24 sm:h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="w-8 h-8 sm:w-12 sm:h-12 text-green-600" />
               </div>
 
               {/* Heading */}
-              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 text-center mb-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 text-center mb-2">
                 Interview Complete!
               </h1>
               <p className="text-gray-500 text-center mb-8">
@@ -3302,10 +3309,10 @@ function MockInterviewPageContent({
 
               {/* Evaluation Metrics (STAR method) */}
               <div className="mb-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
                   Evaluation Metrics (STAR)
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <MetricCard
                     label="Situation clarity"
                     percentage={Math.round((sessionStats.situation / 5) * 100)}
@@ -3396,6 +3403,116 @@ function MockInterviewPageContent({
   const hasMetMinimumQuestionRequirement = remainingQuestionsForCount === 0;
   const runningAverage = calculateSessionStarAverage();
   const evaluatedCountForUi = Object.keys(evaluations || {}).length;
+  const mobileFloatingMessages: Array<{ key: string; className: string; content: React.ReactNode }> = [
+    {
+      key: "tip",
+      className: "bg-yellow-50 border-2 border-yellow-200",
+      content: (
+        <p className="text-xs text-yellow-800 flex items-start gap-2">
+          <span className="text-base">💡</span>
+          <span>
+            {isSessionStarted
+              ? questions[currentQuestion]?.tip || "Please wait while we fetch your question."
+              : "When ready, click Start Session to begin recording."}
+          </span>
+        </p>
+      ),
+    },
+    {
+      key: "requirement",
+      className: hasMetMinimumQuestionRequirement
+        ? "bg-emerald-50 border-2 border-emerald-200"
+        : "bg-amber-50 border-2 border-amber-200",
+      content: (
+        <p
+          className={
+            hasMetMinimumQuestionRequirement
+              ? "text-xs text-emerald-800 flex items-start gap-2"
+              : "text-xs text-amber-900 flex items-start gap-2"
+          }
+        >
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>
+            {!isSessionStarted
+              ? `${MIN_SESSION_QUESTION_COUNT} questions needed`
+              : hasMetMinimumQuestionRequirement
+              ? `✅ ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} done`
+              : `${remainingQuestionsForCount} more needed`}
+          </span>
+        </p>
+      ),
+    },
+    ...(isSessionStarted && evaluatedCountForUi > 0
+      ? [
+          {
+            key: "score",
+            className:
+              runningAverage >= STAR_AVERAGE_TARGET_SCORE
+                ? "bg-emerald-50 border-2 border-emerald-200"
+                : "bg-indigo-50 border-2 border-indigo-200",
+            content: (
+              <p
+                className={
+                  runningAverage >= STAR_AVERAGE_TARGET_SCORE
+                    ? "text-xs text-emerald-800"
+                    : "text-xs text-indigo-800"
+                }
+              >
+                {runningAverage >= STAR_AVERAGE_TARGET_SCORE
+                  ? `✅ Avg: ${runningAverage.toFixed(2)} / 5`
+                  : `📊 Avg: ${runningAverage.toFixed(2)} / 5`}
+              </p>
+            ),
+          },
+        ]
+      : []),
+    ...(isSessionStarted
+      ? [
+          {
+            key: "instruction",
+            className: "bg-cyan-50 border-2 border-cyan-200",
+            content: (
+              <p className="text-xs text-cyan-800">
+                Click Next to continue or Restart to retry.
+              </p>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  useEffect(() => {
+    if (mobileFloatingMessages.length === 0) {
+      setMobileFloatingMessageIndex(0);
+      setIsMobileFloatingMessageVisible(false);
+      return;
+    }
+
+    setMobileFloatingMessageIndex((currentIndex) =>
+      currentIndex % mobileFloatingMessages.length
+    );
+    setIsMobileFloatingMessageVisible(true);
+  }, [mobileFloatingMessages.length]);
+
+  useEffect(() => {
+    if (mobileFloatingMessages.length === 0) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (isMobileFloatingMessageVisible) {
+        setIsMobileFloatingMessageVisible(false);
+        return;
+      }
+
+      setMobileFloatingMessageIndex(
+        (currentIndex) => (currentIndex + 1) % mobileFloatingMessages.length
+      );
+      setIsMobileFloatingMessageVisible(true);
+    }, isMobileFloatingMessageVisible ? MOBILE_FLOATING_MESSAGE_SHOW_MS : MOBILE_FLOATING_MESSAGE_HIDE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [isMobileFloatingMessageVisible, mobileFloatingMessages.length]);
 
   // Interview Recording Screen
   return (
@@ -3433,9 +3550,9 @@ function MockInterviewPageContent({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
           <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
             <Menu className="w-5 h-5 text-gray-700" />
           </button>
@@ -3443,45 +3560,46 @@ function MockInterviewPageContent({
         </div>
 
         {/* Recording Interface */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-6 overflow-y-auto">
+        <div className="flex-1 flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-6 p-3 sm:p-4 lg:p-6 overflow-y-auto relative">
           {/* Left - Camera Preview */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 lg:flex-1">
             {/* Recording Status and Controls */}
-            <div className="bg-white rounded-2xl border border-gray-200 flex-1 min-h-0 flex flex-col p-4 relative shadow-sm">
-              {/* Recording Badge */}
+            <div className="bg-white rounded-2xl border border-gray-200 flex-1 min-h-0 flex flex-col p-3 sm:p-4 relative shadow-sm">
+              {/* Recording Badges */}
               {isSessionStarted && (
-                <div
-                  className={
-                    isPauseTranscriptPending
-                      ? "absolute top-2 sm:top-6 left-2 sm:left-6 inline-flex items-center gap-2 bg-amber-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm"
-                      : isPaused
-                      ? "absolute top-2 sm:top-6 left-2 sm:left-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm"
-                      : "absolute top-2 sm:top-6 left-2 sm:left-6 inline-flex items-center gap-2 bg-red-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm"
-                  }
-                >
-                  <span
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <div
                     className={
                       isPauseTranscriptPending
-                        ? "w-2 h-2 bg-white rounded-full animate-pulse"
+                        ? "inline-flex items-center gap-2 bg-amber-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm"
                         : isPaused
-                        ? "w-2 h-2 bg-white rounded-full"
-                        : "w-2 h-2 bg-white rounded-full animate-pulse"
+                        ? "inline-flex items-center gap-2 bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm"
+                        : "inline-flex items-center gap-2 bg-red-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm"
                     }
-                  />
-                  {isPauseTranscriptPending ? "Processing" : isPaused ? "Ready" : "Recording"}
+                  >
+                    <span
+                      className={
+                        isPauseTranscriptPending
+                          ? "w-2 h-2 bg-white rounded-full animate-pulse"
+                          : isPaused
+                          ? "w-2 h-2 bg-white rounded-full"
+                          : "w-2 h-2 bg-white rounded-full animate-pulse"
+                      }
+                    />
+                    {isPauseTranscriptPending ? "Processing" : isPaused ? "Ready" : "Recording"}
+                  </div>
+                  {isPaused &&
+                    preparedNextAction &&
+                    !isAdvancingNextQuestion &&
+                    !isDecidingNextQuestion &&
+                    !isPauseTranscriptPending && (
+                      <div className="inline-flex items-center gap-2 bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm">
+                        <CheckCircle className="w-4 h-4" />
+                        Done
+                      </div>
+                    )}
                 </div>
               )}
-              {isSessionStarted &&
-                isPaused &&
-                preparedNextAction &&
-                !isAdvancingNextQuestion &&
-                !isDecidingNextQuestion &&
-                !isPauseTranscriptPending && (
-                  <div className="absolute top-2 sm:top-6 right-2 sm:right-6 inline-flex items-center gap-2 bg-emerald-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm">
-                    <CheckCircle className="w-4 h-4" />
-                    Done
-                  </div>
-                )}
 
               {/* Camera Preview */}
               <div className="flex-1 min-h-0 w-full flex items-center justify-center">
@@ -3510,216 +3628,249 @@ function MockInterviewPageContent({
                 )}
               </div>
 
-              {/* Controls */}
-              <div className="mt-3 w-full flex flex-wrap items-center justify-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-md border border-gray-200">
+              {/* Controls Dropdown */}
+              <div className="mt-3 w-full flex flex-col gap-2">
+                {/* Toggle Button - Always Visible */}
                 <button
-                  onClick={handleToggleMic}
-                  className={
-                    isMicOn
-                      ? "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
-                      : "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-                  }
-                  title={isMicOn ? "Mute mic" : "Unmute mic"}
+                  onClick={() => setControlsOpen(!controlsOpen)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-colors border border-gray-300"
                 >
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/80 border border-current/20">
-                    {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-                  </span>
-                  <span className="text-left leading-tight">
-                    <span className="block text-xs font-semibold uppercase tracking-wide opacity-80">Microphone</span>
-                    <span className="block text-sm font-semibold">{isMicOn ? "Active" : "Muted"}</span>
-                  </span>
+                  {controlsOpen ? "Hide Controls" : "Show Controls"}
+                  {controlsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </button>
-                <button
-                  onClick={handleToggleCamera}
-                  className={
-                    isCameraOn
-                      ? "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition-colors"
-                      : "group inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-                  }
-                  title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-                >
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/80 border border-current/20">
-                    {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
-                  </span>
-                  <span className="text-left leading-tight">
-                    <span className="block text-xs font-semibold uppercase tracking-wide opacity-80">Camera</span>
-                    <span className="block text-sm font-semibold">{isCameraOn ? "On" : "Off"}</span>
-                  </span>
-                </button>
-                <button
-                  onClick={handleToggleMicLoopback}
-                  disabled={!isMicOn || isSessionStarted}
-                  className={
-                    !isMicOn || isSessionStarted
-                      ? "inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : isMicLoopbackOn
-                      ? "inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors"
-                      : "inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-                  }
-                  title={
-                    isSessionStarted
-                      ? "Mic loopback is available only before session start"
-                      : isMicLoopbackOn
-                      ? "Stop mic loopback test"
-                      : "Start mic loopback test"
-                  }
-                >
-                  <Volume2 className="w-4 h-4" />
-                  <span className="text-sm font-semibold">
-                    {isMicLoopbackOn ? "Stop Mic Test" : "Mic Test"}
-                  </span>
-                </button>
-                <button
-                  onClick={handleRestartCurrentAnswer}
-                  disabled={!isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
-                  className={
-                    !isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion
-                      ? "px-4 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed flex items-center gap-2"
-                      : "px-4 py-2 rounded-lg font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors flex items-center gap-2"
-                  }
-                  title={
-                    !isSessionStarted
-                      ? "Start session first"
-                      : !isPaused
-                      ? "Wait until your answer is auto-captured"
-                      : isPauseTranscriptPending
-                      ? "Wait for transcript processing to complete"
-                      : "Restart this question answer"
-                  }
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Restart Answer
-                </button>
-                <button
-                  disabled={
-                    isUploadingSegment ||
-                    isDecidingNextQuestion ||
-                    isAdvancingNextQuestion ||
-                    (isSessionStarted && isPauseTranscriptPending && !(liveDraftTranscript || "").trim())
-                  }
-                  className="bg-[#1B2744] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-2"
-                  onClick={async () => {
-                    if (!isSessionStarted) {
-                      let questionSet = questions;
-                      if (questionSet.length === 0) {
-                        questionSet = await fetchQuestions();
-                      }
-                      if (questionSet.length === 0) {
-                        return;
-                      }
 
-                      const activeStream = streamRef.current || (await startCamera());
-                      if (!activeStream) {
-                        setRecordingError("Camera/microphone stream is required before starting session.");
-                        return;
+                {/* Controls Panel - Visible when open */}
+                {controlsOpen && (
+                  <div className="w-full grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-stretch sm:justify-center sm:gap-3 bg-white rounded-xl sm:rounded-2xl px-1.5 sm:px-4 py-1.5 sm:py-3 shadow-md border border-gray-200 animate-in fade-in duration-200">
+                    <button
+                      onClick={handleToggleMic}
+                      className={
+                        isMicOn
+                          ? "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                          : "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                       }
-
-                      const sessionResult = await startInterviewSession({
-                        userId,
-                        userEmail: email,
-                        userName,
-                        totalQuestions: MAX_SESSION_QUESTION_COUNT,
-                        metadata: {
-                          mode: "mock_interview",
-                          min_questions: MIN_SESSION_QUESTION_COUNT,
-                          max_questions: MAX_SESSION_QUESTION_COUNT,
-                          star_average_target: STAR_AVERAGE_TARGET_SCORE,
-                        },
-                      });
-                      if (sessionResult.error || !sessionResult.data?.id) {
-                        setRecordingError("Unable to start interview session in database.");
-                        return;
+                      title={isMicOn ? "Mute mic" : "Unmute mic"}
+                    >
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 border border-current/20">
+                        {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                      </span>
+                      <span className="text-left leading-tight">
+                        <span className="block text-xs sm:text-sm font-semibold">{isMicOn ? "Mic On" : "Mic Off"}</span>
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleToggleCamera}
+                      className={
+                        isCameraOn
+                          ? "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition-colors"
+                          : "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                       }
+                      title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+                    >
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 border border-current/20">
+                        {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                      </span>
+                      <span className="text-left leading-tight">
+                        <span className="block text-xs sm:text-sm font-semibold">{isCameraOn ? "Cam On" : "Cam Off"}</span>
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleToggleMicLoopback}
+                      disabled={!isMicOn || isSessionStarted}
+                      className={
+                        !isMicOn || isSessionStarted
+                          ? "inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : isMicLoopbackOn
+                          ? "inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors"
+                          : "inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+                      }
+                      title={
+                        isSessionStarted
+                          ? "Mic loopback is available only before session start"
+                          : isMicLoopbackOn
+                          ? "Stop mic loopback test"
+                          : "Start mic loopback test"
+                      }
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      <span className="text-xs sm:text-sm font-semibold">
+                        {isMicLoopbackOn ? "Stop Mic Test" : "Mic Test"}
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleRestartCurrentAnswer}
+                      disabled={!isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
+                      className={
+                        !isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion
+                          ? "w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed flex items-center gap-1.5"
+                          : "w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors flex items-center gap-1.5"
+                      }
+                      title={
+                        !isSessionStarted
+                          ? "Start session first"
+                          : !isPaused
+                          ? "Wait until your answer is auto-captured"
+                          : isPauseTranscriptPending
+                          ? "Wait for transcript processing to complete"
+                          : "Restart this question answer"
+                      }
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span className="sm:hidden">Restart</span>
+                      <span className="hidden sm:inline">Restart Answer</span>
+                    </button>
+                    <button
+                      disabled={
+                        isUploadingSegment ||
+                        isDecidingNextQuestion ||
+                        isAdvancingNextQuestion ||
+                        (isSessionStarted && isPauseTranscriptPending && !(liveDraftTranscript || "").trim())
+                      }
+                      className="col-span-2 sm:col-span-1 w-full justify-center bg-[#1B2744] text-white px-4 sm:px-6 py-2.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
+                      onClick={async () => {
+                        if (!isSessionStarted) {
+                          let questionSet = questions;
+                          if (questionSet.length === 0) {
+                            questionSet = await fetchQuestions();
+                          }
+                          if (questionSet.length === 0) {
+                            return;
+                          }
 
-                      setSessionId(sessionResult.data.id);
-                      activeSessionIdRef.current = sessionResult.data.id;
-                      setStoragePrefix(sessionResult.data.storage_prefix);
-                      activeQuestionIndexRef.current = 0;
-                      setFullSessionTranscript("");
-                      fullSessionTranscriptRef.current = "";
-                      setLiveTranscriptText(null);
-                      setLatestWhisperStatus(null);
-                      setIsPauseTranscriptPending(false);
-                      setLiveDraftTranscript("");
-                      segmentOrderRef.current = 1;
-                      setFollowupCountByBase({});
-                      setIsDecidingNextQuestion(false);
-                      setIsAdvancingNextQuestion(false);
-                      setPreparedNextAction(null);
-                      setIsSessionStarted(true);
-                      setIsPaused(false);
-                      setCurrentQuestion(0);
-                      // Clear any evaluation results from the previous session
-                      setEvaluations({});
-                      lastEvaluatedTranscriptRef.current = {};
-                      try { if (stateKey) localStorage.removeItem(`${stateKey}_evaluations`); } catch {}
-                      await startSegmentRecording(0, {
-                        sessionId: sessionResult.data.id,
-                        storagePrefix: sessionResult.data.storage_prefix,
-                      }, questionSet[0]);
-                      return;
-                    }
-                    // Require an intermediate confirmation when a prepared next action exists
-                    if (isSessionStarted && preparedNextAction && !isNextConfirmed) {
-                      setIsNextConfirmed(true);
-                      return;
-                    }
-                    await handleNextQuestion();
-                  }}
-                  title={
-                    isSessionStarted && isAdvancingNextQuestion
-                      ? "Preparing your current answer"
-                      : isSessionStarted && isDecidingNextQuestion
-                      ? "Deciding the next step"
-                      : isSessionStarted && preparedNextAction
-                      ? "Ready. Click again to continue, or use Restart Answer to retry this answer."
-                      : isSessionStarted && isPauseTranscriptPending && (liveDraftTranscript || "").trim()
-                      ? "Draft transcript is ready. You can continue while final transcription finishes in the background."
-                      : isSessionStarted && isPauseTranscriptPending
-                      ? "Waiting for transcription to finish"
-                      : isSessionStarted && !isPaused
-                      ? "Capture and finalize this answer now."
-                      : isSessionStarted
-                      ? "Go to next question"
-                      : "Start session"
-                  }
-                >
-                  {questionsLoading
-                    ? "Loading Questions..."
-                    : isAdvancingNextQuestion && !isDecidingNextQuestion
-                    ? "Preparing Now..."
-                    : isUploadingSegment
-                    ? "Saving Segment..."
-                    : isDecidingNextQuestion
-                    ? "Deciding Now..."
-                    : isSessionStarted && preparedNextAction
-                    ? isNextConfirmed
-                      ? "Next Question"
-                      : "Confirm"
-                    : isSessionStarted
-                    ? "Next Question"
-                    : "Start Session"}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={handleEndSession}
-                  disabled={!isSessionStarted || isAdvancingNextQuestion}
-                  className={
-                    !isSessionStarted || isAdvancingNextQuestion
-                      ? "px-4 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "px-4 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-2"
-                  }
-                  title={
-                    !isSessionStarted
-                      ? "Start session first"
-                      : remainingQuestionsForCount > 0
-                      ? `Ending now will void this session. Complete ${remainingQuestionsForCount} more question${remainingQuestionsForCount === 1 ? "" : "s"} to count it.`
-                      : "End session"
-                  }
-                >
-                  <Square className="w-4 h-4" />
-                  End Session
-                </button>
+                          const activeStream = streamRef.current || (await startCamera());
+                          if (!activeStream) {
+                            setRecordingError("Camera/microphone stream is required before starting session.");
+                            return;
+                          }
+
+                          const sessionResult = await startInterviewSession({
+                            userId,
+                            userEmail: email,
+                            userName,
+                            totalQuestions: MAX_SESSION_QUESTION_COUNT,
+                            metadata: {
+                              mode: "mock_interview",
+                              min_questions: MIN_SESSION_QUESTION_COUNT,
+                              max_questions: MAX_SESSION_QUESTION_COUNT,
+                              star_average_target: STAR_AVERAGE_TARGET_SCORE,
+                            },
+                          });
+                          if (sessionResult.error || !sessionResult.data?.id) {
+                            setRecordingError("Unable to start interview session in database.");
+                            return;
+                          }
+
+                          setSessionId(sessionResult.data.id);
+                          activeSessionIdRef.current = sessionResult.data.id;
+                          setStoragePrefix(sessionResult.data.storage_prefix);
+                          activeQuestionIndexRef.current = 0;
+                          setFullSessionTranscript("");
+                          fullSessionTranscriptRef.current = "";
+                          setLiveTranscriptText(null);
+                          setLatestWhisperStatus(null);
+                          setIsPauseTranscriptPending(false);
+                          setLiveDraftTranscript("");
+                          segmentOrderRef.current = 1;
+                          setFollowupCountByBase({});
+                          setIsDecidingNextQuestion(false);
+                          setIsAdvancingNextQuestion(false);
+                          setPreparedNextAction(null);
+                          setIsSessionStarted(true);
+                          setIsPaused(false);
+                          setCurrentQuestion(0);
+                          // Clear any evaluation results from the previous session
+                          setEvaluations({});
+                          lastEvaluatedTranscriptRef.current = {};
+                          try { if (stateKey) localStorage.removeItem(`${stateKey}_evaluations`); } catch {}
+                          await startSegmentRecording(0, {
+                            sessionId: sessionResult.data.id,
+                            storagePrefix: sessionResult.data.storage_prefix,
+                          }, questionSet[0]);
+                          return;
+                        }
+                        // Require an intermediate confirmation when a prepared next action exists
+                        if (isSessionStarted && preparedNextAction && !isNextConfirmed) {
+                          setIsNextConfirmed(true);
+                          return;
+                        }
+                        await handleNextQuestion();
+                      }}
+                      title={
+                        isSessionStarted && isAdvancingNextQuestion
+                          ? "Preparing your current answer"
+                          : isSessionStarted && isDecidingNextQuestion
+                          ? "Deciding the next step"
+                          : isSessionStarted && preparedNextAction
+                          ? "Ready. Click again to continue, or use Restart Answer to retry this answer."
+                          : isSessionStarted && isPauseTranscriptPending && (liveDraftTranscript || "").trim()
+                          ? "Draft transcript is ready. You can continue while final transcription finishes in the background."
+                          : isSessionStarted && isPauseTranscriptPending
+                          ? "Waiting for transcription to finish"
+                          : isSessionStarted && !isPaused
+                          ? "Capture and finalize this answer now."
+                          : isSessionStarted
+                          ? "Go to next question"
+                          : "Start session"
+                      }
+                    >
+                      <span className="sm:hidden">
+                        {questionsLoading
+                          ? "Loading"
+                          : isAdvancingNextQuestion && !isDecidingNextQuestion
+                          ? "Preparing"
+                          : isUploadingSegment
+                          ? "Saving"
+                          : isDecidingNextQuestion
+                          ? "Deciding"
+                          : isSessionStarted && preparedNextAction
+                          ? isNextConfirmed
+                            ? "Next"
+                            : "Confirm"
+                          : isSessionStarted
+                          ? "Next"
+                          : "Start"}
+                      </span>
+                      <span className="hidden sm:inline">
+                      {questionsLoading
+                        ? "Loading Questions..."
+                        : isAdvancingNextQuestion && !isDecidingNextQuestion
+                        ? "Preparing Now..."
+                        : isUploadingSegment
+                        ? "Saving Segment..."
+                        : isDecidingNextQuestion
+                        ? "Deciding Now..."
+                        : isSessionStarted && preparedNextAction
+                        ? isNextConfirmed
+                          ? "Next Question"
+                          : "Confirm"
+                        : isSessionStarted
+                        ? "Next Question"
+                        : "Start Session"}
+                      </span>
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={handleEndSession}
+                      disabled={!isSessionStarted || isAdvancingNextQuestion}
+                      className={
+                        !isSessionStarted || isAdvancingNextQuestion
+                          ? "col-span-2 sm:col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "col-span-2 sm:col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                      }
+                      title={
+                        !isSessionStarted
+                          ? "Start session first"
+                          : remainingQuestionsForCount > 0
+                          ? `Ending now will void this session. Complete ${remainingQuestionsForCount} more question${remainingQuestionsForCount === 1 ? "" : "s"} to count it.`
+                          : "End session"
+                      }
+                    >
+                      <Square className="w-4 h-4" />
+                      <span className="sm:hidden">End</span>
+                      <span className="hidden sm:inline">End Session</span>
+                    </button>
+                  </div>
+                )}
               </div>
               {(micTestError || isMicLoopbackOn) && (
                 <p className="text-xs text-center mt-3 text-gray-700">
@@ -3734,21 +3885,21 @@ function MockInterviewPageContent({
             </div>
           </div>
 
-          {/* Right - Question and Transcription */}
-          <div className="w-full lg:w-96 flex flex-col gap-4 sm:gap-6 overflow-y-auto">
+          {/* Right - Question and Transcription (Hidden on mobile, visible lg+) */}
+          <div className="hidden lg:flex w-96 flex-col gap-3 sm:gap-5 overflow-y-auto">
             {/* Question Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
               <p className="text-cyan-600 text-sm font-semibold mb-2 uppercase">
                 {isSessionStarted
                   ? (questions[currentQuestion]?.type || "Question")
                   : "Preview"}
               </p>
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 leading-snug">
                 {isSessionStarted
                   ? (questions[currentQuestion]?.question || "Loading question...")
                   : "Test your camera and microphone before starting the session."}
               </h3>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800 flex items-start gap-2">
                   <span className="text-lg">💡</span>
                   <span>
@@ -3761,8 +3912,8 @@ function MockInterviewPageContent({
               <div
                 className={
                   hasMetMinimumQuestionRequirement
-                    ? "mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3"
-                    : "mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3"
+                    ? "mt-2.5 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5"
+                    : "mt-2.5 bg-amber-50 border border-amber-200 rounded-lg p-2.5"
                 }
               >
                 <p
@@ -3786,8 +3937,8 @@ function MockInterviewPageContent({
                 <div
                   className={
                     runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                      ? "mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3"
-                      : "mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3"
+                      ? "mt-2.5 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5"
+                      : "mt-2.5 bg-indigo-50 border border-indigo-200 rounded-lg p-2.5"
                   }
                 >
                   <p
@@ -3809,7 +3960,7 @@ function MockInterviewPageContent({
                 </div>
               )}
               {isSessionStarted && (
-                <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-lg p-3">
+                <div className="mt-2.5 bg-cyan-50 border border-cyan-200 rounded-lg p-2.5">
                   <p className="text-xs text-cyan-800">
                     Click Next Question to finalize this answer. When the done badge appears, you can either Restart Answer or click Next Question again to continue.
                   </p>
@@ -3821,7 +3972,7 @@ function MockInterviewPageContent({
             </div>
 
             {/* Live Transcription */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex-1 flex flex-col">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 flex-1 flex flex-col min-h-[220px]">
               <h4 className="font-semibold text-gray-900 mb-4">
                 Live Transcription
               </h4>
@@ -3830,7 +3981,7 @@ function MockInterviewPageContent({
                   Showing quick draft text while final transcript syncs in the background.
                 </div>
               )}
-              <div className="flex-1 bg-gray-50 rounded-lg p-4 overflow-y-auto">
+              <div className="flex-1 bg-gray-50 rounded-lg p-3 sm:p-4 overflow-y-auto">
                 <div className="text-gray-600 text-sm leading-relaxed">
                   <p>
                     {isPauseTranscriptPending
@@ -3868,6 +4019,18 @@ function MockInterviewPageContent({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Mobile Floating Messages (visible only on mobile, lg:hidden) */}
+          <div className="fixed bottom-20 right-3 left-3 lg:hidden pointer-events-none">
+            {mobileFloatingMessages.length > 0 && isMobileFloatingMessageVisible && (
+              <div
+                key={mobileFloatingMessages[mobileFloatingMessageIndex]?.key}
+                className={`${mobileFloatingMessages[mobileFloatingMessageIndex]?.className} rounded-lg p-2.5 shadow-lg pointer-events-auto animate-in slide-in-from-right duration-300`}
+              >
+                {mobileFloatingMessages[mobileFloatingMessageIndex]?.content}
+              </div>
+            )}
           </div>
         </div>
       </div>
