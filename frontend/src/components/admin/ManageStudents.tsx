@@ -264,13 +264,30 @@ export default function ManageStudents() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
-          <AdminNavbar
-            userName={userName}
-            userID={userID}
-            onLogout={handleLogout}
-            onNavigate={handleNavigate}
-            activeNav="admin/manage_students"
-          />
+          <div className="relative h-full">
+            <div className="absolute left-0 top-0 bottom-0">
+              <AdminNavbar
+                userName={userName}
+                userID={userID}
+                onLogout={() => {
+                  setMobileOpen(false);
+                  handleLogout();
+                }}
+                onNavigate={(r) => {
+                  setMobileOpen(false);
+                  handleNavigate(r);
+                }}
+                activeNav="admin/manage_students"
+              />
+            </div>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="w-5 h-5 text-gray-800" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -319,7 +336,7 @@ export default function ManageStudents() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 border-b border-gray-200">
+          <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
             <button
               onClick={() => setActiveTab("verified")}
               className={`px-5 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -381,7 +398,8 @@ export default function ManageStudents() {
           {/* ── VERIFIED STUDENTS TABLE ── */}
           {activeTab === "verified" && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <table className="w-full">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[880px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold">Student</th>
@@ -453,7 +471,8 @@ export default function ManageStudents() {
                     );
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           )}
 
@@ -466,7 +485,8 @@ export default function ManageStudents() {
                 These students have registered and are awaiting admin approval before they can access
                 the system.
               </div>
-              <table className="w-full">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[1080px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold">Student</th>
@@ -545,7 +565,8 @@ export default function ManageStudents() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           )}
         </main>
