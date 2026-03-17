@@ -223,118 +223,143 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
   }
 
   return (
-    <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 md:p-12 w-full max-w-md">
-      <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-12">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#1B2744] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 sm:h-8 sm:w-8 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
-          </svg>
-        </div>
-        <div>
-          <h1 className="text-[#1B2744] text-base sm:text-xl font-bold font-serif leading-tight">TSU Career</h1>
-          <p className="text-gray-400 text-xs sm:text-sm font-medium">Management System</p>
-        </div>
-      </div>
-
-      <div className="mb-6 sm:mb-8">
-        <h2 className="text-[#1B2744] text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2 italic font-serif">Create Account</h2>
-        <p className="text-gray-500 text-sm sm:text-base">Sign up to get started</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        <div className="space-y-2">
-          <label className="block text-xs sm:text-sm font-medium text-gray-800">Full Name</label>
-          <input
-            type="text"
-            placeholder="Enter your full name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full rounded-xl sm:rounded-2xl border-2 border-gray-200 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-xs sm:text-sm font-medium text-gray-800">Email Address</label>
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl sm:rounded-2xl border-2 border-gray-200 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700"
-            required
-          />
-          {error && <p className="text-red-500 text-xs sm:text-sm">{error}</p>}
-        </div>
-
-        <div className="space-y-2 relative">
-          <label className="block text-xs sm:text-sm font-medium text-gray-800">Password</label>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl sm:rounded-2xl border-2 border-gray-200 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700 pr-12"
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute right-3 sm:right-4 top-9 sm:top-10 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            {showPassword ? <EyeOff size={18} className="sm:w-5 sm:h-5" /> : <Eye size={18} className="sm:w-5 sm:h-5" />}
-          </button>
-        </div>
-
-        <div className="space-y-2 relative">
-          <label className="block text-xs sm:text-sm font-medium text-gray-800">Confirm Password</label>
-          <input
-            type={showConfirmPassword ? 'text' : 'password'}
-            placeholder="Confirm your password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-xl sm:rounded-2xl border-2 border-gray-200 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-colors text-gray-700 pr-12"
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword((prev) => !prev)}
-            className="absolute right-3 sm:right-4 top-9 sm:top-10 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            {showConfirmPassword ? <EyeOff size={18} className="sm:w-5 sm:h-5" /> : <Eye size={18} className="sm:w-5 sm:h-5" />}
-          </button>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-[#1B2744] text-white py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-sm sm:text-base font-semibold flex items-center justify-center gap-2 hover:bg-[#131d33] transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-6 sm:mt-8"
+  <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 w-full max-w-sm sm:max-w-md mx-auto">
+    {/* Header */}
+    <div className="flex items-start gap-3 mb-6 sm:mb-8 lg:mb-10">
+      <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-[#1B2744] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 text-white"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          {isLoading ? (
-            <span className="border-2 border-white/30 border-t-white rounded-full w-4 h-4 sm:w-5 sm:h-5 animate-spin"></span>
-          ) : (
-            <>
-              Create Account <ArrowRight size={18} className="sm:w-5 sm:h-5" strokeWidth={2.5} />
-            </>
-          )}
-        </button>
-      </form>
-
-      <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-600">
-        Already have an account?{' '}
-        <button onClick={onBack} className="text-[#1B2744] font-semibold hover:underline">
-          Sign In
-        </button>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1 pt-1">
+        <h1 className="text-[#1B2744] text-sm sm:text-base lg:text-lg font-bold font-serif leading-tight truncate">
+          TSU Career
+        </h1>
+        <p className="text-gray-400 text-xs sm:text-sm font-medium">Management System</p>
       </div>
     </div>
-  )
+
+    {/* Title */}
+    <div className="mb-6 sm:mb-8">
+      <h2 className="text-[#1B2744] text-xl sm:text-2xl lg:text-3xl font-bold mb-1 sm:mb-2 italic font-serif leading-tight">
+        Create Account
+      </h2>
+      <p className="text-gray-500 text-sm sm:text-base">Sign up to get started</p>
+    </div>
+
+    {/* Form */}
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+      {/* Full Name */}
+      <div className="space-y-1.5 sm:space-y-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-800">Full Name</label>
+        <input
+          type="text"
+          placeholder="Enter your full name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="w-full rounded-xl border-2 border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-all duration-200 text-gray-700"
+          required
+        />
+      </div>
+
+      {/* Email */}
+      <div className="space-y-1.5 sm:space-y-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-800">Email Address</label>
+        <input
+          type="email"
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-xl border-2 border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-all duration-200 text-gray-700"
+          required
+        />
+        {error && <p className="text-red-500 text-xs sm:text-sm mt-1">{error}</p>}
+      </div>
+
+      {/* Password */}
+      <div className="space-y-1.5 sm:space-y-2 relative">
+        <label className="block text-xs sm:text-sm font-medium text-gray-800">Password</label>
+        <input
+          type={showPassword ? 'text' : 'password'}
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full rounded-xl border-2 border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-all duration-200 text-gray-700 pr-10 sm:pr-12"
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((prev) => !prev)}
+          className="absolute right-2.5 sm:right-3 top-8 sm:top-9 lg:top-10 text-gray-400 hover:text-gray-600 transition-colors p-1 -m-1"
+        >
+          {showPassword ? (
+            <EyeOff size={16} className="sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+          ) : (
+            <Eye size={16} className="sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+          )}
+        </button>
+      </div>
+
+      {/* Confirm Password */}
+      <div className="space-y-1.5 sm:space-y-2 relative">
+        <label className="block text-xs sm:text-sm font-medium text-gray-800">Confirm Password</label>
+        <input
+          type={showConfirmPassword ? 'text' : 'password'}
+          placeholder="Confirm your password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="w-full rounded-xl border-2 border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-all duration-200 text-gray-700 pr-10 sm:pr-12"
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setShowConfirmPassword((prev) => !prev)}
+          className="absolute right-2.5 sm:right-3 top-8 sm:top-9 lg:top-10 text-gray-400 hover:text-gray-600 transition-colors p-1 -m-1"
+        >
+          {showConfirmPassword ? (
+            <EyeOff size={16} className="sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+          ) : (
+            <Eye size={16} className="sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+          )}
+        </button>
+      </div>
+
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={isLoading}
+        className="w-full bg-[#1B2744] text-white py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-[#131d33] transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed mt-2 sm:mt-4 lg:mt-6 shadow-lg hover:shadow-xl"
+      >
+        {isLoading ? (
+          <span className="border-2 border-white/30 border-t-white rounded-full w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+        ) : (
+          <>
+            Create Account{' '}
+            <ArrowRight size={16} className="sm:w-4 sm:h-4 lg:w-5 lg:h-5" strokeWidth={2.5} />
+          </>
+        )}
+      </button>
+    </form>
+
+    {/* Footer */}
+    <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-600 pt-2">
+      Already have an account?{' '}
+      <button
+        onClick={onBack}
+        className="text-[#1B2744] font-semibold hover:underline transition-colors"
+      >
+        Sign In
+      </button>
+    </div>
+  </div>
+);
 }
 
 function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
