@@ -15,10 +15,11 @@ import {
   Bot,
   PlayCircle,
   AlertCircle,
-  Menu,
-  X,
   ChevronUp,
   ChevronDown,
+  Bell,
+  Menu,
+  X,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
@@ -214,8 +215,6 @@ const AUTO_CAPTURE_ARM_DELAY_MS = 3000;
 const LIVE_TRANSCRIBE_REQUEST_TIMEOUT_MS = 3500;
 const SEGMENT_PERSIST_TIMEOUT_MS = 15000;
 const STOP_RECORDING_FALLBACK_TIMEOUT_MS = 12000;
-const MOBILE_FLOATING_MESSAGE_SHOW_MS = 3200;
-const MOBILE_FLOATING_MESSAGE_HIDE_MS = 1200;
 
 function MockInterviewPageContent({
   email,
@@ -326,10 +325,9 @@ function MockInterviewPageContent({
     initialStateRef.current?.isMicOn ?? true
   );
   const [isMicLoopbackOn, setIsMicLoopbackOn] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
-  const [mobileFloatingMessageIndex, setMobileFloatingMessageIndex] = useState(0);
-  const [isMobileFloatingMessageVisible, setIsMobileFloatingMessageVisible] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [showPreviewTip, setShowPreviewTip] = useState(true);
   const [isPaused, setIsPaused] = useState(
     initialStateRef.current?.isPaused ?? false
   );
@@ -386,6 +384,13 @@ function MockInterviewPageContent({
   useEffect(() => {
     setIsNextConfirmed(false);
   }, [preparedNextAction, currentQuestion, isSessionStarted]);
+
+  // Auto-dismiss preview tip after 6 seconds
+  useEffect(() => {
+    if (!showPreviewTip) return;
+    const t = setTimeout(() => setShowPreviewTip(false), 6000);
+    return () => clearTimeout(t);
+  }, [showPreviewTip]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -2925,7 +2930,7 @@ function MockInterviewPageContent({
       return (
         <div className="flex h-screen bg-gray-50">
           {/* Sidebar (desktop) */}
-          <div className="hidden md:block flex-shrink-0">
+          <div className="flex-shrink-0">
             <Sidebar
               userName={userName}
               userID={userID}
@@ -2935,32 +2940,8 @@ function MockInterviewPageContent({
             />
           </div>
 
-          {/* Mobile sidebar overlay */}
-          {mobileOpen && (
-            <div className="fixed inset-0 z-50 md:hidden">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-              <div className="relative h-full">
-                <div className="absolute left-0 top-0 bottom-0">
-                  <Sidebar
-                    userName={userName}
-                    userID={userID}
-                    onLogout={() => { setMobileOpen(false); onLogout(); }}
-                    onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
-                    activeNav="student/interview"
-                  />
-                </div>
-                <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
-                  <X className="w-5 h-5 text-gray-800" />
-                </button>
-              </div>
-            </div>
-          )}
-
           <div className="flex-1 overflow-auto">
             <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-              <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
-                <Menu className="w-5 h-5 text-gray-700" />
-              </button>
               <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
             </div>
 
@@ -3051,7 +3032,7 @@ function MockInterviewPageContent({
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
-        <div className="hidden md:block flex-shrink-0">
+        <div className="flex-shrink-0">
           <Sidebar
             userName={userName}
             userID={userID}
@@ -3061,34 +3042,10 @@ function MockInterviewPageContent({
           />
         </div>
 
-        {/* Mobile sidebar overlay */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-            <div className="relative h-full">
-              <div className="absolute left-0 top-0 bottom-0">
-                <Sidebar
-                  userName={userName}
-                  userID={userID}
-                  onLogout={() => { setMobileOpen(false); onLogout(); }}
-                  onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
-                  activeNav="student/interview"
-                />
-              </div>
-              <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
-                <X className="w-5 h-5 text-gray-800" />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
             <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-            <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
-              <Menu className="w-5 h-5 text-gray-700" />
-            </button>
             <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
           </div>
 
@@ -3195,7 +3152,7 @@ function MockInterviewPageContent({
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
-        <div className="hidden md:block flex-shrink-0">
+        <div className="flex-shrink-0">
           <Sidebar
             userName={userName}
             userID={userID}
@@ -3205,34 +3162,10 @@ function MockInterviewPageContent({
           />
         </div>
 
-        {/* Mobile sidebar overlay */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-            <div className="relative h-full">
-              <div className="absolute left-0 top-0 bottom-0">
-                <Sidebar
-                  userName={userName}
-                  userID={userID}
-                  onLogout={() => { setMobileOpen(false); onLogout(); }}
-                  onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
-                  activeNav="student/interview"
-                />
-              </div>
-              <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
-                <X className="w-5 h-5 text-gray-800" />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           {/* Top Navigation */}
             <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-            <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
-              <Menu className="w-5 h-5 text-gray-700" />
-            </button>
             <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
           </div>
 
@@ -3402,142 +3335,11 @@ function MockInterviewPageContent({
   const hasMetMinimumQuestionRequirement = remainingQuestionsForCount === 0;
   const runningAverage = calculateSessionStarAverage();
   const evaluatedCountForUi = Object.keys(evaluations || {}).length;
-  const mobileFloatingMessages: Array<{ key: string; className: string; content: React.ReactNode }> = [
-    {
-      key: "tip",
-      className: "bg-yellow-50 border-2 border-yellow-200",
-      content: (
-        <p className="text-xs text-yellow-800 flex items-start gap-2">
-          <span className="text-base">💡</span>
-          <span>
-            {isSessionStarted
-              ? questions[currentQuestion]?.tip || "Please wait while we fetch your question."
-              : "When ready, click Start Session to begin recording."}
-          </span>
-        </p>
-      ),
-    },
-    {
-      key: "requirement",
-      className: hasMetMinimumQuestionRequirement
-        ? "bg-emerald-50 border-2 border-emerald-200"
-        : "bg-amber-50 border-2 border-amber-200",
-      content: (
-        <p
-          className={
-            hasMetMinimumQuestionRequirement
-              ? "text-xs text-emerald-800 flex items-start gap-2"
-              : "text-xs text-amber-900 flex items-start gap-2"
-          }
-        >
-          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <span>
-            {!isSessionStarted
-              ? `${MIN_SESSION_QUESTION_COUNT} questions needed`
-              : hasMetMinimumQuestionRequirement
-              ? `✅ ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} done`
-              : `${remainingQuestionsForCount} more needed`}
-          </span>
-        </p>
-      ),
-    },
-    ...(isSessionStarted && evaluatedCountForUi > 0
-      ? [
-          {
-            key: "score",
-            className:
-              runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                ? "bg-emerald-50 border-2 border-emerald-200"
-                : "bg-indigo-50 border-2 border-indigo-200",
-            content: (
-              <p
-                className={
-                  runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                    ? "text-xs text-emerald-800"
-                    : "text-xs text-indigo-800"
-                }
-              >
-                {runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                  ? `✅ Avg: ${runningAverage.toFixed(2)} / 5`
-                  : `📊 Avg: ${runningAverage.toFixed(2)} / 5`}
-              </p>
-            ),
-          },
-        ]
-      : []),
-    ...(isSessionStarted
-      ? [
-          {
-            key: "instruction",
-            className: "bg-cyan-50 border-2 border-cyan-200",
-            content: (
-              <p className="text-xs text-cyan-800">
-                Click Next to continue or Restart to retry.
-              </p>
-            ),
-          },
-        ]
-      : []),
-  ];
-
-  useEffect(() => {
-    if (mobileFloatingMessages.length === 0) {
-      setMobileFloatingMessageIndex(0);
-      setIsMobileFloatingMessageVisible(false);
-      return;
-    }
-
-    setMobileFloatingMessageIndex((currentIndex) =>
-      currentIndex % mobileFloatingMessages.length
-    );
-    setIsMobileFloatingMessageVisible(true);
-  }, [mobileFloatingMessages.length]);
-
-  useEffect(() => {
-    if (mobileFloatingMessages.length === 0) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      if (isMobileFloatingMessageVisible) {
-        setIsMobileFloatingMessageVisible(false);
-        return;
-      }
-
-      setMobileFloatingMessageIndex(
-        (currentIndex) => (currentIndex + 1) % mobileFloatingMessages.length
-      );
-      setIsMobileFloatingMessageVisible(true);
-    }, isMobileFloatingMessageVisible ? MOBILE_FLOATING_MESSAGE_SHOW_MS : MOBILE_FLOATING_MESSAGE_HIDE_MS);
-
-    return () => window.clearTimeout(timeout);
-  }, [isMobileFloatingMessageVisible, mobileFloatingMessages.length]);
 
   // Interview Recording Screen
   return (
+    <>
     <div className="flex h-screen bg-gray-50">
-      {/* Mobile / tablet block overlay */}
-      <div className="md:hidden fixed inset-0 z-[9999] flex items-center justify-center">
-        {/* Blurred background */}
-        <div className="absolute inset-0 backdrop-blur-md bg-white/60" />
-        {/* Message card */}
-        <div className="relative z-10 mx-6 bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center text-center gap-4 max-w-sm w-full">
-          <span className="text-5xl">🖥️</span>
-          <h2 className="text-xl font-bold text-gray-800">Desktop or Laptop Required</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            The AI Mock Interview module requires a stable microphone and camera for accurate speech
-            transcription and evaluation. For the best experience and most accurate AI scoring,
-            please access this feature using a desktop or laptop computer.
-          </p>
-          <button
-            onClick={() => onNavigate("student/dashboard")}
-            className="mt-2 w-full bg-[#1a2942] text-white font-semibold py-3 rounded-xl hover:bg-[#243752] transition-colors"
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
-
       {/* Sidebar (desktop) */}
       <div className="hidden md:block flex-shrink-0">
         <Sidebar
@@ -3563,7 +3365,11 @@ function MockInterviewPageContent({
                 activeNav="student/interview"
               />
             </div>
-            <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
+            <button
+              aria-label="Close sidebar"
+              className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+              onClick={() => setMobileOpen(false)}
+            >
               <X className="w-5 h-5 text-gray-800" />
             </button>
           </div>
@@ -3572,19 +3378,22 @@ function MockInterviewPageContent({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-          <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
+        {/* Mobile top bar with hamburger */}
+        <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2 flex items-center sticky top-0 z-10">
+          <button
+            aria-label="Open sidebar"
+            onClick={() => setMobileOpen(true)}
+            className="p-2 rounded-md hover:bg-gray-100"
+          >
             <Menu className="w-5 h-5 text-gray-700" />
           </button>
         </div>
-
         {/* Recording Interface */}
         <div className="flex-1 flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-6 p-3 sm:p-4 lg:p-6 overflow-y-auto relative">
           {/* Left - Camera Preview */}
           <div className="flex-1 flex flex-col min-h-0 lg:flex-1">
             {/* Recording Status and Controls */}
-            <div className="bg-white rounded-2xl border border-gray-200 flex-1 min-h-0 flex flex-col p-3 sm:p-4 relative shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-200 flex flex-col p-3 sm:p-4 relative shadow-sm lg:flex-1 lg:min-h-0">
               {/* Recording Badges */}
               {isSessionStarted && (
                 <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -3622,9 +3431,9 @@ function MockInterviewPageContent({
               )}
 
               {/* Camera Preview */}
-              <div className="flex-1 min-h-0 w-full flex items-center justify-center">
+              <div className="w-full flex items-center justify-center relative max-h-[240px] sm:max-h-none sm:flex-1 sm:min-h-0">
                 {isCameraOn && !mediaError ? (
-                  <div className="w-full h-full min-h-[200px] sm:min-h-[340px] rounded-xl overflow-hidden bg-black shadow-inner">
+                  <div className="w-full h-full min-h-[200px] max-h-[240px] sm:max-h-none sm:min-h-[340px] rounded-xl overflow-hidden bg-black shadow-inner relative">
                     <video
                       ref={videoRef}
                       autoPlay
@@ -3632,9 +3441,22 @@ function MockInterviewPageContent({
                       muted
                       className="w-full h-full object-cover"
                     />
+                    {/* Floating preview tip */}
+                    {!isSessionStarted && showPreviewTip && (
+                      <div className="absolute top-2 right-2 left-2 sm:left-auto sm:max-w-[220px] bg-black/70 text-white rounded-lg px-3 py-2 text-xs leading-snug backdrop-blur-sm flex items-start gap-2">
+                        <span className="flex-1">💡 Test your camera & mic, then click <strong>Start Session</strong>.</span>
+                        <button
+                          onClick={() => setShowPreviewTip(false)}
+                          className="flex-shrink-0 opacity-70 hover:opacity-100 mt-0.5"
+                          aria-label="Close tip"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="w-full h-full min-h-[200px] sm:min-h-[340px] rounded-xl bg-gray-100 flex flex-col items-center justify-center">
+                  <div className="w-full h-full min-h-[200px] max-h-[240px] sm:max-h-none sm:min-h-[340px] rounded-xl bg-gray-100 flex flex-col items-center justify-center relative">
                     <div className="w-28 h-28 bg-gray-300 rounded-full flex items-center justify-center mb-4">
                       <Camera className="w-14 h-14 text-gray-600" />
                     </div>
@@ -3644,65 +3466,68 @@ function MockInterviewPageContent({
                         {mediaError}
                       </p>
                     )}
+                    {/* Floating preview tip (camera off state) */}
+                    {!isSessionStarted && showPreviewTip && (
+                      <div className="absolute top-2 right-2 left-2 sm:left-auto sm:max-w-[220px] bg-gray-800/85 text-white rounded-lg px-3 py-2 text-xs leading-snug flex items-start gap-2">
+                        <span className="flex-1">💡 Test your camera & mic, then click <strong>Start Session</strong>.</span>
+                        <button
+                          onClick={() => setShowPreviewTip(false)}
+                          className="flex-shrink-0 opacity-70 hover:opacity-100 mt-0.5"
+                          aria-label="Close tip"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Controls Dropdown */}
               <div className="mt-3 w-full flex flex-col gap-2">
-                {/* Toggle Button - Always Visible */}
-                <button
-                  onClick={() => setControlsOpen(!controlsOpen)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-colors border border-gray-300"
-                >
-                  {controlsOpen ? "Hide Controls" : "Show Controls"}
-                  {controlsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </button>
-
-                {/* Controls Panel - Visible when open */}
-                {controlsOpen && (
-                  <div className="w-full grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-stretch sm:justify-center sm:gap-3 bg-white rounded-xl sm:rounded-2xl px-1.5 sm:px-4 py-1.5 sm:py-3 shadow-md border border-gray-200 animate-in fade-in duration-200">
+                {/* Controls Panel - Always visible on desktop, toggle on mobile */}
+                <div className={controlsOpen ? "" : "hidden md:block"}>
+                  <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch sm:gap-3 bg-white rounded-xl sm:rounded-2xl px-2 sm:px-4 py-2.5 sm:py-3 shadow-md border border-gray-200 animate-in fade-in duration-200">
+                    {/* Mic */}
                     <button
                       onClick={handleToggleMic}
                       className={
                         isMicOn
-                          ? "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
-                          : "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                          ? "col-span-1 group inline-flex w-full sm:flex-1 sm:min-w-[140px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                          : "col-span-1 group inline-flex w-full sm:flex-1 sm:min-w-[140px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                       }
                       title={isMicOn ? "Mute mic" : "Unmute mic"}
                     >
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 border border-current/20">
                         {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
                       </span>
-                      <span className="text-left leading-tight">
-                        <span className="block text-xs sm:text-sm font-semibold">{isMicOn ? "Mic On" : "Mic Off"}</span>
-                      </span>
+                      <span className="text-xs sm:text-sm font-semibold">{isMicOn ? "Mic On" : "Mic Off"}</span>
                     </button>
+                    {/* Camera */}
                     <button
                       onClick={handleToggleCamera}
                       className={
                         isCameraOn
-                          ? "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition-colors"
-                          : "group inline-flex w-full sm:flex-1 sm:min-w-[150px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                          ? "col-span-1 group inline-flex w-full sm:flex-1 sm:min-w-[140px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 transition-colors"
+                          : "col-span-1 group inline-flex w-full sm:flex-1 sm:min-w-[140px] items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                       }
                       title={isCameraOn ? "Turn off camera" : "Turn on camera"}
                     >
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 border border-current/20">
                         {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
                       </span>
-                      <span className="text-left leading-tight">
-                        <span className="block text-xs sm:text-sm font-semibold">{isCameraOn ? "Cam On" : "Cam Off"}</span>
-                      </span>
+                      <span className="text-xs sm:text-sm font-semibold">{isCameraOn ? "Cam On" : "Cam Off"}</span>
                     </button>
+                    {/* Mic Test - full width on mobile */}
                     <button
                       onClick={handleToggleMicLoopback}
                       disabled={!isMicOn || isSessionStarted}
                       className={
                         !isMicOn || isSessionStarted
-                          ? "inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                          ? "col-span-2 sm:col-span-1 inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed sm:flex-1 sm:min-w-[140px]"
                           : isMicLoopbackOn
-                          ? "inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors"
-                          : "inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+                          ? "col-span-2 sm:col-span-1 inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors sm:flex-1 sm:min-w-[140px]"
+                          : "col-span-2 sm:col-span-1 inline-flex w-full justify-center items-center gap-1.5 px-2.5 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors sm:flex-1 sm:min-w-[140px]"
                       }
                       title={
                         isSessionStarted
@@ -3717,28 +3542,7 @@ function MockInterviewPageContent({
                         {isMicLoopbackOn ? "Stop Mic Test" : "Mic Test"}
                       </span>
                     </button>
-                    <button
-                      onClick={handleRestartCurrentAnswer}
-                      disabled={!isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
-                      className={
-                        !isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion
-                          ? "w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed flex items-center gap-1.5"
-                          : "w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors flex items-center gap-1.5"
-                      }
-                      title={
-                        !isSessionStarted
-                          ? "Start session first"
-                          : !isPaused
-                          ? "Wait until your answer is auto-captured"
-                          : isPauseTranscriptPending
-                          ? "Wait for transcript processing to complete"
-                          : "Restart this question answer"
-                      }
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      <span className="sm:hidden">Restart</span>
-                      <span className="hidden sm:inline">Restart Answer</span>
-                    </button>
+                    {/* Start/Next - full width on mobile, flex-1 on desktop */}
                     <button
                       disabled={
                         isUploadingSegment ||
@@ -3746,7 +3550,7 @@ function MockInterviewPageContent({
                         isAdvancingNextQuestion ||
                         (isSessionStarted && isPauseTranscriptPending && !(liveDraftTranscript || "").trim())
                       }
-                      className="col-span-2 sm:col-span-1 w-full justify-center bg-[#1B2744] text-white px-4 sm:px-6 py-2.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
+                      className="col-span-2 sm:col-span-1 w-full justify-center bg-[#1B2744] text-white px-4 sm:px-6 py-2.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors flex items-center gap-1.5 sm:flex-1 sm:min-w-[160px]"
                       onClick={async () => {
                         if (!isSessionStarted) {
                           let questionSet = questions;
@@ -3869,13 +3673,37 @@ function MockInterviewPageContent({
                       </span>
                       <ChevronRight className="w-5 h-5" />
                     </button>
+                    {/* Restart - col-span-1 on mobile */}
+                    <button
+                      onClick={handleRestartCurrentAnswer}
+                      disabled={!isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
+                      className={
+                        !isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion
+                          ? "col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed flex items-center gap-1.5 sm:flex-1 sm:min-w-[150px]"
+                          : "col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors flex items-center gap-1.5 sm:flex-1 sm:min-w-[150px]"
+                      }
+                      title={
+                        !isSessionStarted
+                          ? "Start session first"
+                          : !isPaused
+                          ? "Wait until your answer is auto-captured"
+                          : isPauseTranscriptPending
+                          ? "Wait for transcript processing to complete"
+                          : "Restart this question answer"
+                      }
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span className="sm:hidden">Restart</span>
+                      <span className="hidden sm:inline">Restart Answer</span>
+                    </button>
+                    {/* End Session - col-span-1 on mobile */}
                     <button
                       onClick={handleEndSession}
                       disabled={!isSessionStarted || isAdvancingNextQuestion}
                       className={
                         !isSessionStarted || isAdvancingNextQuestion
-                          ? "col-span-2 sm:col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "col-span-2 sm:col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                          ? "col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed flex items-center gap-1.5 sm:flex-1 sm:min-w-[150px]"
+                          : "col-span-1 w-full justify-center px-2.5 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-1.5 sm:flex-1 sm:min-w-[150px]"
                       }
                       title={
                         !isSessionStarted
@@ -3890,7 +3718,15 @@ function MockInterviewPageContent({
                       <span className="hidden sm:inline">End Session</span>
                     </button>
                   </div>
-                )}
+                </div>
+                {/* Toggle Button - Mobile only, placed BELOW panel so it stays in view */}
+                <button
+                  onClick={() => setControlsOpen(!controlsOpen)}
+                  className="md:hidden w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-colors border border-gray-300"
+                >
+                  {controlsOpen ? "Hide Controls" : "Show Controls"}
+                  {controlsOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
               </div>
               {(micTestError || isMicLoopbackOn) && (
                 <p className="text-xs text-center mt-3 text-gray-700">
@@ -3905,28 +3741,21 @@ function MockInterviewPageContent({
             </div>
           </div>
 
-          {/* Right - Question and Transcription (Hidden on mobile, visible lg+) */}
-          <div className="hidden lg:flex w-96 flex-col gap-3 sm:gap-5 overflow-y-auto">
-            {/* Question Card */}
+          {/* Right - Question and Transcription */}
+          <div className="flex flex-col w-full lg:w-96 gap-3 sm:gap-5 lg:overflow-y-auto">
+            {/* Question Card - only shown during active session */}
+            {isSessionStarted && (
             <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
               <p className="text-cyan-600 text-sm font-semibold mb-2 uppercase">
-                {isSessionStarted
-                  ? (questions[currentQuestion]?.type || "Question")
-                  : "Preview"}
+                {questions[currentQuestion]?.type || "Question"}
               </p>
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 leading-snug">
-                {isSessionStarted
-                  ? (questions[currentQuestion]?.question || "Loading question...")
-                  : "Test your camera and microphone before starting the session."}
+                {questions[currentQuestion]?.question || "Loading question..."}
               </h3>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800 flex items-start gap-2">
                   <span className="text-lg">💡</span>
-                  <span>
-                    {isSessionStarted
-                      ? (questions[currentQuestion]?.tip || "Please wait while we fetch your question.")
-                      : "When ready, click Start Session to begin recording and show your first interview question."}
-                  </span>
+                  <span>{questions[currentQuestion]?.tip || "Please wait while we fetch your question."}</span>
                 </p>
               </div>
               <div
@@ -3945,15 +3774,13 @@ function MockInterviewPageContent({
                 >
                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <span>
-                    {!isSessionStarted
-                      ? `Complete at least ${MIN_SESSION_QUESTION_COUNT} questions for this mock interview session to be counted.`
-                      : hasMetMinimumQuestionRequirement
+                    {hasMetMinimumQuestionRequirement
                       ? `Minimum requirement met: ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} questions completed. This session will count if you end now.`
                       : `Session count requirement: ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} questions completed. Answer ${remainingQuestionsForCount} more before ending, otherwise this session will be voided.`}
                   </span>
                 </p>
               </div>
-              {isSessionStarted && evaluatedCountForUi > 0 && (
+              {evaluatedCountForUi > 0 && (
                 <div
                   className={
                     runningAverage >= STAR_AVERAGE_TARGET_SCORE
@@ -3979,17 +3806,16 @@ function MockInterviewPageContent({
                   </p>
                 </div>
               )}
-              {isSessionStarted && (
-                <div className="mt-2.5 bg-cyan-50 border border-cyan-200 rounded-lg p-2.5">
-                  <p className="text-xs text-cyan-800">
-                    Click Next Question to finalize this answer. When the done badge appears, you can either Restart Answer or click Next Question again to continue.
-                  </p>
-                </div>
-              )}
+              <div className="mt-2.5 bg-cyan-50 border border-cyan-200 rounded-lg p-2.5">
+                <p className="text-xs text-cyan-800">
+                  Click Next Question to finalize this answer. When the done badge appears, you can either Restart Answer or click Next Question again to continue.
+                </p>
+              </div>
               {questionsError && (
                 <p className="text-sm text-red-600 mt-3">{questionsError}</p>
               )}
             </div>
+            )}
 
             {/* Live Transcription */}
             <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 flex-1 flex flex-col min-h-[220px]">
@@ -4041,16 +3867,6 @@ function MockInterviewPageContent({
             </div>
           </div>
 
-          {/* Mobile Floating Messages (visible only on mobile, lg:hidden) */}
-          <div className="fixed bottom-20 right-3 left-3 lg:hidden pointer-events-none">
-            {mobileFloatingMessages.length > 0 && isMobileFloatingMessageVisible && (
-              <div
-                key={mobileFloatingMessages[mobileFloatingMessageIndex]?.key}
-                className={`${mobileFloatingMessages[mobileFloatingMessageIndex]?.className} rounded-lg p-2.5 shadow-lg pointer-events-auto animate-in slide-in-from-right duration-300`}
-              >
-                {mobileFloatingMessages[mobileFloatingMessageIndex]?.content}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -4081,7 +3897,7 @@ function MockInterviewPageContent({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
