@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell,
   Video,
   CheckCircle,
   Mic,
@@ -3556,7 +3555,6 @@ function MockInterviewPageContent({
           <button aria-label="Open sidebar" onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-md hover:bg-gray-100">
             <Menu className="w-5 h-5 text-gray-700" />
           </button>
-          <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
         </div>
 
         {/* Recording Interface */}
