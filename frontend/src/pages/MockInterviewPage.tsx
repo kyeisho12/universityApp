@@ -3400,6 +3400,28 @@ function MockInterviewPageContent({
   // Interview Recording Screen
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Mobile / tablet block overlay */}
+      <div className="md:hidden fixed inset-0 z-[9999] flex items-center justify-center">
+        {/* Blurred background */}
+        <div className="absolute inset-0 backdrop-blur-md bg-white/60" />
+        {/* Message card */}
+        <div className="relative z-10 mx-6 bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center text-center gap-4 max-w-sm w-full">
+          <span className="text-5xl">🖥️</span>
+          <h2 className="text-xl font-bold text-gray-800">Desktop or Laptop Required</h2>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            The AI Mock Interview module requires a stable microphone and camera for accurate speech
+            transcription and evaluation. For the best experience and most accurate AI scoring,
+            please access this feature using a desktop or laptop computer.
+          </p>
+          <button
+            onClick={() => onNavigate("student/dashboard")}
+            className="mt-2 w-full bg-[#1a2942] text-white font-semibold py-3 rounded-xl hover:bg-[#243752] transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+
       {/* Sidebar (desktop) */}
       <div className="hidden md:block flex-shrink-0">
         <Sidebar
