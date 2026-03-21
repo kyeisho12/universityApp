@@ -1,7 +1,21 @@
-import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { signUp } from '../../services/authService'
-import { useMessageBox } from '../common/MessageBoxProvider'
+
+
+  // Password strength logic
+  function getPasswordStrength(pw: string) {
+    let score = 0;
+    if (pw.length >= 6) score++;
+    if (pw.length >= 8 && /[A-Za-z]/.test(pw) && /\d/.test(pw)) score++;
+    if (
+      pw.length >= 10 &&
+      /[a-z]/.test(pw) &&
+      /[A-Z]/.test(pw) &&
+      /\d/.test(pw) &&
+      /[^A-Za-z0-9]/.test(pw)
+    ) score++;
+    return score;
+  }
+
+
 
 interface FormState {
   email: string
@@ -16,22 +30,32 @@ interface FormState {
 }
 
 const Register = () => {
-  const [formData, setFormData] = useState<FormState>({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    fullName: '',
-    role: 'student',
-    university: '',
-    major: '',
-    graduationYear: new Date().getFullYear() + 4,
-    phone: '',
-  })
+    const [formData, setFormData] = useState<FormState>({
+      email: '',
+      password: '',
+      confirmPassword: '',
+      fullName: '',
+      role: 'student',
+      university: '',
+      major: '',
+      graduationYear: new Date().getFullYear() + 4,
+      phone: '',
+    })
+  // (Removed duplicate declarations above)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const messageBox = useMessageBox()
   const navigate = useNavigate()
 
+  const passwordStrength = getPasswordStrength(formData.password);
+  const passwordStrengthLabel =
+    passwordStrength === 0 ? '' :
+    passwordStrength === 1 ? 'Weak' :
+    passwordStrength === 2 ? 'Medium' : 'Strong';
+  const passwordStrengthColor =
+    passwordStrength === 0 ? '' :
+    passwordStrength === 1 ? 'text-red-500' :
+    passwordStrength === 2 ? 'text-yellow-500' : 'text-green-600';
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
@@ -45,9 +69,9 @@ const Register = () => {
       return false
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long')
-      return false
+    if (passwordStrength < 2) {
+      setError('Password is too weak. Use at least 8 characters with letters and numbers.')
+      return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -157,11 +181,17 @@ const Register = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters, letters & numbers"
                   required
                   disabled={loading}
                   className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-neutral-50"
                 />
+                {formData.password && (
+                  <div className={`mt-1 text-xs font-semibold ${passwordStrengthColor}`}
+                    style={{ transition: 'color 0.2s' }}>
+                    Password strength: {passwordStrengthLabel}
+                  </div>
+                )}
               </label>
 
               <label className="grid gap-1 text-sm font-semibold text-neutral-800">

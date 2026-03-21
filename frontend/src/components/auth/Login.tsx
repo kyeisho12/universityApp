@@ -49,7 +49,7 @@ function LoginForm({ onLogin, onSignUpClick, onForgotClick }: LoginFormProps) {
     setPasswordError('')
 
     if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
-      setEmailError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      setEmailError('Please use your university email')
       return
     }
 
@@ -190,6 +190,31 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Password strength logic
+  function getPasswordStrength(pw: string) {
+    let score = 0;
+    if (pw.length >= 6) score++;
+    if (pw.length >= 8 && /[A-Za-z]/.test(pw) && /\d/.test(pw)) score++;
+    if (
+      pw.length >= 10 &&
+      /[a-z]/.test(pw) &&
+      /[A-Z]/.test(pw) &&
+      /\d/.test(pw) &&
+      /[^A-Za-z0-9]/.test(pw)
+    ) score++;
+    return score;
+  }
+
+  const passwordStrength = getPasswordStrength(password);
+  const passwordStrengthLabel =
+    passwordStrength === 0 ? '' :
+    passwordStrength === 1 ? 'Weak' :
+    passwordStrength === 2 ? 'Medium' : 'Strong';
+  const passwordStrengthColor =
+    passwordStrength === 0 ? '' :
+    passwordStrength === 1 ? 'text-red-500' :
+    passwordStrength === 2 ? 'text-yellow-500' : 'text-green-600';
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
@@ -199,11 +224,11 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
       return
     }
     if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
-      setError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      setError('Please use your university email')
       return
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (passwordStrength < 2) {
+      setError('Password is too weak. Use at least 8 characters with letters and numbers.')
       return
     }
     if (password !== confirmPassword) {
@@ -305,6 +330,12 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
             <Eye size={16} className="sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
           )}
         </button>
+        {password && (
+          <div className={`mt-1 text-xs font-semibold ${passwordStrengthColor}`}
+            style={{ transition: 'color 0.2s' }}>
+            Password strength: {passwordStrengthLabel}
+          </div>
+        )}
       </div>
 
       {/* Confirm Password */}
@@ -373,7 +404,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     setError('')
 
     if (!email.endsWith(STUDENT_DOMAIN) && !email.endsWith(ADMIN_DOMAIN)) {
-      setError(`Please use your university email (${STUDENT_DOMAIN} or ${ADMIN_DOMAIN})`)
+      setError('Please use your university email')
       return
     }
 

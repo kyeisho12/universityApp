@@ -18,6 +18,8 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import axios from "axios";
+import { useMessageBox } from "../components/common/MessageBoxProvider";
 
 interface Application {
   id: string;
@@ -33,9 +35,13 @@ interface Application {
   job_type?: string;
 }
 
+const API_BASE_URL = "http://localhost:8000";
+
 const MyApplicationsPage: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [editApp, setEditApp] = useState<Application | null>(null);
+  const [editCoverLetter, setEditCoverLetter] = useState<string>("");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { profile } = useStudent();
@@ -147,6 +153,41 @@ const MyApplicationsPage: React.FC = () => {
     }
   };
 
+  const { confirm, alert, toast } = useMessageBox();
+
+  const handleCancelApplication = async (applicationId: string) => {
+    const confirmed = await confirm({
+      title: "Cancel Application",
+      message: "Are you sure you want to cancel (withdraw) this application? This action cannot be undone.",
+      tone: "warning",
+      confirmText: "Yes, Cancel",
+      cancelText: "No, Keep Application",
+    });
+    if (!confirmed) return;
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) throw new Error("Could not get access token");
+      const accessToken = data.session.access_token;
+      await axios.delete(`${API_BASE_URL}/applications/${applicationId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      toast({
+        title: "Application Cancelled",
+        message: "Your application has been successfully cancelled.",
+        tone: "success",
+      });
+      refetch();
+    } catch (err) {
+      alert({
+        title: "Failed to Cancel",
+        message: "Failed to cancel application. Please try again.",
+        tone: "error",
+      });
+    }
+  };
+
   const filteredApplications = useMemo(() => 
     applications.filter((app) => {
       if (filterStatus === "all") return true;
@@ -176,213 +217,298 @@ const MyApplicationsPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      {/* Sidebar (hidden on small screens) */}
-      <div className="hidden md:block">
-        <Sidebar
-          userName={userName}
-          userID={userID}
-          onLogout={handleLogout}
-          onNavigate={handleNavigate}
-          activeNav="student/applications"
-        />
-      </div>
-
-      {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <div className="relative h-full">
-            <Sidebar
-              userName={userName}
-              userID={userID}
-              onLogout={() => {
-                setMobileOpen(false);
-                handleLogout();
+    <>
+      {/* Edit Application Modal */}
+      {editApp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Edit Application</h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!user) {
+                  alert({
+                    title: "Not logged in",
+                    message: "You must be logged in to update your application.",
+                    tone: "error",
+                  });
+                  return;
+                }
+                const { error } = await supabase
+                  .from("applications")
+                  .update({ cover_letter: editCoverLetter })
+                  .eq("id", editApp.id)
+                  .eq("student_id", user.id);
+                if (!error) {
+                  toast({
+                    title: "Application Updated",
+                    message: "Your changes were saved.",
+                    tone: "success",
+                  });
+                  setEditApp(null);
+                  refetch();
+                } else {
+                  alert({
+                    title: "Update Failed",
+                    message: error.message,
+                    tone: "error",
+                  });
+                }
               }}
-              onNavigate={(r) => {
-                setMobileOpen(false);
-                handleNavigate(r);
-              }}
-              activeNav="student/applications"
-            />
+            >
+              <label className="block mb-2 font-medium">Cover Letter</label>
+              <textarea
+                className="w-full border rounded p-2 mb-4"
+                rows={6}
+                value={editCoverLetter}
+                onChange={(e) => setEditCoverLetter(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-gray-200 rounded"
+                  onClick={() => setEditApp(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Navigation */}
-        <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between z-10 gap-3 flex-shrink-0">
-          <div className="md:hidden mr-2">
-            <button
-              aria-label="Open sidebar"
-              onClick={() => setMobileOpen(true)}
-              className="p-2 rounded-md hover:bg-gray-100"
-            >
-              <Menu className="w-5 h-5 text-gray-700" />
-            </button>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="ml-auto p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-            aria-label="Logout"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      <div className="h-screen bg-gray-50 flex overflow-hidden">
+        {/* Sidebar (hidden on small screens) */}
+        <div className="hidden md:block">
+          <Sidebar
+            userName={userName}
+            userID={userID}
+            onLogout={handleLogout}
+            onNavigate={handleNavigate}
+            activeNav="student/applications"
+          />
         </div>
 
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                My Applications
-              </h1>
-              <p className="text-sm text-gray-600">
-                Track the status of your job applications
-              </p>
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setMobileOpen(false)}
+            />
+            <div className="relative h-full">
+              <Sidebar
+                userName={userName}
+                userID={userID}
+                onLogout={() => {
+                  setMobileOpen(false);
+                  handleLogout();
+                }}
+                onNavigate={(r) => {
+                  setMobileOpen(false);
+                  handleNavigate(r);
+                }}
+                activeNav="student/applications"
+              />
             </div>
+          </div>
+        )}
 
-            {/* Stats */}
-            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-4">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="text-2xl font-bold text-gray-900">
-                  {statusCounts.all}
-                </div>
-                <div className="text-sm text-gray-600">Total Applications</div>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-yellow-200 p-4">
-                <div className="text-2xl font-bold text-yellow-800">
-                  {statusCounts.pending}
-                </div>
-                <div className="text-sm text-yellow-700">Pending Review</div>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-green-200 p-4">
-                <div className="text-2xl font-bold text-green-800">
-                  {statusCounts.accepted}
-                </div>
-                <div className="text-sm text-green-700">Accepted</div>
-              </div>
-              <div className="bg-white rounded-lg shadow-sm border border-red-200 p-4">
-                <div className="text-2xl font-bold text-red-800">
-                  {statusCounts.rejected}
-                </div>
-                <div className="text-sm text-red-700">Rejected</div>
-              </div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Top Navigation */}
+          <div className="bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between z-10 gap-3 flex-shrink-0">
+            <div className="md:hidden mr-2">
+              <button
+                aria-label="Open sidebar"
+                onClick={() => setMobileOpen(true)}
+                className="p-2 rounded-md hover:bg-gray-100"
+              >
+                <Menu className="w-5 h-5 text-gray-700" />
+              </button>
             </div>
+            <button
+              onClick={handleLogout}
+              className="ml-auto p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+              aria-label="Logout"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-            {/* Filter Tabs */}
-            <div className="mb-6 flex gap-2 flex-wrap">
-              {["all", "pending", "accepted", "rejected"].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setFilterStatus(status)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    filterStatus === status
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
-                  }`}
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                  <span className="ml-2 text-sm opacity-75">
-                    ({statusCounts[status as keyof typeof statusCounts]})
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center gap-2 text-red-800">
-                  <AlertCircle className="w-5 h-5" />
-                  <span>{error}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Applications List */}
-            {filteredApplications.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No applications found
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  {filterStatus === "all"
-                    ? "You haven't applied to any jobs yet."
-                    : `You don't have any ${filterStatus} applications.`}
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-auto">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {/* Header */}
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  My Applications
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Track the status of your job applications
                 </p>
-                <button
-                  onClick={() => handleNavigate("student/jobs")}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Explore Available Jobs
-                </button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredApplications.map((app) => (
-                  <div
-                    key={app.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-blue-50 rounded-lg">
-                            <Briefcase className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                              {app.job_title}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <Building2 className="w-4 h-4" />
-                                {app.employer_name}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                Applied{" "}
-                                {new Date(app.application_date).toLocaleDateString()}
-                              </div>
-                              {app.resume_id && (
-                                <div className="flex items-center gap-1 text-green-600">
-                                  <FileText className="w-4 h-4" />
-                                  Resume Attached
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
 
-                        {app.cover_letter && (
-                          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                            <p className="text-sm text-gray-700 line-clamp-2">
-                              {app.cover_letter}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2">
-                        {getStatusBadge(app.status)}
-                      </div>
-                    </div>
+              {/* Stats */}
+              <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-4">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {statusCounts.all}
                   </div>
+                  <div className="text-sm text-gray-600">Total Applications</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-yellow-200 p-4">
+                  <div className="text-2xl font-bold text-yellow-800">
+                    {statusCounts.pending}
+                  </div>
+                  <div className="text-sm text-yellow-700">Pending Review</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-green-200 p-4">
+                  <div className="text-2xl font-bold text-green-800">
+                    {statusCounts.accepted}
+                  </div>
+                  <div className="text-sm text-green-700">Accepted</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-red-200 p-4">
+                  <div className="text-2xl font-bold text-red-800">
+                    {statusCounts.rejected}
+                  </div>
+                  <div className="text-sm text-red-700">Rejected</div>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="mb-6 flex gap-2 flex-wrap">
+                {["all", "pending", "accepted", "rejected"].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setFilterStatus(status)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      filterStatus === status
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                    }`}
+                  >
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                    <span className="ml-2 text-sm opacity-75">
+                      ({statusCounts[status as keyof typeof statusCounts]})
+                    </span>
+                  </button>
                 ))}
               </div>
-            )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-800">
+                    <AlertCircle className="w-5 h-5" />
+                    <span>{error}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Applications List */}
+              {filteredApplications.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                  <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No applications found
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    {filterStatus === "all"
+                      ? "You haven't applied to any jobs yet."
+                      : `You don't have any ${filterStatus} applications.`}
+                  </p>
+                  <button
+                    onClick={() => handleNavigate("student/jobs")}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Explore Available Jobs
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredApplications.map((app) => (
+                    <div
+                      key={app.id}
+                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-blue-50 rounded-lg">
+                              <Briefcase className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                                {app.job_title}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                                <div className="flex items-center gap-1">
+                                  <Building2 className="w-4 h-4" />
+                                  {app.employer_name}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  Applied{" "}
+                                  {new Date(app.application_date).toLocaleDateString()}
+                                </div>
+                                {app.resume_id && (
+                                  <div className="flex items-center gap-1 text-green-600">
+                                    <FileText className="w-4 h-4" />
+                                    Resume Attached
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {app.cover_letter && (
+                            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                              <p className="text-sm text-gray-700 line-clamp-2">
+                                {app.cover_letter}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          {getStatusBadge(app.status)}
+                          {app.status.toLowerCase() === "pending" && (
+                            <div className="flex gap-2">
+                              <button
+                                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
+                                onClick={() => {
+                                  setEditApp(app);
+                                  setEditCoverLetter(app.cover_letter || "");
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium"
+                                onClick={() => handleCancelApplication(app.id)}
+                              >
+                                Cancel Application
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

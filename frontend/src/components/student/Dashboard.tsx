@@ -1,4 +1,5 @@
 ﻿import React from "react";
+import { useMessageBox } from "../common/MessageBoxProvider";
 import {
   LayoutGrid,
   Briefcase,
@@ -34,6 +35,7 @@ interface EventData {
 }
 
 export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, onNavigate }: { email: string; fullName?: string; displayName?: string; studentId?: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
+  const messageBox = useMessageBox();
   const userName = displayName?.trim() || fullName?.trim() || email.split("@")[0];
   const userID = studentId || "2024-00001";
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
@@ -93,7 +95,12 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
         }
 
         if (!jobsListResult.error && jobsListResult.data) {
-          setJobs(jobsListResult.data as JobData[]);
+          // Map employer array to object for type compatibility
+          const jobsFixed = jobsListResult.data.map((job: any) => ({
+            ...job,
+            employer: Array.isArray(job.employer) ? (job.employer[0] || null) : job.employer || null,
+          }));
+          setJobs(jobsFixed as JobData[]);
         }
 
         if (!eventsCountResult.error) {
@@ -135,6 +142,20 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
     fetchDashboardData();
   }, []);
 
+  // Handler for sign out with confirmation
+  const handleLogout = async () => {
+    const confirmed = await messageBox.confirm({
+      title: "Sign Out",
+      message: "Are you sure you want to sign out?",
+      tone: "warning",
+      confirmText: "Sign Out",
+      cancelText: "Cancel",
+    });
+    if (confirmed) {
+      onLogout();
+    }
+  };
+
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Sidebar (hidden on small screens) */}
@@ -142,7 +163,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
         <Sidebar
           userName={userName}
           userID={userID}
-          onLogout={onLogout}
+          onLogout={handleLogout}
           onNavigate={onNavigate}
           activeNav="student/dashboard"
         />
@@ -157,9 +178,9 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
               <Sidebar
                 userName={userName}
                 userID={userID}
-                onLogout={() => {
+                onLogout={async () => {
                   setMobileOpen(false);
-                  onLogout();
+                  await handleLogout();
                 }}
                 onNavigate={(r) => {
                   setMobileOpen(false);
@@ -268,6 +289,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
                           location={job.location}
                           type={job.job_type}
                           deadline={job.deadline}
+                          onClick={() => onNavigate && onNavigate(`student/jobs?id=${job.id}`)}
                         />
                       ))}
                     </div>
@@ -339,6 +361,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
                           title={event.title}
                           type={event.event_type}
                           date={new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          onClick={() => onNavigate && onNavigate(`student/events?id=${event.id}`)}
                         />
                       ))}
                     </div>
@@ -373,7 +396,7 @@ function StatCard({ icon, number, label }: { icon: React.ReactNode; number: stri
   );
 }
 
-function JobListingItem({ title, company, location, type, deadline }: { title: string; company: string; location: string; type: string; deadline: string }) {
+function JobListingItem({ title, company, location, type, deadline, onClick }: { title: string; company: string; location: string; type: string; deadline: string; onClick?: () => void }) {
   const getJobTypeColor = (jobType: string) => {
     switch (jobType.toLowerCase()) {
       case 'full-time':
@@ -400,7 +423,7 @@ function JobListingItem({ title, company, location, type, deadline }: { title: s
   };
 
   return (
-    <div className="bg-white border border-gray-200 hover:border-[#00B4D8] hover:shadow-md transition-all duration-200 rounded-lg p-3 sm:p-4 md:p-5 cursor-pointer group">
+    <div className="bg-white border border-gray-200 hover:border-[#00B4D8] hover:shadow-md transition-all duration-200 rounded-lg p-3 sm:p-4 md:p-5 cursor-pointer group" onClick={onClick}>
       <div className="flex items-start gap-3 sm:gap-4">
         {/* Company Logo Placeholder */}
         <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-gradient-to-br from-[#00B4D8] to-[#0096C7] rounded-lg flex items-center justify-center shadow-sm">
@@ -454,7 +477,7 @@ function ActionButton({ icon, label }: { icon: React.ReactNode; label: string })
   );
 }
 
-function EventItem({ title, type, date }: { title: string; type: string; date: string }) {
+function EventItem({ title, type, date, onClick }: { title: string; type: string; date: string; onClick?: () => void }) {
   const getEventTypeColor = (eventType: string) => {
     switch (eventType.toLowerCase()) {
       case 'job fair':
@@ -473,7 +496,7 @@ function EventItem({ title, type, date }: { title: string; type: string; date: s
   };
 
   return (
-    <div className="bg-white border border-gray-200 hover:border-[#00B4D8] hover:shadow-md transition-all duration-200 rounded-lg p-3 sm:p-4 cursor-pointer group">
+    <div className="bg-white border border-gray-200 hover:border-[#00B4D8] hover:shadow-md transition-all duration-200 rounded-lg p-3 sm:p-4 cursor-pointer group" onClick={onClick}>
       <div className="flex items-start gap-3 sm:gap-4">
         {/* Event Icon */}
         <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-[#00B4D8] bg-opacity-10 rounded-lg flex items-center justify-center">
