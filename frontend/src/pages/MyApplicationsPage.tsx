@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
@@ -93,13 +93,18 @@ const MyApplicationsPage: React.FC = () => {
 
       if (appsError) throw appsError;
 
-      return (appsData || []).map((app: any) => ({
-        ...app,
-        job_title: app.jobs?.title || "Unknown Job",
-        employer_name: app.employers?.name || "Unknown Employer",
-        job_location: app.jobs?.location,
-        job_type: app.jobs?.job_type,
-      }));
+      return (appsData || []).map((app: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const jobData = (app as any).jobs || {};
+        const employerData = (app as any).employers || {};
+        return {
+          ...app,
+          job_title: jobData.title || "Unknown Job",
+          employer_name: employerData.name || "Unknown Employer",
+          job_location: jobData.location,
+          job_type: jobData.job_type,
+        };
+      });
     },
     { enabled: !!user }
   );

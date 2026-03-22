@@ -241,7 +241,7 @@ if ($readRes.Success) {
     $meta   = $readRes.Data.data.metadata
     $reason = $meta.completion_reason
     $stored = $meta.score_summary.overall_average
-    Write-Host "     completion_reason : $reason" -ForegroundColor White
+    Write-Host "     completion_reason : $re    ason" -ForegroundColor White
     Write-Host "     overall_average   : $stored / 5" -ForegroundColor White
     Check -Condition ($reason -eq "manual") -Message "completion_reason stored correctly"
     Check -Condition ($null -ne $stored)    -Message "overall_average persisted"
