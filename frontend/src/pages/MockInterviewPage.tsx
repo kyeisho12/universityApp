@@ -17,16 +17,17 @@ import {
   AlertCircle,
   ChevronUp,
   ChevronDown,
-  Bell,
   Menu,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
+import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
 import { useStudentId } from "../hooks/useStudentId";
 import { useStudent } from "../context/StudentContext";
-import { supabase } from "../lib/supabaseClient";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../lib/supabaseClient";
 import {
   decideNextQuestionStep,
   getLatestQuestionTranscript,
@@ -43,6 +44,12 @@ import {
   uploadInterviewRecordingSegment,
   voidInterviewSession,
 } from "../services/interviewService";
+import {
+  getSpeechRecognitionAPI,
+  isSpeechRecognitionSupported,
+  isBraveBrowser,
+  getBrowserSpecificInstructions,
+} from "../utils/speechRecognitionCompat";
 
 type NavigateHandler = (route: string) => void;
 
@@ -224,7 +231,8 @@ function MockInterviewPageContent({
   onLogout,
   onNavigate,
 }: MockInterviewPageContentProps & { studentId?: string }) {
-  const userID = studentId || "2024-00001";
+  const messageBox = useMessageBox();
+  const userID = studentId || "";
   const SESSION_BACKUP_KEY = "mock_interview_state_active";
   const ACTIVE_KEY_STORAGE = "mock_interview_active_key";
   const derivedStateKey = React.useMemo(
@@ -381,9 +389,44 @@ function MockInterviewPageContent({
     initialStateRef.current?.preparedNextAction ?? null
   );
   const [isNextConfirmed, setIsNextConfirmed] = useState(false);
+  const [questionHighlighted, setQuestionHighlighted] = useState(false);
+  const [recordingCountdown, setRecordingCountdown] = useState<number | null>(null);
+  const prevQuestionForHighlightRef = useRef<number | null>(null);
   useEffect(() => {
     setIsNextConfirmed(false);
   }, [preparedNextAction, currentQuestion, isSessionStarted]);
+
+  // Highlight question card when question changes during active session
+  useEffect(() => {
+    if (!isSessionStarted) {
+      prevQuestionForHighlightRef.current = null;
+      return;
+    }
+    if (prevQuestionForHighlightRef.current !== null && prevQuestionForHighlightRef.current !== currentQuestion) {
+      setQuestionHighlighted(true);
+      const t = window.setTimeout(() => setQuestionHighlighted(false), 2500);
+      prevQuestionForHighlightRef.current = currentQuestion;
+      return () => window.clearTimeout(t);
+    }
+    prevQuestionForHighlightRef.current = currentQuestion;
+  }, [currentQuestion, isSessionStarted]);
+
+  // 3-2-1 countdown overlay when recording starts on each question
+  useEffect(() => {
+    if (!isSessionStarted) {
+      setRecordingCountdown(null);
+      return;
+    }
+    setRecordingCountdown(3);
+    const t1 = window.setTimeout(() => setRecordingCountdown(2), 1000);
+    const t2 = window.setTimeout(() => setRecordingCountdown(1), 2000);
+    const t3 = window.setTimeout(() => setRecordingCountdown(null), 3000);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [currentQuestion, isSessionStarted]);
 
   // Auto-dismiss preview tip after 6 seconds
   useEffect(() => {
@@ -716,6 +759,28 @@ function MockInterviewPageContent({
 
     const handlePageHide = () => {
       persistSnapshot();
+      // Mark active session as ended when the page is closed/navigated away
+      const activeId = activeSessionIdRef.current;
+      if (activeId && supabaseUrl && supabaseAnonKey) {
+        try {
+          const storageKey = `sb-${new URL(supabaseUrl).hostname}-auth-token`;
+          const stored = localStorage.getItem(storageKey);
+          const authToken = stored ? (JSON.parse(stored)?.access_token ?? supabaseAnonKey) : supabaseAnonKey;
+          fetch(`${supabaseUrl}/rest/v1/interview_sessions?id=eq.${activeId}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": supabaseAnonKey,
+              "Authorization": `Bearer ${authToken}`,
+              "Prefer": "return=minimal",
+            },
+            body: JSON.stringify({ status: "ended", ended_at: new Date().toISOString() }),
+            keepalive: true,
+          });
+        } catch {
+          // silently ignore — best-effort only
+        }
+      }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -738,7 +803,8 @@ function MockInterviewPageContent({
     setQuestionsLoading(true);
     setQuestionsError(null);
 
-    const openingResult = await getPreferredOpeningQuestion(OPENING_QUESTION_ID);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const openingResult = await getPreferredOpeningQuestion(OPENING_QUESTION_ID as any);
 
     const openingQuestion: Question | null = openingResult.data
       ? {
@@ -1660,11 +1726,17 @@ function MockInterviewPageContent({
   }, [appendLiveChunkTranscript, isMicOn, isPaused, isSessionStarted]);
 
   const startLiveDraftTranscription = useCallback(() => {
-    const speechCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechCtor = getSpeechRecognitionAPI();
+    
     if (!speechCtor) {
+      const isSupported = isSpeechRecognitionSupported();
+      const instructions = getBrowserSpecificInstructions();
+      
       setUseLiveChunkFallback(true);
       setLiveDraftStatus(
-        "Live draft transcription is not supported in this browser. Your recording will still be transcribed after each saved segment."
+        isSupported
+          ? `Live draft transcription is not available. ${instructions} Your recording will still be transcribed after each saved segment.`
+          : `Live draft transcription is not supported in this browser. ${instructions} Your recording will still be transcribed after each saved segment.`
       );
       return;
     }
@@ -1721,16 +1793,33 @@ function MockInterviewPageContent({
         window.clearTimeout(liveDraftFallbackTimerRef.current);
         liveDraftFallbackTimerRef.current = null;
       }
+      
       if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
         setUseLiveChunkFallback(true);
-        setLiveDraftStatus("Speech recognition permission was blocked. Allow microphone access and restart the session.");
+        const isBrave = isBraveBrowser();
+        const helpText = isBrave ? " (Brave detected - check microphone permissions in Settings)" : "";
+        setLiveDraftStatus(`Speech recognition permission was blocked. Allow microphone access and restart the session.${helpText}`);
         return;
       }
+      
       if (event?.error === "audio-capture") {
         setUseLiveChunkFallback(true);
         setLiveDraftStatus("No microphone input detected for live draft transcription.");
         return;
       }
+      
+      if (event?.error === "network") {
+        setUseLiveChunkFallback(true);
+        setLiveDraftStatus("Network error during speech recognition. Switching to server-assisted transcription.");
+        return;
+      }
+      
+      if (event?.error === "service-not-available") {
+        setUseLiveChunkFallback(true);
+        setLiveDraftStatus("Speech recognition service is not available. Your recording will be transcribed after each segment.");
+        return;
+      }
+      
       // Keep UI stable even when browser speech recognition emits transient errors.
     };
 
@@ -1764,11 +1853,14 @@ function MockInterviewPageContent({
           setLiveDraftStatus("Switching to server-assisted live transcription...");
         }
       }, LIVE_DRAFT_FALLBACK_TIMEOUT_MS);
-    } catch {
+    } catch (error) {
       setUseLiveChunkFallback(true);
       speechRecognitionRef.current = null;
+      const errorMsg = (error as any)?.message || '';
+      const isBrave = isBraveBrowser();
+      const helpText = isBrave ? " (Brave detected - verify microphone permissions)" : '';
       setLiveDraftStatus(
-        "Live draft transcription could not start in this browser session. Your recording will still be transcribed after each saved segment."
+        `Live draft transcription could not start in this browser session.${helpText} Your recording will still be transcribed after each saved segment.`
       );
     }
   }, [appendToFullSessionTranscript, stopLiveDraftTranscription]);
@@ -2587,11 +2679,82 @@ function MockInterviewPageContent({
     recordingChunksRef.current = [];
     activeSegmentMetaRef.current = null;
     nextQuestionInFlightRef.current = false;
+    activeSessionIdRef.current = null;
     stopLiveDraftTranscription();
     stopLiveChunkTranscription();
     stopCamera();
     void stopMicLoopback();
   };
+
+  const handleExportSummary = useCallback(() => {
+    const sessionStats = computeSessionSTARStats();
+    const now = new Date().toLocaleString();
+    const lines: string[] = [
+      "=== Mock Interview Session Summary ===",
+      `Date: ${now}`,
+      `Session ID: ${sessionId || "N/A"}`,
+      `Overall Score: ${sessionStats.overallAverage.toFixed(2)} / 5 (${sessionStats.evaluatedCount} answers evaluated)`,
+      "",
+      "--- STAR Evaluation Breakdown ---",
+      `Situation Clarity:    ${sessionStats.situation.toFixed(2)} / 5`,
+      `Task Ownership:       ${sessionStats.task.toFixed(2)} / 5`,
+      `Action Taken:         ${sessionStats.action.toFixed(2)} / 5`,
+      `Result Measurability: ${sessionStats.result.toFixed(2)} / 5`,
+      `Reflection & Learning:${sessionStats.reflection.toFixed(2)} / 5`,
+      "",
+      "--- Questions & Evaluations ---",
+    ];
+
+    questions.forEach((q, idx) => {
+      lines.push(`\nQ${idx + 1}: ${q.question}`);
+      const ev = (evaluations as Record<number, any>)[idx];
+      if (ev) {
+        const bd = ev.breakdown || {};
+        const score = ev.score ?? ((Object.values(bd).reduce((s: number, v) => s + (Number(v) || 0), 0) as number) / Math.max(Object.keys(bd).length, 1));
+        lines.push(`Score: ${Number(score).toFixed(2)} / 5`);
+        if (bd.situation) lines.push(`  Situation:  ${Number(bd.situation).toFixed(2)}`);
+        if (bd.task)      lines.push(`  Task:       ${Number(bd.task).toFixed(2)}`);
+        if (bd.action)    lines.push(`  Action:     ${Number(bd.action).toFixed(2)}`);
+        if (bd.result)    lines.push(`  Result:     ${Number(bd.result).toFixed(2)}`);
+        if (bd.reflection)lines.push(`  Reflection: ${Number(bd.reflection).toFixed(2)}`);
+        if (ev.feedback)  lines.push(`  Feedback: ${ev.feedback}`);
+      } else {
+        lines.push("Score: Not evaluated");
+      }
+    });
+
+    if (fullSessionTranscript.trim()) {
+      lines.push("", "--- Full Session Transcript ---", fullSessionTranscript.trim());
+    }
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mock-interview-summary-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [computeSessionSTARStats, evaluations, fullSessionTranscript, questions, sessionId]);
+
+  const handleBackToDashboard = useCallback(async () => {
+    if (isSessionStarted) {
+      const confirmed = await messageBox.confirm({
+        title: "End Session?",
+        message: "A session is in progress. Leaving now will end your session. Continue?",
+        tone: "warning",
+      });
+      if (!confirmed) return;
+    }
+    if (sessionId) {
+      const answeredCount = Object.keys(evaluations || {}).length;
+      await updateInterviewSessionStatus(sessionId, "ended", {
+        ended_at: new Date().toISOString(),
+        total_questions: answeredCount,
+      });
+    }
+    handlePracticeAgain();
+    setShowHistoryView(true);
+  }, [isSessionStarted, messageBox, sessionId, evaluations, handlePracticeAgain, setShowHistoryView]);
 
   useEffect(() => {
     try {
@@ -2941,10 +3104,6 @@ function MockInterviewPageContent({
           </div>
 
           <div className="flex-1 overflow-auto">
-            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-              <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
-            </div>
-
             <div className="p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-8">
               <div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
@@ -3044,11 +3203,6 @@ function MockInterviewPageContent({
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
-          {/* Top Navigation */}
-            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-            <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
-          </div>
-
           {/* Content Area */}
           <div className="p-4 sm:p-6 lg:p-8">
             {/* Page Header */}
@@ -3164,11 +3318,6 @@ function MockInterviewPageContent({
 
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
-          {/* Top Navigation */}
-            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
-            <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900 ml-auto" />
-          </div>
-
           {/* Content Area */}
           <div className="p-4 sm:p-6 lg:p-8">
             {/* Completion Card */}
@@ -3309,10 +3458,16 @@ function MockInterviewPageContent({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleExportSummary}
+                  className="flex-1 border-2 border-[#1B2744] text-[#1B2744] py-3.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Download Summary
+                </button>
                 <button
                   onClick={handlePracticeAgain}
-                  className="w-full bg-[#1B2744] text-white py-3.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors"
+                  className="flex-1 bg-[#1B2744] text-white py-3.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors"
                 >
                   Practice Again
                 </button>
@@ -3379,13 +3534,33 @@ function MockInterviewPageContent({
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar with hamburger */}
-        <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2 flex items-center sticky top-0 z-10">
+        <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-2 sticky top-0 z-10">
           <button
+            type="button"
             aria-label="Open sidebar"
             onClick={() => setMobileOpen(true)}
             className="p-2 rounded-md hover:bg-gray-100"
           >
             <Menu className="w-5 h-5 text-gray-700" />
+          </button>
+          <button
+            type="button"
+            onClick={handleBackToDashboard}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Sessions
+          </button>
+        </div>
+        {/* Desktop back button */}
+        <div className="hidden md:flex items-center px-4 pt-3 pb-0">
+          <button
+            type="button"
+            onClick={handleBackToDashboard}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Sessions
           </button>
         </div>
         {/* Recording Interface */}
@@ -3454,6 +3629,14 @@ function MockInterviewPageContent({
                         </button>
                       </div>
                     )}
+                    {/* Countdown overlay */}
+                    {recordingCountdown !== null && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
+                        <div className="text-white text-7xl font-bold drop-shadow-lg select-none">
+                          {recordingCountdown}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="w-full h-full min-h-[200px] max-h-[240px] sm:max-h-none sm:min-h-[340px] rounded-xl bg-gray-100 flex flex-col items-center justify-center relative">
@@ -3462,9 +3645,10 @@ function MockInterviewPageContent({
                     </div>
                     <p className="text-gray-600 font-medium">Camera Preview</p>
                     {mediaError && (
-                      <p className="text-xs text-red-600 mt-2 text-center max-w-xs">
-                        {mediaError}
-                      </p>
+                      <div className="mt-3 mx-4 bg-red-50 border border-red-300 rounded-lg px-4 py-3 flex items-start gap-2 max-w-sm">
+                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700 font-medium">{mediaError}</p>
+                      </div>
                     )}
                     {/* Floating preview tip (camera off state) */}
                     {!isSessionStarted && showPreviewTip && (
@@ -3651,7 +3835,7 @@ function MockInterviewPageContent({
                             ? "Next"
                             : "Confirm"
                           : isSessionStarted
-                          ? "Next"
+                          ? (isPaused ? "Next" : "Submit")
                           : "Start"}
                       </span>
                       <span className="hidden sm:inline">
@@ -3668,7 +3852,7 @@ function MockInterviewPageContent({
                           ? "Next Question"
                           : "Confirm"
                         : isSessionStarted
-                        ? "Next Question"
+                        ? (isPaused ? "Next Question" : "Submit Answer")
                         : "Start Session"}
                       </span>
                       <ChevronRight className="w-5 h-5" />
@@ -3745,7 +3929,23 @@ function MockInterviewPageContent({
           <div className="flex flex-col w-full lg:w-96 gap-3 sm:gap-5 lg:overflow-y-auto">
             {/* Question Card - only shown during active session */}
             {isSessionStarted && (
-            <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
+            <div className={`bg-white rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-500 ${questionHighlighted ? "border-cyan-400 ring-2 ring-cyan-200" : "border-gray-100"}`}>
+              {/* Progress bar */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-500 font-medium">Question {askedQuestionCountForUi} of {MAX_SESSION_QUESTION_COUNT}</span>
+                  {questionHighlighted && (
+                    <span className="text-xs font-semibold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">New Question</span>
+                  )}
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  {/* eslint-disable-next-line react/forbid-component-props */}
+                  <div
+                    className="bg-cyan-500 h-1.5 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (askedQuestionCountForUi / MAX_SESSION_QUESTION_COUNT) * 100)}%` }}
+                  />
+                </div>
+              </div>
               <p className="text-cyan-600 text-sm font-semibold mb-2 uppercase">
                 {questions[currentQuestion]?.type || "Question"}
               </p>

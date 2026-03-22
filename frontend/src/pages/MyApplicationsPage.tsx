@@ -48,7 +48,7 @@ const MyApplicationsPage: React.FC = () => {
   const studentId = useStudentId(user?.id);
 
   const userName = profile?.full_name || user?.email?.split("@")[0] || "Student";
-  const userID = studentId || "2024-00001";
+  const userID = studentId || "";
 
   // Use cached query for applications
   const {

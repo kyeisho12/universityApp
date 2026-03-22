@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
   Bookmark,
   MapPin,
   Clock,
-  Filter,
   ArrowRight,
   LayoutGrid,
   X,
@@ -47,7 +46,7 @@ const STOPWORDS = new Set([
   "your",
 ]);
 
-function tokenize(value) {
+function tokenize(value: unknown) {
   if (!value) return [];
   return String(value)
     .toLowerCase()
@@ -56,11 +55,11 @@ function tokenize(value) {
     .filter((token) => token.length > 1 && !STOPWORDS.has(token));
 }
 
-function uniqueTokens(values) {
+function uniqueTokens(values: unknown[]) {
   return Array.from(new Set(values.flatMap((value) => tokenize(value))));
 }
 
-function extractSkills(rawSkills) {
+function extractSkills(rawSkills: unknown) {
   if (!rawSkills) return [];
   if (Array.isArray(rawSkills)) return rawSkills.flatMap((item) => tokenize(item));
   return String(rawSkills)
@@ -87,8 +86,11 @@ interface JobsPageViewState {
   updatedAt: string;
 }
 
-function JobsPageContent({ email, onLogout, onNavigate }) {
+const JOBS_PER_PAGE = 10;
+
+function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLogout: () => void | Promise<void>; onNavigate: (route: string) => void }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -97,12 +99,14 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
   const [customJobType, setCustomJobType] = useState("");
   const [filterCategory, setFilterCategory] = useState("All Types");
   const [customCategory, setCustomCategory] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [optimisticAppliedJobs, setOptimisticAppliedJobs] = useState<Set<string>>(new Set());
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<string | null>(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const hasRestoredViewState = useRef(false);
 
   const getDraftStorageKey = () => (user?.id ? `job-application-drafts-${user.id}` : null);
@@ -245,7 +249,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
   // Get display name and ID from user data or fall back to email
   const userName = userData?.full_name || email?.split("@")[0] || "User";
-  const userID = userData?.student_number || userData?.student_id || "2024-00001";
+  const userID = userData?.student_number || userData?.student_id || "";
 
   // Load jobs from Supabase with caching
   const { data: jobs = [], isLoading: loading, error: jobsError } = useCachedQuery(
@@ -355,13 +359,13 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       return;
     }
 
-    setApplyingJobId(currentJob.id);
+    setApplyingJobId(currentJob.id ?? null);
     setApplyMessage(null);
 
     try {
     const result = await submitJobApplication(
         user.id,
-        currentJob.id,
+        currentJob.id!,
         currentJob.employer_id,
         undefined,
         selectedResume || undefined,
@@ -369,9 +373,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
       );
 
       if (result.success) {
-        setOptimisticAppliedJobs((prev) => new Set(prev).add(currentJob.id));
+        setOptimisticAppliedJobs((prev) => new Set(prev).add(currentJob.id!));
         setShowApplyModal(false);
-        clearDraftForJob(currentJob.id);
+        clearDraftForJob(currentJob.id!);
         
         // Invalidate related cache keys so jobs/applications stay in sync.
         queryCache.invalidate(`jobs-list-${user.id}`);
@@ -445,6 +449,18 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
     return matchesSearch && matchesType && matchesCategory;
   }), [jobs, searchTerm, filterType, filterCategory, customJobType, customCategory]);
+
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterType, filterCategory, customJobType, customCategory]);
+
+  const paginatedJobs = useMemo(() => {
+    const start = (currentPage - 1) * JOBS_PER_PAGE;
+    return filteredJobs.slice(start, start + JOBS_PER_PAGE);
+  }, [filteredJobs, currentPage, JOBS_PER_PAGE]);
+
+  const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
 
   const recommendedJobs = useMemo(() => {
     if (!jobs.length) return [];
@@ -563,18 +579,29 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
           matchedSkills: requirementMatches.slice(0, 3),
         };
       })
+      .filter(({ job }) => !appliedJobs.has(job.id ?? ''))
       .sort((a, b) => b.score - a.score)
       .slice(0, 4);
-  }, [jobs, userData, userResumes]);
+  }, [jobs, userData, userResumes, appliedJobs]);
 
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)
     : filteredJobs[0];
 
-  // Restore selected job and modal-open state when returning to this page.
+   // Restore selected job and modal-open state when returning to this page.
   useEffect(() => {
     if (!user?.id || hasRestoredViewState.current) return;
     if (!jobs.length) return;
+
+    // First, check if there's a job ID in the URL query parameter (from Dashboard click)
+    const params = new URLSearchParams(location.search);
+    const jobIdFromUrl = params.get("id");
+
+    if (jobIdFromUrl && jobs.some((job) => job.id === jobIdFromUrl)) {
+      setSelectedJob(jobIdFromUrl);
+      hasRestoredViewState.current = true;
+      return;
+    }
 
     const savedViewState = readViewState();
     if (!savedViewState) {
@@ -601,7 +628,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
     }
 
     hasRestoredViewState.current = true;
-  }, [user?.id, jobs]);
+  }, [user?.id, jobs, location.search]);
 
   // Persist selected job and modal-open state so the UI can be restored exactly.
   useEffect(() => {
@@ -652,7 +679,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
           userID={userID}
           onLogout={onLogout}
           onNavigate={onNavigate}
-          activeNav="jobs"
+          activeNav="student/jobs"
         />
       </div>
 
@@ -725,14 +752,42 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     placeholder="Search by job title or company..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    aria-label="Search jobs by job title or company"
                     className="w-full pl-10 pr-4 py-3 bg-white rounded-lg border-2 border-gray-200 focus:border-[#00B4D8] focus:ring-0 outline-none placeholder-gray-500 text-sm"
                   />
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 sm:gap-3">
+              {(() => {
+                const activeFilterCount = (filterType !== "All" ? 1 : 0) + (filterCategory !== "All Types" ? 1 : 0);
+                const hasActiveFilters = activeFilterCount > 0;
+                return (
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`px-4 py-3 border-2 rounded-lg transition-colors flex items-center gap-2 ${
+                      showFilters || hasActiveFilters
+                        ? "border-[#00B4D8] bg-blue-50 text-[#00B4D8]"
+                        : "border-gray-200 hover:bg-gray-50 text-gray-600"
+                    }`}
+                    title="Toggle filter panel"
+                  >
+                    <span className="text-sm font-medium">Filters</span>
+                    {hasActiveFilters && (
+                      <span className="text-xs font-bold bg-[#00B4D8] text-white w-5 h-5 rounded-full flex items-center justify-center">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
+            </div>
+
+            {/* Expandable Filter Panel */}
+            {showFilters && (
+              <div className="mt-3 p-4 bg-white rounded-lg border-2 border-gray-200 flex flex-wrap gap-3">
                 <select
                   value={filterType}
                   onChange={handleFilterTypeChange}
+                  aria-label="Filter jobs by employment type"
                   className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
                 >
                   <option>All</option>
@@ -750,12 +805,14 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     placeholder="Enter job type..."
                     value={customJobType}
                     onChange={(e) => setCustomJobType(e.target.value)}
+                    aria-label="Enter custom job type"
                     className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[160px]"
                   />
                 )}
                 <select
                   value={filterCategory}
                   onChange={handleFilterCategoryChange}
+                  aria-label="Filter jobs by category"
                   className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[140px]"
                 >
                   <option>All Types</option>
@@ -775,14 +832,12 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                     placeholder="Enter category..."
                     value={customCategory}
                     onChange={(e) => setCustomCategory(e.target.value)}
+                    aria-label="Enter custom job category"
                     className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:border-[#00B4D8] focus:ring-0 outline-none text-sm min-w-[160px]"
                   />
                 )}
-                <button className="px-4 py-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50">
-                  <Filter className="w-5 h-5 text-gray-600" />
-                </button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Showing count */}
@@ -793,9 +848,9 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
             {/* Jobs List - Left Side */}
             <div className="lg:col-span-1 flex flex-col gap-8 overflow-y-auto h-full">
-              {/* Recommended Jobs Section */}
+              {/* Recommended Jobs Section - hidden when searching */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                {recommendedJobs.length > 0 && (
+                {recommendedJobs.length > 0 && searchTerm === "" && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-900">Recommended for you</h3>
@@ -843,24 +898,50 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                         </p>
                       </div>
                     ) : (
-                      filteredJobs.map((job) => (
-                        <button
-                          key={`all-${job.id}`}
-                          onClick={() => setSelectedJob(job.id || null)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all ${
-                            selectedJob === job.id
-                              ? "border-[#1B2744] bg-gray-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-gray-900 truncate">{job.title}</p>
-                              <p className="text-xs text-gray-500 truncate">{job.employer_name}</p>
+                      <>
+                        {paginatedJobs.map((job) => (
+                          <button
+                            type="button"
+                            key={`all-${job.id}`}
+                            onClick={() => setSelectedJob(job.id || null)}
+                            className={`w-full text-left p-3 rounded-xl border transition-all ${
+                              selectedJob === job.id
+                                ? "border-[#1B2744] bg-gray-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-gray-900 truncate">{job.title}</p>
+                                <p className="text-xs text-gray-500 truncate">{job.employer_name}</p>
+                              </div>
                             </div>
+                          </button>
+                        ))}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                              disabled={currentPage === 1}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Previous
+                            </button>
+                            <span className="text-xs text-gray-500">
+                              {currentPage} / {totalPages}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                              disabled={currentPage === totalPages}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Next
+                            </button>
                           </div>
-                        </button>
-                      ))
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -909,7 +990,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
 
                   {/* Action Buttons */}
                   <div className="flex gap-4 mb-8">
-                    {appliedJobs.has(currentJob.id) ? (
+                    {appliedJobs.has(currentJob.id ?? '') ? (
                       <button disabled className="flex-1 bg-green-100 text-green-700 py-3 rounded-lg font-medium flex items-center justify-center gap-2 text-base cursor-not-allowed">
                         <CheckCircle className="w-5 h-5" /> Applied
                       </button>
@@ -967,7 +1048,7 @@ function JobsPageContent({ email, onLogout, onNavigate }) {
                       Requirements
                     </h3>
                     <ul className="space-y-3">
-                      {currentJob.requirements.map((req, idx) => (
+                      {(currentJob.requirements ?? []).map((req, idx) => (
                         <li key={idx} className="flex items-start gap-3">
                           <span className="w-1.5 h-1.5 bg-[#00B4D8] rounded-full mt-2 flex-shrink-0" />
                           <span className="text-base text-gray-500">{req}</span>

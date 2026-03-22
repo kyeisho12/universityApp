@@ -21,7 +21,7 @@ export interface STARBreakdown {
 export interface DatasetAnswer {
   text: string;
   avgScore: number;
-  scores: number[];
+  scores: (number | null)[];
   breakdown: STARBreakdown;
 }
 

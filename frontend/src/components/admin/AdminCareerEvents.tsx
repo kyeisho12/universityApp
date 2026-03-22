@@ -313,9 +313,9 @@ export default function AdminCareerEvents() {
       title: formData.title,
       description: formData.description,
       event_type: resolvedEventType,
-      date: resolvedDate || null,
-      time: resolvedTime,
-      location: resolvedLocation,
+      date: resolvedDate ?? '',
+      time: resolvedTime ?? '',
+      location: resolvedLocation ?? '',
     };
 
     if (showEditModal && selectedEvent) {
@@ -434,6 +434,7 @@ export default function AdminCareerEvents() {
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <button
+                aria-label="Open navigation menu"
                 onClick={() => setMobileOpen(true)}
                 className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
               >
@@ -582,13 +583,15 @@ export default function AdminCareerEvents() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <button 
+                              <button
+                                aria-label="Edit event"
                                 onClick={() => handleEditEvent(event)}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-[#1B2744]"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button 
+                              <button
+                                aria-label="Delete event"
                                 onClick={() => handleDeleteEvent(event.id)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-600 hover:text-red-600"
                               >
@@ -613,6 +616,7 @@ export default function AdminCareerEvents() {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Add New Event</h2>
               <button
+                aria-label="Close dialog"
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -646,6 +650,7 @@ export default function AdminCareerEvents() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
                 <select
+                  aria-label="Event type"
                   value={formData.event_type}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -686,6 +691,7 @@ export default function AdminCareerEvents() {
                         Date <span className="text-red-500">*</span>
                       </label>
                       <input
+                        aria-label="Event date"
                         type="date"
                         value={formData.date}
                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -725,6 +731,7 @@ export default function AdminCareerEvents() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Date (Optional)</label>
                       <input
+                        aria-label="Event date"
                         type="date"
                         value={formData.date}
                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -782,6 +789,7 @@ export default function AdminCareerEvents() {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Edit Event</h2>
               <button
+                aria-label="Close dialog"
                 onClick={handleCloseModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -815,6 +823,7 @@ export default function AdminCareerEvents() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
                 <select
+                  aria-label="Event type"
                   value={formData.event_type}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -855,6 +864,7 @@ export default function AdminCareerEvents() {
                         Date <span className="text-red-500">*</span>
                       </label>
                       <input
+                        aria-label="Event date"
                         type="date"
                         value={formData.date}
                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -894,6 +904,7 @@ export default function AdminCareerEvents() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Date (Optional)</label>
                       <input
+                        aria-label="Event date"
                         type="date"
                         value={formData.date}
                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -954,6 +965,7 @@ export default function AdminCareerEvents() {
                 <p className="text-gray-600 text-sm mt-1">{selectedEvent?.title}</p>
               </div>
               <button
+                aria-label="Close dialog"
                 onClick={handleCloseRegistrationsModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >

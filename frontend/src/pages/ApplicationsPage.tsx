@@ -10,7 +10,7 @@ export const ApplicationsPage = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const userName = user?.email?.split("@")[0] || "Admin";
-  const userID = "2024-00001";
+  const userID = "";
 
   async function handleLogout() {
     try {

@@ -53,7 +53,7 @@ function formatTimeAgo(timestamp: string): string {
 
 export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
   const userName = email.split("@")[0];
-  const userID = "2024-00001";
+  const userID = "";
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
   const [loading, setLoading] = React.useState<boolean>(true);
   
@@ -252,6 +252,7 @@ export const AdminDashboard = ({ email, onLogout, onNavigate }: { email: string;
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <button
+                aria-label="Open navigation menu"
                 onClick={() => setMobileOpen(true)}
                 className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
               >

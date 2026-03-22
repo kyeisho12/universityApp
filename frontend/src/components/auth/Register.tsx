@@ -1,4 +1,7 @@
-
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { useMessageBox } from '../common/MessageBoxProvider'
+import { signUp } from '../../services/authService'
 
   // Password strength logic
   function getPasswordStrength(pw: string) {
@@ -49,11 +52,11 @@ const Register = () => {
 
   const passwordStrength = getPasswordStrength(formData.password);
   const passwordStrengthLabel =
-    passwordStrength === 0 ? '' :
+    passwordStrength === 0 ? 'Too short' :
     passwordStrength === 1 ? 'Weak' :
     passwordStrength === 2 ? 'Medium' : 'Strong';
   const passwordStrengthColor =
-    passwordStrength === 0 ? '' :
+    passwordStrength === 0 ? 'text-gray-400' :
     passwordStrength === 1 ? 'text-red-500' :
     passwordStrength === 2 ? 'text-yellow-500' : 'text-green-600';
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

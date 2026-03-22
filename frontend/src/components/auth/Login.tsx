@@ -207,11 +207,11 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
 
   const passwordStrength = getPasswordStrength(password);
   const passwordStrengthLabel =
-    passwordStrength === 0 ? '' :
+    passwordStrength === 0 ? 'Too short' :
     passwordStrength === 1 ? 'Weak' :
     passwordStrength === 2 ? 'Medium' : 'Strong';
   const passwordStrengthColor =
-    passwordStrength === 0 ? '' :
+    passwordStrength === 0 ? 'text-gray-400' :
     passwordStrength === 1 ? 'text-red-500' :
     passwordStrength === 2 ? 'text-yellow-500' : 'text-green-600';
 
@@ -495,10 +495,18 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 }
 
 export default function Login() {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, user, isLoading } = useAuth()
   const messageBox = useMessageBox()
   const navigate = useNavigate()
   const [view, setView] = useState<View>('login')
+
+  // Auto-redirect if already authenticated (e.g. logged in from another tab)
+  useEffect(() => {
+    if (!isLoading && user) {
+      const redirectPath = user.email?.endsWith(ADMIN_DOMAIN) ? '/admin' : '/'
+      navigate(redirectPath, { replace: true })
+    }
+  }, [user, isLoading, navigate])
 
   const handleLogin = async (email: string, password: string) => {
     await signIn(email, password)

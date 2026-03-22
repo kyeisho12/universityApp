@@ -398,7 +398,7 @@ const EmployerPartners = () => {
         description: jobFormData.description,
         requirements: requirementsArray,
         category: jobFormData.category,
-        job_type: jobFormData.job_type,
+        job_type: jobFormData.job_type as 'Full-time' | 'Part-time' | 'Internship' | 'Contract',
         location: jobFormData.location,
         salary_range: jobFormData.salary_range,
         deadline: jobFormData.deadline,
@@ -447,7 +447,7 @@ const EmployerPartners = () => {
         description: jobFormData.description,
         requirements: requirementsArray,
         category: jobFormData.category,
-        job_type: jobFormData.job_type,
+        job_type: jobFormData.job_type as 'Full-time' | 'Part-time' | 'Internship' | 'Contract',
         location: jobFormData.location,
         salary_range: jobFormData.salary_range,
         deadline: jobFormData.deadline,
@@ -588,6 +588,7 @@ const EmployerPartners = () => {
               <button
                 onClick={() => setMobileOpen(true)}
                 className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Open navigation menu"
               >
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
@@ -622,6 +623,7 @@ const EmployerPartners = () => {
                   placeholder="Search companies..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Search companies"
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -755,6 +757,7 @@ const EmployerPartners = () => {
                                 onClick={() => openEditModal(company)}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Edit"
+                                aria-label="Edit company"
                               >
                                 <Edit className="w-4 h-4 text-gray-600" />
                               </button>
@@ -762,6 +765,7 @@ const EmployerPartners = () => {
                                 onClick={() => company.website && window.open(company.website.startsWith('http') ? company.website : `https://${company.website}`, '_blank')}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="View Details"
+                                aria-label="Visit company website"
                               >
                                 <ExternalLink className="w-4 h-4 text-gray-600" />
                               </button>
@@ -769,6 +773,7 @@ const EmployerPartners = () => {
                                 onClick={() => openDeleteConfirm(company)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
+                                aria-label="Delete company"
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
                               </button>
@@ -793,6 +798,7 @@ const EmployerPartners = () => {
                   <input
                     type="text"
                     placeholder="Search jobs..."
+                    aria-label="Search jobs"
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -881,6 +887,7 @@ const EmployerPartners = () => {
                                 onClick={() => openEditJobModal(job)}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Edit"
+                                aria-label="Edit job listing"
                               >
                                 <Edit className="w-4 h-4 text-gray-600" />
                               </button>
@@ -888,6 +895,7 @@ const EmployerPartners = () => {
                                 onClick={() => openDeleteJobConfirm(job)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
+                                aria-label="Delete job listing"
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
                               </button>
@@ -919,6 +927,7 @@ const EmployerPartners = () => {
                   setFormData({ name: '', website: '', industry: '', contact_email: '' });
                 }}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -935,6 +944,7 @@ const EmployerPartners = () => {
                   placeholder="Enter company name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  aria-label="Company name"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -948,6 +958,7 @@ const EmployerPartners = () => {
                   placeholder="e.g., example.com"
                   value={formData.website}
                   onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  aria-label="Company website"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -964,6 +975,7 @@ const EmployerPartners = () => {
                       setCustomIndustry('');
                     }
                   }}
+                  aria-label="Industry"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
                   <option value="">Select an industry</option>
@@ -983,6 +995,7 @@ const EmployerPartners = () => {
                     placeholder="Enter industry name"
                     value={customIndustry}
                     onChange={(e) => setCustomIndustry(e.target.value)}
+                    aria-label="Custom industry"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
                   />
                 )}
@@ -997,6 +1010,7 @@ const EmployerPartners = () => {
                   placeholder="e.g., hr@company.com"
                   value={formData.contact_email}
                   onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                  aria-label="Contact email"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -1039,6 +1053,7 @@ const EmployerPartners = () => {
                   setSelectedCompany(null);
                 }}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -1084,6 +1099,7 @@ const EmployerPartners = () => {
               <button
                 onClick={() => setShowAddModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -1100,6 +1116,7 @@ const EmployerPartners = () => {
                   placeholder="Enter company name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  aria-label="Company name"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -1113,6 +1130,7 @@ const EmployerPartners = () => {
                   placeholder="e.g., example.com"
                   value={formData.website}
                   onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  aria-label="Company website"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -1129,6 +1147,7 @@ const EmployerPartners = () => {
                       setCustomIndustry('');
                     }
                   }}
+                  aria-label="Industry"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 >
                   <option value="">Select an industry</option>
@@ -1148,6 +1167,7 @@ const EmployerPartners = () => {
                     placeholder="Enter industry name"
                     value={customIndustry}
                     onChange={(e) => setCustomIndustry(e.target.value)}
+                    aria-label="Custom industry"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
                   />
                 )}
@@ -1162,6 +1182,7 @@ const EmployerPartners = () => {
                   placeholder="e.g., hr@company.com"
                   value={formData.contact_email}
                   onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                  aria-label="Contact email"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -1197,6 +1218,7 @@ const EmployerPartners = () => {
               <button
                 onClick={() => setShowAddJobModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -1214,6 +1236,7 @@ const EmployerPartners = () => {
                   placeholder="e.g., Software Developer Intern"
                   value={jobFormData.title}
                   onChange={(e) => setJobFormData({ ...jobFormData, title: e.target.value })}
+                  aria-label="Job title"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -1227,6 +1250,7 @@ const EmployerPartners = () => {
                   <select
                     value={jobFormData.employer_id}
                     onChange={(e) => setJobFormData({ ...jobFormData, employer_id: e.target.value })}
+                    aria-label="Employer"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="">Select a company</option>
@@ -1247,6 +1271,7 @@ const EmployerPartners = () => {
                     placeholder="e.g., Tarlac City"
                     value={jobFormData.location}
                     onChange={(e) => setJobFormData({ ...jobFormData, location: e.target.value })}
+                    aria-label="Location"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -1261,6 +1286,7 @@ const EmployerPartners = () => {
                   <select
                     value={jobFormData.job_type}
                     onChange={(e) => setJobFormData({ ...jobFormData, job_type: e.target.value })}
+                    aria-label="Job type"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Full-time">Full-time</option>
@@ -1282,6 +1308,7 @@ const EmployerPartners = () => {
                         setCustomJobCategory('');
                       }
                     }}
+                    aria-label="Category"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Information Technology">Information Technology</option>
@@ -1298,6 +1325,7 @@ const EmployerPartners = () => {
                       placeholder="Enter category name"
                       value={customJobCategory}
                       onChange={(e) => setCustomJobCategory(e.target.value)}
+                      aria-label="Custom category"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
                     />
                   )}
@@ -1315,6 +1343,7 @@ const EmployerPartners = () => {
                     placeholder="e.g., ₱15,000 - ₱20,000/month"
                     value={jobFormData.salary_range}
                     onChange={(e) => setJobFormData({ ...jobFormData, salary_range: e.target.value })}
+                    aria-label="Salary range"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -1327,6 +1356,7 @@ const EmployerPartners = () => {
                     type="date"
                     value={jobFormData.deadline}
                     onChange={(e) => setJobFormData({ ...jobFormData, deadline: e.target.value })}
+                    aria-label="Application deadline"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -1342,6 +1372,7 @@ const EmployerPartners = () => {
                   rows={4}
                   value={jobFormData.description}
                   onChange={(e) => setJobFormData({ ...jobFormData, description: e.target.value })}
+                  aria-label="Job description"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
                 />
               </div>
@@ -1356,6 +1387,7 @@ const EmployerPartners = () => {
                   rows={4}
                   value={jobFormData.requirements}
                   onChange={(e) => setJobFormData({ ...jobFormData, requirements: e.target.value })}
+                  aria-label="Requirements"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
                 />
               </div>
@@ -1391,6 +1423,7 @@ const EmployerPartners = () => {
               <button
                 onClick={() => setShowEditJobModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -1407,6 +1440,7 @@ const EmployerPartners = () => {
                   placeholder="e.g., Software Developer Intern"
                   value={jobFormData.title}
                   onChange={(e) => setJobFormData({ ...jobFormData, title: e.target.value })}
+                  aria-label="Job title"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -1419,6 +1453,7 @@ const EmployerPartners = () => {
                   <select
                     value={jobFormData.employer_id}
                     onChange={(e) => setJobFormData({ ...jobFormData, employer_id: e.target.value })}
+                    aria-label="Employer"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="">Select a company</option>
@@ -1439,6 +1474,7 @@ const EmployerPartners = () => {
                     placeholder="e.g., Tarlac City"
                     value={jobFormData.location}
                     onChange={(e) => setJobFormData({ ...jobFormData, location: e.target.value })}
+                    aria-label="Location"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -1452,6 +1488,7 @@ const EmployerPartners = () => {
                   <select
                     value={jobFormData.job_type}
                     onChange={(e) => setJobFormData({ ...jobFormData, job_type: e.target.value })}
+                    aria-label="Job type"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Full-time">Full-time</option>
@@ -1473,6 +1510,7 @@ const EmployerPartners = () => {
                         setCustomJobCategory('');
                       }
                     }}
+                    aria-label="Category"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
                   >
                     <option value="Information Technology">Information Technology</option>
@@ -1489,6 +1527,7 @@ const EmployerPartners = () => {
                       placeholder="Enter category name"
                       value={customJobCategory}
                       onChange={(e) => setCustomJobCategory(e.target.value)}
+                      aria-label="Custom category"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent mt-2"
                     />
                   )}
@@ -1505,6 +1544,7 @@ const EmployerPartners = () => {
                     placeholder="e.g., 20,000 - 40,000"
                     value={jobFormData.salary_range}
                     onChange={(e) => setJobFormData({ ...jobFormData, salary_range: e.target.value })}
+                    aria-label="Salary range"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -1517,6 +1557,7 @@ const EmployerPartners = () => {
                     type="date"
                     value={jobFormData.deadline}
                     onChange={(e) => setJobFormData({ ...jobFormData, deadline: e.target.value })}
+                    aria-label="Application deadline"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -1531,6 +1572,7 @@ const EmployerPartners = () => {
                   rows={3}
                   value={jobFormData.description}
                   onChange={(e) => setJobFormData({ ...jobFormData, description: e.target.value })}
+                  aria-label="Job description"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
                 />
               </div>
@@ -1544,6 +1586,7 @@ const EmployerPartners = () => {
                   rows={4}
                   value={jobFormData.requirements}
                   onChange={(e) => setJobFormData({ ...jobFormData, requirements: e.target.value })}
+                  aria-label="Requirements"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
                 />
               </div>

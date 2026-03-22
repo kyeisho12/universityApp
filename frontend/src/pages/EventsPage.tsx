@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Calendar,
   Clock,
@@ -16,10 +16,11 @@ import { useCachedQuery } from "../hooks/useCachedQuery";
 import { useStudentId } from "../hooks/useStudentId";
 import { useStudent } from "../context/StudentContext";
 import { supabase } from "../lib/supabaseClient";
-import { 
-  getEventsForStudent, 
-  registerForEvent, 
-  EventWithRegistration 
+import {
+  getEventsForStudent,
+  registerForEvent,
+  unregisterFromEvent,
+  EventWithRegistration
 } from "../services/careerEventService";
 
 type NavigateHandler = (route: string) => void;
@@ -45,7 +46,9 @@ interface Event {
 
 function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavigate }: CareerEventsPageContentProps & { studentId?: string }) {
   const messageBox = useMessageBox();
-  const userID = studentId || "2024-00001";
+  const navigate = useNavigate();
+  const location = useLocation();
+  const userID = studentId || "";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
@@ -109,7 +112,7 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
   }
 
   // Use cached query for events
-  const { data: events = [], isLoading: loading, error: eventsError } = useCachedQuery(
+  const { data: rawEvents, isLoading: loading, error: eventsError } = useCachedQuery(
     `events-${userID}`,
     async () => {
       const supabaseUserId = await getSupabaseUserId();
@@ -132,9 +135,23 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
     }
   );
 
+  const events = useMemo(() => rawEvents ?? [], [rawEvents]);
+
   useEffect(() => {
     setEventsView(events);
   }, [events]);
+
+  // Handle URL query parameter for event ID from dashboard navigation
+  useEffect(() => {
+    if (!events.length) return;
+
+    const params = new URLSearchParams(location.search);
+    const eventIdFromUrl = params.get("id");
+
+    if (eventIdFromUrl && events.some((event) => event.id === eventIdFromUrl)) {
+      setSpotlightEventId(eventIdFromUrl);
+    }
+  }, [location.search, events]);
 
   const error = eventsError?.message || null;
 
@@ -207,6 +224,81 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
           tone: "error",
         });
       }
+    }
+  }
+
+  async function handleUnregister(eventId: string) {
+    if (!registeredEvents.has(eventId)) {
+      return;
+    }
+
+    const confirmed = await messageBox.confirm({
+      title: "Unregister from Event",
+      message: "Are you sure you want to unregister from this event?",
+      tone: "warning",
+    });
+    if (!confirmed) return;
+
+    const previousRegistered = new Set(registeredEvents);
+    const optimisticRegistered = new Set(previousRegistered);
+    optimisticRegistered.delete(eventId);
+    setRegisteredEvents(optimisticRegistered);
+    persistRegistered(optimisticRegistered);
+    setEventsView((prev) =>
+      prev.map((event) =>
+        event.id === eventId
+          ? {
+              ...event,
+              isRegistered: false,
+              registered: Math.max((event.registered || 1) - 1, 0),
+            }
+          : event
+      )
+    );
+
+    try {
+      const supabaseUserId = await getSupabaseUserId();
+      if (!supabaseUserId) {
+        setRegisteredEvents(previousRegistered);
+        persistRegistered(previousRegistered);
+        setEventsView((prev) =>
+          prev.map((event) =>
+            event.id === eventId
+              ? {
+                  ...event,
+                  isRegistered: true,
+                  registered: (event.registered || 0) + 1,
+                }
+              : event
+          )
+        );
+        await messageBox.alert({
+          title: "Sign In Required",
+          message: "Please sign in to manage event registrations.",
+          tone: "warning",
+        });
+        return;
+      }
+      await unregisterFromEvent(eventId, supabaseUserId);
+    } catch (err) {
+      setRegisteredEvents(previousRegistered);
+      persistRegistered(previousRegistered);
+      setEventsView((prev) =>
+        prev.map((event) =>
+          event.id === eventId
+            ? {
+                ...event,
+                isRegistered: true,
+                registered: (event.registered || 0) + 1,
+              }
+            : event
+        )
+      );
+      await messageBox.alert({
+        title: "Unregistration Failed",
+        message: err instanceof Error ? err.message : "Failed to unregister from event.",
+        tone: "error",
+      });
     }
   }
 
@@ -357,6 +449,7 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
                   event={event}
                   isRegistered={registeredEvents.has(event.id)}
                   onRegister={() => handleRegister(event.id)}
+                  onUnregister={() => handleUnregister(event.id)}
                   cardId={`event-card-${event.id}`}
                   spotlighted={spotlightEventId === event.id}
                 />
@@ -400,12 +493,22 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
                             <h3 className="text-lg font-bold text-gray-900">{event.title}</h3>
                             <p className="text-sm text-gray-600 mt-1">{event.event_type}</p>
                           </div>
-                          <button
-                            onClick={() => handleViewRegisteredEvent(event.id)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2744] text-white hover:bg-[#131d33]"
-                          >
-                            View
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleViewRegisteredEvent(event.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2744] text-white hover:bg-[#131d33]"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUnregister(event.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                            >
+                              Unregister
+                            </button>
+                          </div>
                         </div>
                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
@@ -438,12 +541,14 @@ function EventCard({
   event,
   isRegistered,
   onRegister,
+  onUnregister,
   cardId,
   spotlighted,
 }: {
   event: Event;
   isRegistered: boolean;
   onRegister: () => void;
+  onUnregister: () => void;
   cardId?: string;
   spotlighted?: boolean;
 }) {
@@ -526,17 +631,23 @@ function EventCard({
 
       {/* Action Button - Only show for non-announcements */}
       {event.event_type !== "Announcement" && (
-        <button
-          onClick={onRegister}
-          disabled={isRegistered}
-          className={`w-full py-2.5 rounded-lg font-semibold transition-colors ${
-            isRegistered
-              ? "bg-emerald-100 text-emerald-700 cursor-not-allowed"
-              : "bg-[#1B2744] text-white hover:bg-[#131d33]"
-          }`}
-        >
-          {isRegistered ? "Registered" : "Register Now"}
-        </button>
+        isRegistered ? (
+          <button
+            type="button"
+            onClick={onUnregister}
+            className="w-full py-2.5 rounded-lg font-semibold transition-colors bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+          >
+            Unregister
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onRegister}
+            className="w-full py-2.5 rounded-lg font-semibold transition-colors bg-[#1B2744] text-white hover:bg-[#131d33]"
+          >
+            Register Now
+          </button>
+        )
       )}
     </div>
   );

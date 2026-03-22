@@ -87,7 +87,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     setIsProfileLoading(true)
     const payload = {
       id: user.id,
-      email: user.email,
+      email: user.email ?? '',
       ...updates,
     }
     const { data, error } = await upsertStudentProfile(payload)

@@ -24,7 +24,7 @@ export default function ApplyOutlookPage() {
   const state = location.state as ApplyOutlookState | null;
 
   const [userName, setUserName] = React.useState("User");
-  const [userID, setUserID] = React.useState("2024-00001");
+  const [userID, setUserID] = React.useState("");
   const [employerEmail, setEmployerEmail] = React.useState<string | null>(null);
   const [manualEmail, setManualEmail] = React.useState("");
   const [resumeUrl, setResumeUrl] = React.useState<string | null>(null);
@@ -213,7 +213,7 @@ export default function ApplyOutlookPage() {
             }
           }}
           onNavigate={(route) => navigate(`/${route}`)}
-          activeNav="jobs"
+          activeNav="student/jobs"
         />
       </div>
 

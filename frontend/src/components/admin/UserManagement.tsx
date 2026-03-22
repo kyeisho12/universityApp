@@ -4,18 +4,18 @@ import { useMessageBox } from '../common/MessageBoxProvider'
 
 interface UserRecord {
 id: string
-full_name?: string
-email?: string
-  role: 'student' | 'recruiter' | 'admin'
-  university?: string
-  major?: string
+full_name?: string | null
+email?: string | null
+  role?: 'student' | 'recruiter' | 'admin'
+  university?: string | null
+  major?: string | null
   graduation_year?: string | number | null
-  avatar_url?: string
-  phone?: string
+  avatar_url?: string | null
+  phone?: string | null
   is_active?: boolean
-  created_at?: string
-  updated_at?: string
-  bio?: string
+  created_at?: string | null
+  updated_at?: string | null
+  bio?: string | null
 }
 
 const UserManagement = () => {
@@ -72,7 +72,7 @@ const UserManagement = () => {
 
   const handleRoleChange = async (userId: string, newRole: UserRecord['role']) => {
     try {
-      await updateUserRole(userId, newRole)
+      await updateUserRole(userId, newRole as import('../../services/adminService').UserRole)
       setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, role: newRole } : user)))
       messageBox.toast({ title: 'Role Updated', message: 'User role updated successfully', tone: 'success' })
     } catch (error) {
@@ -147,6 +147,7 @@ const UserManagement = () => {
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-[240px] flex-1">
           <input
+            aria-label="Search users by name, email, or university"
             type="text"
             placeholder="Search by name, email, or university..."
             value={searchTerm}
@@ -213,7 +214,7 @@ const UserManagement = () => {
                         {user.avatar_url && (
                           <img
                             src={user.avatar_url}
-                            alt={user.full_name}
+                            alt={user.full_name ?? ''}
                             className="h-10 w-10 rounded-full object-cover"
                           />
                         )}
@@ -223,6 +224,7 @@ const UserManagement = () => {
                     <td className="px-4 py-3 text-neutral-700">{user.email}</td>
                     <td className="px-4 py-3">
                       <select
+                        aria-label={`Role for ${user.full_name || user.email || 'user'}`}
                         value={user.role}
                         onChange={(e) => handleRoleChange(user.id, e.target.value as UserRecord['role'])}
                         className={`rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 ${getRoleTextClass(user.role)}`}
@@ -248,6 +250,7 @@ const UserManagement = () => {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
+                          aria-label="View or edit user details"
                           onClick={() => setEditingUser(user)}
                           className="rounded-lg px-3 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
                           title="View/Edit Details"
@@ -255,6 +258,7 @@ const UserManagement = () => {
                           ✏️
                         </button>
                         <button
+                          aria-label={isActive ? 'Disable user account' : 'Enable user account'}
                           onClick={() => setShowStatusConfirm({ id: user.id, nextStatus: !isActive })}
                           className="rounded-lg px-3 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
                           title={isActive ? 'Disable User' : 'Enable User'}

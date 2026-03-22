@@ -36,15 +36,15 @@ export function useStudentId(userId: string | undefined): string {
           if (legacyError) throw legacyError;
 
           const legacyId = (legacyData as { student_id?: string | number } | null)?.student_id;
-          setStudentId(legacyId != null ? String(legacyId) : '2024-00001');
+          setStudentId(legacyId != null ? String(legacyId) : '');
           return;
         }
 
         const resolvedId = (data as { student_number?: string | number } | null)?.student_number;
-        setStudentId(resolvedId != null ? String(resolvedId) : '2024-00001');
+        setStudentId(resolvedId != null ? String(resolvedId) : '');
       } catch (err) {
         console.error('Failed to fetch student number:', err);
-        setStudentId('2024-00001');
+        setStudentId('');
       }
     };
 

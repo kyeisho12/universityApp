@@ -18,7 +18,7 @@ import {
     Menu,
 } from "lucide-react";
 
-type StatItem = { label: string; value: string; icon: JSX.Element };
+type StatItem = { label: string; value: string; icon: React.ReactElement };
 
 export default function StudentAnalytics() {
     const { user, signOut } = useAuth();
@@ -275,8 +275,8 @@ function DualBarChart({
                     return (
                         <div key={item.month} className="flex flex-col items-center gap-2">
                             <div className="h-44 w-full flex items-end justify-center gap-1">
-                                <div className="w-3 rounded-t bg-[#1B2744]" style={{ height: `${leftHeight}%` }} />
-                                <div className="w-3 rounded-t bg-[#00B4D8]" style={{ height: `${rightHeight}%` }} />
+                            <div className="w-3 rounded-t bg-[#1B2744]" style={{ height: `${leftHeight}%` } as React.CSSProperties} />
+                                <div className="w-3 rounded-t bg-[#00B4D8]" style={{ height: `${rightHeight}%` } as React.CSSProperties} />
                             </div>
                             <span className="text-xs text-gray-600">{item.month}</span>
                         </div>
@@ -305,7 +305,7 @@ function HorizontalBarChart({ data }: { data: CountPoint[] }) {
                             <span className="font-semibold">{item.count}</span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full bg-[#00B4D8] rounded-full" style={{ width: `${width}%` }} />
+                        <div className="h-full bg-[#00B4D8] rounded-full" style={{ width: `${width}%` } as React.CSSProperties} />
                         </div>
                     </div>
                 );
@@ -333,7 +333,7 @@ function TopEventsList({ rows }: { rows: EventPoint[] }) {
                     <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                         <div
                             className="h-full bg-[#1B2744]"
-                            style={{ width: `${(row.registrations / max) * 100}%` }}
+                            style={{ width: `${(row.registrations / max) * 100}%` } as React.CSSProperties}
                         />
                     </div>
                 </div>

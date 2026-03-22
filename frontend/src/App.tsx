@@ -157,6 +157,7 @@ function TestAdminEventsPage() {
       {showForm && (
         <form onSubmit={handleSubmit} className="mb-8 border p-4 rounded-lg">
           <input
+            aria-label="Event title"
             type="text"
             placeholder="Title"
             value={formData.title}
@@ -165,6 +166,7 @@ function TestAdminEventsPage() {
             required
           />
           <input
+            aria-label="Event description"
             type="text"
             placeholder="Description"
             value={formData.description}
@@ -173,6 +175,7 @@ function TestAdminEventsPage() {
             required
           />
           <select
+            aria-label="Event type"
             value={formData.event_type}
             onChange={(e) => setFormData({...formData, event_type: e.target.value})}
             className="block w-full mb-2 p-2 border rounded"
@@ -183,6 +186,7 @@ function TestAdminEventsPage() {
             <option>Webinar</option>
           </select>
           <input
+            aria-label="Event date"
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({...formData, date: e.target.value})}
@@ -190,6 +194,7 @@ function TestAdminEventsPage() {
             required
           />
           <input
+            aria-label="Event time"
             type="time"
             value={formData.time}
             onChange={(e) => setFormData({...formData, time: e.target.value})}
@@ -197,6 +202,7 @@ function TestAdminEventsPage() {
             required
           />
           <input
+            aria-label="Event location"
             type="text"
             placeholder="Location"
             value={formData.location}

@@ -45,7 +45,7 @@ export default function StudentProfilePage() {
   }
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
-  const studentId = profile?.student_number || profile?.student_id || "2024-00001";
+  const studentId = profile?.student_number || profile?.student_id || "";
   const department = profile?.university || "Department";
   const college = profile?.college || "";
   const skills = Array.isArray(profile?.skills_entries)
@@ -194,9 +194,9 @@ export default function StudentProfilePage() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
                   <div className="space-y-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-3">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span>{profile?.email || user?.email || "—"}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="break-all min-w-0">{profile?.email || user?.email || "—"}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <Phone className="w-4 h-4 text-gray-400" />

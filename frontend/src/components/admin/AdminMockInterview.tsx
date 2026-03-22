@@ -119,7 +119,7 @@ function StarBar({ label, value }: { label: string; value: number | undefined })
         <span className="font-medium text-gray-800">{v} / 5</span>
       </div>
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${(v / 5) * 100}%` }} />
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${(v / 5) * 100}%` } as React.CSSProperties} />
       </div>
     </div>
   );
@@ -697,7 +697,7 @@ export default function AdminMockInterview() {
       <div className="md:ml-72">
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center px-6 py-4">
-            <button onClick={() => setMobileOpen(true)} className="md:hidden p-2 hover:bg-gray-100 rounded-lg">
+            <button aria-label="Open navigation menu" onClick={() => setMobileOpen(true)} className="md:hidden p-2 hover:bg-gray-100 rounded-lg">
               <Menu className="w-6 h-6 text-gray-600" />
             </button>
           </div>
@@ -732,7 +732,7 @@ export default function AdminMockInterview() {
               <h3 className="text-lg font-semibold text-gray-900">Recent Interviews</h3>
               <div className="relative w-full sm:max-w-sm">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                <input aria-label="Search interviews" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search student, status, date..."
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
               </div>
@@ -794,10 +794,10 @@ export default function AdminMockInterview() {
 
       {/* Session Details Modal */}
       {selectedSession && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 bg-black/50 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl my-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             {/* Modal header */}
-            <div className="flex items-start justify-between p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <div className="flex items-start justify-between p-6 border-b border-gray-200 flex-shrink-0 bg-white rounded-t-2xl">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Session Details</h2>
                 <p className="text-sm text-gray-500 mt-0.5">
@@ -815,13 +815,13 @@ export default function AdminMockInterview() {
                   )}
                 </div>
               </div>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <button aria-label="Close dialog" onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
 
             {/* Modal body */}
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto">
               {loadingSegments ? (
                 <div className="text-center py-16 text-gray-400">
                   <Video className="w-8 h-8 mx-auto mb-3 opacity-40" />

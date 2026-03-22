@@ -1,6 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStudent } from '../context/StudentContext'
+import { queryCache } from '../utils/queryCache'
+import {
+  sanitizeName,
+  sanitizePhone,
+  sanitizeText,
+  sanitizeBio,
+  validatePhoneNumber,
+  validateYear,
+  validateDateRange,
+  validateYearRange,
+  validateWorkExperience,
+  validateEducation,
+  ValidationError,
+} from '../utils/profileValidation'
 
 
 interface ProfileForm {
@@ -138,7 +152,7 @@ export default function CreateStudentProfilePage() {
         college: toStringValue(profile.college),
         major: toStringValue(profile.major),
         graduation_year: profile.graduation_year ?? '',
-        year_level: profile.year_level ?? '',
+        year_level: (profile.year_level as string | number | null | undefined) ?? '',
         bio: toStringValue(profile.bio),
         skills_entries: Array.isArray(profile.skills_entries)
           ? profile.skills_entries
@@ -286,37 +300,147 @@ export default function CreateStudentProfilePage() {
     e.preventDefault()
     setError('')
     setMessage('')
+
+    // VALIDATION
+    const validationErrors: ValidationError[] = []
+
+    // Required field validation
     if (!formData.college) {
-      setError('Please select a college.')
+      validationErrors.push({
+        field: 'college',
+        message: 'Please select a college.',
+      })
+    }
+
+    // OPTION A: SANITIZATION + OPTION B: FIELD-SPECIFIC VALIDATION
+
+    // Sanitize and validate full name
+    const sanitizedName = sanitizeName(formData.full_name)
+    if (!sanitizedName) {
+      validationErrors.push({
+        field: 'full_name',
+        message: 'Full name cannot be empty or contain only special characters.',
+      })
+    }
+
+    // Sanitize and validate phone
+    const sanitizedPhone = sanitizePhone(formData.phone)
+    if (!sanitizedPhone) {
+      validationErrors.push({
+        field: 'phone',
+        message: 'Phone number cannot be empty.',
+      })
+    } else {
+      const phoneValidation = validatePhoneNumber(sanitizedPhone)
+      if (!phoneValidation.valid) {
+        validationErrors.push({
+          field: 'phone',
+          message: phoneValidation.message || 'Invalid phone number.',
+        })
+      }
+    }
+
+    // Validate graduation year
+    if (formData.graduation_year) {
+      const yearValidation = validateYear(formData.graduation_year, 'Graduation year')
+      if (!yearValidation.valid) {
+        validationErrors.push({
+          field: 'graduation_year',
+          message: yearValidation.message || 'Invalid graduation year.',
+        })
+      }
+    }
+
+    // Validate education entries
+    formData.education_entries.forEach((entry, index) => {
+      if (entry.school || entry.degree || entry.field || entry.start_year || entry.end_year) {
+        const eduValidation = validateEducation(entry.school, entry.start_year, entry.end_year)
+        if (eduValidation.length > 0) {
+          validationErrors.push(
+            ...eduValidation.map((err) => ({
+              ...err,
+              message: `Education ${index + 1}: ${err.message}`,
+            }))
+          )
+        }
+      }
+    })
+
+    // Validate work experience entries
+    formData.work_experience_entries.forEach((entry, index) => {
+      if (entry.title || entry.company || entry.start_date || entry.end_date || entry.description) {
+        const workValidation = validateWorkExperience(entry.title, entry.start_date, entry.end_date)
+        if (workValidation.length > 0) {
+          validationErrors.push(
+            ...workValidation.map((err) => ({
+              ...err,
+              message: `Work Experience ${index + 1}: ${err.message}`,
+            }))
+          )
+        }
+      }
+    })
+
+    // If there are validation errors, display them and return
+    if (validationErrors.length > 0) {
+      const errorMessages = validationErrors.map((err) => err.message).join('\n')
+      setError(errorMessages)
       return
     }
-    const preferredJobTypes = formData.preferred_job_types.map((item) => item.trim()).filter(Boolean)
-    const preferredIndustries = formData.preferred_industries.map((item) => item.trim()).filter(Boolean)
-    const preferredLocations = formData.preferred_locations.map((item) => item.trim()).filter(Boolean)
-    const expectedSalaryText = toStringValue(formData.expected_salary_range).trim()
+
+    // SANITIZE ALL DATA BEFORE SAVING
+    const preferredJobTypes = formData.preferred_job_types
+      .map((item) => sanitizeText(item))
+      .filter(Boolean)
+    const preferredIndustries = formData.preferred_industries
+      .map((item) => sanitizeText(item))
+      .filter(Boolean)
+    const preferredLocations = formData.preferred_locations
+      .map((item) => sanitizeText(item))
+      .filter(Boolean)
+
     const payload = {
-      full_name: toStringValue(formData.full_name).trim(),
-      student_number: toStringValue(formData.student_number).trim(),
-      phone: toStringValue(formData.phone).trim(),
-      address: toStringValue(formData.address).trim(),
-      university: toStringValue(formData.university).trim(),
+      full_name: sanitizedName,
+      student_number: sanitizeText(formData.student_number),
+      phone: sanitizedPhone,
+      address: sanitizeText(formData.address),
+      university: sanitizeText(formData.university),
       college: toStringValue(formData.college).trim(),
-      major: toStringValue(formData.major).trim(),
+      major: sanitizeText(formData.major),
       graduation_year: formData.graduation_year ? Number(formData.graduation_year) : null,
       year_level: formData.year_level ? Number(formData.year_level) : null,
-      bio: toStringValue(formData.bio).trim(),
-      skills_entries: formData.skills_entries.map((item) => item.trim()).filter(Boolean),
-      education_entries: formData.education_entries.filter((entry) =>
-        entry.school || entry.degree || entry.field || entry.start_year || entry.end_year
-      ),
-      work_experience_entries: formData.work_experience_entries.filter((entry) =>
-        entry.title || entry.company || entry.start_date || entry.end_date || entry.description
-      ),
+      bio: sanitizeBio(formData.bio),
+      skills_entries: formData.skills_entries.map((item) => sanitizeText(item)).filter(Boolean),
+      education_entries: formData.education_entries
+        .filter(
+          (entry) =>
+            entry.school || entry.degree || entry.field || entry.start_year || entry.end_year
+        )
+        .map((entry) => ({
+          school: sanitizeText(entry.school),
+          degree: sanitizeText(entry.degree),
+          field: sanitizeText(entry.field),
+          start_year: sanitizeText(entry.start_year),
+          end_year: sanitizeText(entry.end_year),
+        })),
+      work_experience_entries: formData.work_experience_entries
+        .filter(
+          (entry) =>
+            entry.title || entry.company || entry.start_date || entry.end_date || entry.description
+        )
+        .map((entry) => ({
+          title: sanitizeText(entry.title),
+          company: sanitizeText(entry.company),
+          start_date: sanitizeText(entry.start_date),
+          end_date: sanitizeText(entry.end_date),
+          description: sanitizeBio(entry.description),
+        })),
       preferred_job_types: preferredJobTypes,
       preferred_industries: preferredIndustries,
       preferred_locations: preferredLocations,
-      expected_salary_range: expectedSalaryText,
+      expected_salary_range: sanitizeText(formData.expected_salary_range),
     }
+
     const { error: saveError } = await saveProfile(payload)
     if (saveError) {
       const errorMessage = (saveError as { message?: string })?.message || 'Failed to save profile'
@@ -327,6 +451,9 @@ export default function CreateStudentProfilePage() {
       localStorage.removeItem(draftKey)
     } catch (error) {
       console.error('Failed to clear profile draft:', error)
+    }
+    if (profile?.id) {
+      queryCache.invalidate(`user-profile-${profile.id}`)
     }
     console.log(payload)
     setMessage('Profile saved successfully')
@@ -468,8 +595,12 @@ export default function CreateStudentProfilePage() {
             onChange={handleChange}
             rows={4}
             required
+            maxLength={500}
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
+          <span className={`text-xs text-right ${formData.bio.length >= 480 ? 'text-amber-500' : 'text-neutral-400'}`}>
+            {formData.bio.length}/500
+          </span>
         </label>
         <div className="grid gap-3">
           <div className="flex items-center justify-between">
@@ -760,8 +891,16 @@ export default function CreateStudentProfilePage() {
           {isProfileLoading ? 'Saving...' : 'Save profile'}
         </button>
       </form>
-      {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
-      {message && <p className="mt-3 text-sm font-semibold text-green-600">{message}</p>}
+      {error && (
+        <div className="mt-4 rounded-lg bg-red-50 p-4 border border-red-200">
+          <p className="text-sm font-semibold text-red-800 whitespace-pre-wrap">{error}</p>
+        </div>
+      )}
+      {message && (
+        <div className="mt-4 rounded-lg bg-green-50 p-4 border border-green-200">
+          <p className="text-sm font-semibold text-green-800">{message}</p>
+        </div>
+      )}
     </div>
     </div>
   )
