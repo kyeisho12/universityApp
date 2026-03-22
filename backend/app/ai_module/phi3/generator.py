@@ -312,12 +312,12 @@ class Phi3FollowupGenerator:
 		cleaned = text.replace("\n", " ").strip()
 		cleaned = re.sub(r"\s+", " ", cleaned)
 		cleaned = re.sub(r"^Follow-?up question\s*:\s*", "", cleaned, flags=re.IGNORECASE)
-		cleaned = cleaned.strip('"\'` ')
+		cleaned = cleaned.strip('"\'\'` ')
 
 		if "?" in cleaned:
 			cleaned = cleaned.split("?")[0].strip() + "?"
 		else:
-			cleaned = f"{cleaned.rstrip('.') }?" if cleaned else ""
+			cleaned = f"{cleaned.rstrip('. ') }?" if cleaned else ""
 
 		return cleaned
 
@@ -473,4 +473,3 @@ class Phi3FollowupGenerator:
 			if "next_bank_question" in lower or "next bank" in lower:
 				return {"action": "next_bank_question", "reason": "parsed_from_text"}
 			return {"action": "", "reason": "parse_failed"}
-

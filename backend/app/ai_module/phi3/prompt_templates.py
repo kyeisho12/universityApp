@@ -47,7 +47,6 @@ def build_next_step_decision_prompt(
 		f"candidate_answer: {candidate_answer.strip()}\n"
 		f"remaining_bank_questions: {remaining_bank_questions}\n"
 		f"followup_count_for_current: {followup_count_for_current}\n\n"
-		'Output exactly: {"action":"follow_up","reason":"one short reason"} or {"action":"next_bank_question","reason":"one short reason"}\n'
+		'Output exactly: {\"action\":\"follow_up\",\"reason\":\"one short reason\"} or {\"action\":\"next_bank_question\",\"reason\":\"one short reason\"}\n'
 		"JSON:"
 	)
-
