@@ -163,6 +163,16 @@ class Phi3FollowupGenerator:
 				"error": "Follow-up provider is not configured",
 			}
 
+		# Pre-check: if answer looks incoherent, use fallback logic instead of Phi3
+		if self._is_incoherent_answer(candidate_answer):
+			fallback = self._fallback_question(original_question, candidate_answer)
+			return {
+				"success": True,
+				"question": fallback,
+				"source": "fallback",
+				"reason": "incoherent_answer_detected",
+			}
+
 		prompt = build_followup_prompt(
 			original_question=original_question,
 			candidate_answer=candidate_answer,
@@ -188,6 +198,17 @@ class Phi3FollowupGenerator:
 				}
 
 			raw_question = str(generation.get("text") or "").strip()
+			
+			# Check if Phi3 detected incoherent answer
+			if "SKIP_FOLLOWUP" in raw_question or "skip_followup" in raw_question.lower():
+				fallback = self._fallback_question(original_question, candidate_answer)
+				return {
+					"success": True,
+					"question": fallback,
+					"source": "fallback",
+					"reason": "phi3_detected_incoherent_answer",
+				}
+			
 			question = self._normalize_question(raw_question)
 
 			if not question:
@@ -291,12 +312,12 @@ class Phi3FollowupGenerator:
 		cleaned = text.replace("\n", " ").strip()
 		cleaned = re.sub(r"\s+", " ", cleaned)
 		cleaned = re.sub(r"^Follow-?up question\s*:\s*", "", cleaned, flags=re.IGNORECASE)
-		cleaned = cleaned.strip('"\'` ')
+		cleaned = cleaned.strip('"\'\'` ')
 
 		if "?" in cleaned:
 			cleaned = cleaned.split("?")[0].strip() + "?"
 		else:
-			cleaned = f"{cleaned.rstrip('.') }?" if cleaned else ""
+			cleaned = f"{cleaned.rstrip('. ') }?" if cleaned else ""
 
 		return cleaned
 
@@ -373,13 +394,63 @@ class Phi3FollowupGenerator:
 		fallback_index = len(answer) % len(fallback_questions)
 		return fallback_questions[fallback_index]
 
+	def _is_incoherent_answer(self, answer: str) -> bool:
+		"""Detect if an answer is too broken/nonsensical to follow up on."""
+		lower = answer.lower()
+		
+		# Question marks suggest confusion/uncertainty
+		question_mark_count = answer.count("?")
+		if question_mark_count >= 2:
+			return True
+		
+		# Common incoherence markers
+		incoherence_markers = [
+			"i don't know",
+			"i don't really know",
+			"i'm not sure",
+			"not really sure",
+			"kind of",
+			"umm",
+			"uh",
+			"um,",
+			"er,",
+			"actually, i haven't",
+			"i haven't really thought",
+			"is that i don't",
+			"that i don't",
+		]
+		if any(marker in lower for marker in incoherence_markers):
+			return True
+		
+		# Very fragmented answers (lots of short segments)
+		if answer.count(".") > 8 and len(answer) < 150:
+			return True
+		
+		# Answer too short relative to complexity of question
+		if len(answer) < 30:
+			# Very short answers are often incomplete/confused
+			if "?" in lower:
+				return True
+		
+		return False
+
 	def _fallback_action(self, candidate_answer: str) -> str:
 		answer = (candidate_answer or "").strip()
+		
+		# Incoherent answers should NOT get follow-ups
+		if self._is_incoherent_answer(answer):
+			return "next_bank_question"
+		
+		# Short but coherent answers need more detail
 		if len(answer) < 60:
 			return "follow_up"
-		if not any(keyword in answer.lower() for keyword in ["result", "impact", "outcome", "%", "increased", "reduced"]):
-			return "follow_up"
-		return "next_bank_question"
+		
+		# Check for results/impact - strong indicator of complete answer
+		if any(keyword in answer.lower() for keyword in ["result", "impact", "outcome", "%", "increased", "reduced", "improved", "achieved", "delivered"]):
+			return "next_bank_question"
+		
+		# By default, follow up on longer answers without clear outcomes
+		return "follow_up"
 
 	def _parse_decision_json(self, raw_text: str) -> Dict[str, str]:
 		if not raw_text:
@@ -402,4 +473,3 @@ class Phi3FollowupGenerator:
 			if "next_bank_question" in lower or "next bank" in lower:
 				return {"action": "next_bank_question", "reason": "parsed_from_text"}
 			return {"action": "", "reason": "parse_failed"}
-
