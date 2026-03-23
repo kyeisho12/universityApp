@@ -342,7 +342,7 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
 }
 
 // ---------------------------------------------------------------------------
-// STAR Scoring — fallback signal (all 31 questions)
+// STAR Scoring — regex fallback (Path 3 only)
 // ---------------------------------------------------------------------------
 
 function scoreSituation(n: string): number {
@@ -433,8 +433,7 @@ export async function evaluateAnswer(
   const norm = normalizeText(answer);
   const wordCount = norm.split(' ').filter(Boolean).length;
 
-  // Gate: answers under 5 words are meaningless — return score 1 immediately
-  // This prevents short/garbage answers from being inflated by the dataset anchor
+  // Gate: answers under 3 words are meaningless — return score 1 immediately
   if (wordCount < 3) {
     const emptyBD: STARBreakdown = { situation: 1, task: 1, action: 1, result: 1, reflection: 1 };
     return {
@@ -455,23 +454,22 @@ export async function evaluateAnswer(
   const lookup = lookupDataset(question, answer);
   const hasDataset = lookup.item !== null && lookup.anchorScore !== null;
 
-  // Step 2: STAR breakdown (used as fallback signal in both paths)
-  const rawBD = computeBreakdown(norm, wordCount);
-  const blendedBD: STARBreakdown =
-    hasDataset && lookup.bestAnswerSimilarity > 0.1
-      ? blendBreakdowns(rawBD, lookup.item!.breakdown, Math.min(0.35, lookup.bestAnswerSimilarity * 0.5))
-      : rawBD;
-  const starScore = breakdownToScore(blendedBD);
+  // Step 2: ZSL pre-call — runs first, feeds into both Path 1 and Path 2
+  let zslBD: STARBreakdown | null = null;
+  try {
+    zslBD = await callZSLClassify(question, answer);
+  } catch (err) {
+    console.warn('[evaluateAnswer] ZSL pre-call failed, will retry in Path 2:',
+      err instanceof Error ? err.message : err);
+  }
 
-  // ── Path 1: RoBERTa Sentence Similarity ────────────────────────────────────
-  if (hasDataset && lookup.topAnswer) {
+  // ── Path 1: RoBERTa Sentence Similarity + ZSL breakdown ────────────────────
+  if (hasDataset && lookup.topAnswer && zslBD) {
     try {
-      // Get true semantic similarity (0–1) from RoBERTa
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
-
-      // Convert the 0–1 similarity to 1–5 Likert — this is the thesis claim
-      const targetScore = similarityToLikert(similarity, lookup.anchorScore!, starScore);
-      const scaledBD = scaleBDToTarget(blendedBD, targetScore);
+      const zslScore = breakdownToScore(zslBD);
+      const targetScore = similarityToLikert(similarity, lookup.anchorScore!, zslScore);
+      const scaledBD = scaleBDToTarget(zslBD, targetScore);
       const finalScore = breakdownToScore(scaledBD);
 
       return {
@@ -486,26 +484,21 @@ export async function evaluateAnswer(
         hrLabel: getHRLabel(finalScore),
       };
     } catch (err) {
-      console.warn('[evaluateAnswer] RoBERTa failed, using STAR fallback:',
+      console.warn('[evaluateAnswer] RoBERTa similarity failed, falling to Path 2:',
         err instanceof Error ? err.message : err);
     }
   }
 
-  // ── Path 2: ZSL RoBERTa Classification (genuine zero-shot) ─────────────────
-  // Uses cross-encoder/nli-roberta-base to score each STAR dimension independently.
-  // No reference answer needed — works on any question cold.
+  // ── Path 2: ZSL-only ────────────────────────────────────────────────────────
   try {
-    const zslBD = await callZSLClassify(question, answer);
-    const zslScore = breakdownToScore(zslBD);
-
-    // Blend ZSL score with dataset anchor if available
+    const bd = zslBD ?? await callZSLClassify(question, answer);
+    const zslScore = breakdownToScore(bd);
     const targetScore = Math.max(1, Math.min(5,
       hasDataset && lookup.anchorScore !== null
         ? similarityToLikert(lookup.bestAnswerSimilarity, lookup.anchorScore, zslScore)
         : zslScore
     ));
-
-    const scaledBD = scaleBDToTarget(zslBD, targetScore);
+    const scaledBD = scaleBDToTarget(bd, targetScore);
     const finalScore = breakdownToScore(scaledBD);
 
     return {
@@ -520,18 +513,23 @@ export async function evaluateAnswer(
       hrLabel: getHRLabel(finalScore),
     };
   } catch (err) {
-    console.warn('[evaluateAnswer] ZSL RoBERTa failed, using regex STAR:',
+    console.warn('[evaluateAnswer] ZSL failed entirely, using regex as last resort:',
       err instanceof Error ? err.message : err);
   }
 
   // ── Path 3: Regex STAR fallback (last resort, no network required) ──────────
+  const rawBD = computeBreakdown(norm, wordCount);
+  const blendedBD: STARBreakdown =
+    hasDataset && lookup.bestAnswerSimilarity > 0.1
+      ? blendBreakdowns(rawBD, lookup.item!.breakdown, Math.min(0.35, lookup.bestAnswerSimilarity * 0.5))
+      : rawBD;
+  const starScore = breakdownToScore(blendedBD);
   const jaccardSim = lookup.bestAnswerSimilarity;
   const targetScore = Math.max(1, Math.min(5,
     hasDataset && lookup.anchorScore !== null
       ? similarityToLikert(jaccardSim, lookup.anchorScore, starScore)
       : starScore
   ));
-
   const scaledBD = scaleBDToTarget(blendedBD, targetScore);
   const finalScore = breakdownToScore(scaledBD);
 
