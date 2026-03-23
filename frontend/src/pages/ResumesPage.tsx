@@ -873,6 +873,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 accept={ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}
                 className="hidden"
                 onChange={handleFileChange}
+                aria-label="Upload resume file"
               />
               <button
                 onClick={handleBrowseClick}
@@ -1029,6 +1030,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 <button
                   onClick={closeResumeBuilder}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close resume builder"
                 >
                   <X className="w-6 h-6 text-gray-600" />
                 </button>
@@ -1050,6 +1052,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                     onChange={(e) => setResumeName(e.target.value)}
                     placeholder="e.g., Software Developer Resume"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744] focus:border-transparent"
+                    aria-label="Resume name"
                   />
                 </div>
 
@@ -1067,6 +1070,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
                         placeholder="Juan Dela Cruz"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Full name"
                       />
                     </div>
                     <div>
@@ -1077,6 +1081,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
                         placeholder="juan@email.com"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Email"
                       />
                     </div>
                     <div>
@@ -1087,6 +1092,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
                         placeholder="+63 912 345 6789"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Phone number"
                       />
                     </div>
                     <div>
@@ -1097,6 +1103,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setPersonalInfo({ ...personalInfo, address: e.target.value })}
                         placeholder="City, Province"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Address"
                       />
                     </div>
                     <div>
@@ -1107,6 +1114,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setPersonalInfo({ ...personalInfo, linkedin: e.target.value })}
                         placeholder="linkedin.com/in/username"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="LinkedIn URL"
                       />
                     </div>
                     <div>
@@ -1117,6 +1125,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setPersonalInfo({ ...personalInfo, portfolio: e.target.value })}
                         placeholder="yourportfolio.com"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Portfolio or website"
                       />
                     </div>
                   </div>
@@ -1128,6 +1137,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       placeholder="Brief summary of your professional background and career objectives..."
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      aria-label="Professional summary"
                     />
                   </div>
                 </div>
@@ -1163,6 +1173,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Tarlac State University"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`School or university ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1177,6 +1188,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Bachelor of Science"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Degree ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1191,6 +1203,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Computer Science"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Field of study ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1205,6 +1218,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="3.5/4.0"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`GPA ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1218,6 +1232,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                             setEducationEntries(next);
                           }}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Education start date ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1231,6 +1246,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                             setEducationEntries(next);
                           }}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Education end date ${index + 1}`}
                         />
                       </div>
                     </div>
@@ -1276,6 +1292,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Company Name"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Company ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1290,6 +1307,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Job Title"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Position ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1303,6 +1321,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                             setExperienceEntries(next);
                           }}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Work start date ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1316,6 +1335,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                             setExperienceEntries(next);
                           }}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Work end date ${index + 1}`}
                         />
                       </div>
                     </div>
@@ -1329,6 +1349,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           setExperienceEntries(next);
                         }}
                         className="w-4 h-4 text-[#1B2744] rounded"
+                        aria-label="Currently working here"
                       />
                       <label className="text-sm text-gray-700">Currently working here</label>
                     </div>
@@ -1344,6 +1365,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         placeholder="Describe your responsibilities and achievements..."
                         rows={3}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label={`Work description ${index + 1}`}
                       />
                     </div>
                   </div>
@@ -1370,6 +1392,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       placeholder="JavaScript, React, Node.js, Python, SQL, Git, Agile, Communication..."
                       rows={3}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                      aria-label="Skills"
                     />
                     <p className="text-xs text-gray-500 mt-1">Enter your skills separated by commas</p>
                   </div>
@@ -1406,6 +1429,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Project Title"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Project name ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1420,6 +1444,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="React, Node.js, MongoDB"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Technologies used ${index + 1}`}
                         />
                       </div>
                     </div>
@@ -1435,6 +1460,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         }}
                         placeholder="github.com/username/project"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label={`Project link ${index + 1}`}
                       />
                     </div>
                     <div>
@@ -1447,6 +1473,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           setProjectEntries(next);
                         }}
                         placeholder="Brief description of the project and your contributions..."
+                        aria-label={`Project description ${index + 1}`}
                         rows={3}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
                       />
@@ -1493,6 +1520,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="AWS Certified Developer"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Certification name ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1507,6 +1535,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           }}
                           placeholder="Amazon Web Services"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Issuing organization ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1520,6 +1549,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                             setCertificationEntries(next);
                           }}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label={`Date issued ${index + 1}`}
                         />
                       </div>
                       <div>
@@ -1533,6 +1563,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                             setCertificationEntries(next);
                           }}
                           placeholder="ABC123XYZ"
+                          aria-label={`Credential ID ${index + 1}`}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
                         />
                       </div>
@@ -1588,6 +1619,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 <button
                   onClick={closeCoverLetterBuilder}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close cover letter builder"
                 >
                   <X className="w-6 h-6 text-gray-600" />
                 </button>
@@ -1608,6 +1640,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                     onChange={(e) => setCoverLetterName(e.target.value)}
                     placeholder="e.g., Cover Letter - Career Coach Position"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744] focus:border-transparent"
+                    aria-label="Cover letter name"
                   />
                 </div>
 
@@ -1622,6 +1655,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderName: e.target.value })}
                         placeholder="Joe Williams"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Your full name"
                       />
                     </div>
                     <div>
@@ -1632,6 +1666,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderTitle: e.target.value })}
                         placeholder="Career Coach/Resume Writer"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Professional title"
                       />
                     </div>
                     <div>
@@ -1642,6 +1677,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderPhone: e.target.value })}
                         placeholder="868-554-0430"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Your phone number"
                       />
                     </div>
                     <div>
@@ -1652,6 +1688,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderEmail: e.target.value })}
                         placeholder="joewilliams@gmail.com"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Your email"
                       />
                     </div>
                     <div>
@@ -1662,6 +1699,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, senderLocation: e.target.value })}
                         placeholder="Boston, MA"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Your location"
                       />
                     </div>
                     <div>
@@ -1671,6 +1709,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         value={coverLetterForm.letterDate}
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, letterDate: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Letter date"
                       />
                     </div>
                   </div>
@@ -1687,6 +1726,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, recipientName: e.target.value })}
                         placeholder="Ms. Jenny Johnson"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Hiring manager name"
                       />
                     </div>
                     <div>
@@ -1697,6 +1737,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, recipientTitle: e.target.value })}
                         placeholder="Human Resources"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Recipient title or department"
                       />
                     </div>
                     <div>
@@ -1707,6 +1748,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, companyName: e.target.value })}
                         placeholder="IHeartjobs"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Company name"
                       />
                     </div>
                     <div>
@@ -1717,6 +1759,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, companyAddress: e.target.value })}
                         placeholder="55 Bixby Way, Manchester, NH 40344"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Company address"
                       />
                     </div>
                   </div>
@@ -1733,6 +1776,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, positionTitle: e.target.value })}
                         placeholder="Career Counselor Position"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Position applying for"
                       />
                     </div>
                     <div>
@@ -1743,6 +1787,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         onChange={(e) => setCoverLetterForm({ ...coverLetterForm, salutation: e.target.value })}
                         placeholder="Dear Ms. Johnson,"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Salutation"
                       />
                     </div>
                     <div>
@@ -1753,6 +1798,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         placeholder="Introduce yourself, mention the role, and explain why you are interested."
                         rows={4}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Opening paragraph"
                       />
                     </div>
                     <div>
@@ -1763,6 +1809,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         placeholder="Highlight your relevant skills and achievements."
                         rows={4}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Experience paragraph"
                       />
                     </div>
                     <div>
@@ -1773,6 +1820,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                         placeholder="Close confidently, include contact preference, and thank the reader."
                         rows={4}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                        aria-label="Closing paragraph"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1784,6 +1832,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           onChange={(e) => setCoverLetterForm({ ...coverLetterForm, complimentaryClose: e.target.value })}
                           placeholder="Sincerely,"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label="Complimentary close"
                         />
                       </div>
                       <div>
@@ -1794,6 +1843,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                           onChange={(e) => setCoverLetterForm({ ...coverLetterForm, signatureName: e.target.value })}
                           placeholder="Joe Williams"
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2744]"
+                          aria-label="Signature name"
                         />
                       </div>
                     </div>

@@ -153,6 +153,7 @@ export default function StudentAnalytics() {
                     <div className="flex items-center justify-between px-6 py-4">
                         <div className="flex items-center gap-4">
                             <button
+                                aria-label="Open navigation menu"
                                 onClick={() => setMobileOpen(true)}
                                 className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
                             >

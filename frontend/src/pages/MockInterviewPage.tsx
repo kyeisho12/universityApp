@@ -560,6 +560,22 @@ function MockInterviewPageContent({
         };
       });
 
+      // Mark any lingering in_progress sessions as ended
+      // (these are abandoned sessions where the user closed/navigated away without ending)
+      const inProgressIds = mapped
+        .filter((s) => s.status === "in_progress")
+        .map((s) => s.id);
+
+      if (inProgressIds.length > 0) {
+        await supabase
+          .from("interview_sessions")
+          .update({ status: "ended", ended_at: new Date().toISOString() })
+          .in("id", inProgressIds);
+        mapped.forEach((s) => {
+          if (s.status === "in_progress") s.status = "ended";
+        });
+      }
+
       setHistorySessions(mapped);
     } catch (error) {
       console.error("Unexpected error loading interview history:", error);
@@ -1726,12 +1742,21 @@ function MockInterviewPageContent({
   }, [appendLiveChunkTranscript, isMicOn, isPaused, isSessionStarted]);
 
   const startLiveDraftTranscription = useCallback(() => {
+    // Brave blocks Google's Web Speech API at the network level — skip it immediately
+    if (isBraveBrowser()) {
+      setUseLiveChunkFallback(true);
+      setLiveDraftStatus(
+        "Brave browser detected. Using server-assisted transcription — transcription will appear after each recording segment is saved."
+      );
+      return;
+    }
+
     const speechCtor = getSpeechRecognitionAPI();
-    
+
     if (!speechCtor) {
       const isSupported = isSpeechRecognitionSupported();
       const instructions = getBrowserSpecificInstructions();
-      
+
       setUseLiveChunkFallback(true);
       setLiveDraftStatus(
         isSupported

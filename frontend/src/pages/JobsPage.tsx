@@ -1088,6 +1088,7 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Apply for {currentJob.title}</h3>
               <button
+                aria-label="Close"
                 onClick={closeApplyModal}
                 className="text-gray-500 hover:text-gray-700"
               >

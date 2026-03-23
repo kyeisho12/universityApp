@@ -263,6 +263,7 @@ const MyApplicationsPage: React.FC = () => {
             >
               <label className="block mb-2 font-medium">Cover Letter</label>
               <textarea
+                aria-label="Cover letter"
                 className="w-full border rounded p-2 mb-4"
                 rows={6}
                 value={editCoverLetter}
