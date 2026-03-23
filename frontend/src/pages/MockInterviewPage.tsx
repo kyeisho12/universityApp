@@ -3230,6 +3230,17 @@ function MockInterviewPageContent({
         <div className="flex-1 overflow-auto">
           {/* Content Area */}
           <div className="p-4 sm:p-6 lg:p-8">
+            {/* Back button */}
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={handleBackToDashboard}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Sessions
+              </button>
+            </div>
             {/* Page Header */}
             <div className="mb-5 sm:mb-8">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
@@ -3567,25 +3578,6 @@ function MockInterviewPageContent({
             className="p-2 rounded-md hover:bg-gray-100"
           >
             <Menu className="w-5 h-5 text-gray-700" />
-          </button>
-          <button
-            type="button"
-            onClick={handleBackToDashboard}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Sessions
-          </button>
-        </div>
-        {/* Desktop back button */}
-        <div className="hidden md:flex items-center px-4 pt-3 pb-0">
-          <button
-            type="button"
-            onClick={handleBackToDashboard}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Sessions
           </button>
         </div>
         {/* Recording Interface */}
