@@ -2711,55 +2711,98 @@ function MockInterviewPageContent({
     void stopMicLoopback();
   };
 
-  const handleExportSummary = useCallback(() => {
+  const handleExportSummary = useCallback(async () => {
+    // Load SheetJS from CDN
+    if (!(window as any).XLSX) {
+      await new Promise<void>((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("Failed to load SheetJS"));
+        document.head.appendChild(s);
+      });
+    }
+    const XLSX = (window as any).XLSX;
+
     const sessionStats = computeSessionSTARStats();
     const now = new Date().toLocaleString();
-    const lines: string[] = [
-      "=== Mock Interview Session Summary ===",
-      `Date: ${now}`,
-      `Session ID: ${sessionId || "N/A"}`,
-      `Overall Score: ${sessionStats.overallAverage.toFixed(2)} / 5 (${sessionStats.evaluatedCount} answers evaluated)`,
-      "",
-      "--- STAR Evaluation Breakdown ---",
-      `Situation Clarity:    ${sessionStats.situation.toFixed(2)} / 5`,
-      `Task Ownership:       ${sessionStats.task.toFixed(2)} / 5`,
-      `Action Taken:         ${sessionStats.action.toFixed(2)} / 5`,
-      `Result Measurability: ${sessionStats.result.toFixed(2)} / 5`,
-      `Reflection & Learning:${sessionStats.reflection.toFixed(2)} / 5`,
-      "",
-      "--- Questions & Evaluations ---",
+    const dateSlug = new Date().toISOString().slice(0, 10);
+
+    // ── Sheet 1: Summary ──────────────────────────────────────────────────────
+    const summaryRows = [
+      { Field: "Student Name",              Value: userName || "N/A" },
+      { Field: "Session ID",                Value: sessionId || "N/A" },
+      { Field: "Export Date",               Value: now },
+      { Field: "Overall Avg Score (1–5)",   Value: sessionStats.evaluatedCount > 0 ? sessionStats.overallAverage.toFixed(2) : "—" },
+      { Field: "Answers Evaluated",         Value: String(sessionStats.evaluatedCount) },
+      { Field: "Situation Clarity",         Value: sessionStats.evaluatedCount > 0 ? sessionStats.situation.toFixed(2) : "—" },
+      { Field: "Task Ownership",            Value: sessionStats.evaluatedCount > 0 ? sessionStats.task.toFixed(2) : "—" },
+      { Field: "Action Taken",              Value: sessionStats.evaluatedCount > 0 ? sessionStats.action.toFixed(2) : "—" },
+      { Field: "Result Measurability",      Value: sessionStats.evaluatedCount > 0 ? sessionStats.result.toFixed(2) : "—" },
+      { Field: "Reflection & Learning",     Value: sessionStats.evaluatedCount > 0 ? sessionStats.reflection.toFixed(2) : "—" },
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    wsSummary["!cols"] = [{ wch: 28 }, { wch: 60 }];
+
+    // ── Sheet 2: Question Details ─────────────────────────────────────────────
+    const questionRows = questions.map((q, idx) => {
+      const ev = (evaluations as Record<number, any>)[idx];
+      const bd = ev?.breakdown || {};
+      const score = ev?.score ?? (Object.keys(bd).length > 0
+        ? (Object.values(bd).reduce((s: number, v) => s + (Number(v) || 0), 0) as number) / Object.keys(bd).length
+        : null);
+      const transcript = lastEvaluatedTranscriptRef.current[idx] || "—";
+      return {
+        "Q#":               idx + 1,
+        "Question":         q.question,
+        "Answer Transcript": transcript,
+        "Score (1–5)":      score != null ? Number(score).toFixed(2) : "—",
+        "HR Label":         ev?.hrLabel ?? "—",
+        "Situation":        bd.situation != null ? Number(bd.situation).toFixed(2) : "—",
+        "Task":             bd.task != null ? Number(bd.task).toFixed(2) : "—",
+        "Action":           bd.action != null ? Number(bd.action).toFixed(2) : "—",
+        "Result":           bd.result != null ? Number(bd.result).toFixed(2) : "—",
+        "Reflection":       bd.reflection != null ? Number(bd.reflection).toFixed(2) : "—",
+        "Feedback":         ev?.feedback || "—",
+        "Dataset Similarity": ev?.datasetSimilarity != null
+          ? `${(ev.datasetSimilarity * 100).toFixed(0)}%` : "—",
+        "Evaluated At":     ev?.evaluatedAt ? new Date(ev.evaluatedAt).toLocaleString() : "—",
+      };
+    });
+    const wsDetail = XLSX.utils.json_to_sheet(questionRows);
+    wsDetail["!cols"] = [
+      { wch: 4 }, { wch: 45 }, { wch: 60 }, { wch: 12 }, { wch: 30 },
+      { wch: 11 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+      { wch: 40 }, { wch: 18 }, { wch: 22 },
     ];
 
-    questions.forEach((q, idx) => {
-      lines.push(`\nQ${idx + 1}: ${q.question}`);
-      const ev = (evaluations as Record<number, any>)[idx];
-      if (ev) {
-        const bd = ev.breakdown || {};
-        const score = ev.score ?? ((Object.values(bd).reduce((s: number, v) => s + (Number(v) || 0), 0) as number) / Math.max(Object.keys(bd).length, 1));
-        lines.push(`Score: ${Number(score).toFixed(2)} / 5`);
-        if (bd.situation) lines.push(`  Situation:  ${Number(bd.situation).toFixed(2)}`);
-        if (bd.task)      lines.push(`  Task:       ${Number(bd.task).toFixed(2)}`);
-        if (bd.action)    lines.push(`  Action:     ${Number(bd.action).toFixed(2)}`);
-        if (bd.result)    lines.push(`  Result:     ${Number(bd.result).toFixed(2)}`);
-        if (bd.reflection)lines.push(`  Reflection: ${Number(bd.reflection).toFixed(2)}`);
-        if (ev.feedback)  lines.push(`  Feedback: ${ev.feedback}`);
-      } else {
-        lines.push("Score: Not evaluated");
+    // Apply formatting (wrap text + center + bold header)
+    const range = XLSX.utils.decode_range(wsDetail["!ref"]);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!wsDetail[addr]) continue;
+        wsDetail[addr].s = {
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          font: R === 0 ? { bold: true } : {},
+        };
       }
-    });
-
-    if (fullSessionTranscript.trim()) {
-      lines.push("", "--- Full Session Transcript ---", fullSessionTranscript.trim());
     }
 
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mock-interview-summary-${new Date().toISOString().slice(0, 10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [computeSessionSTARStats, evaluations, fullSessionTranscript, questions, sessionId]);
+    // ── Sheet 3: Full Transcript ──────────────────────────────────────────────
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+    XLSX.utils.book_append_sheet(wb, wsDetail, "Question Details");
+
+    if (fullSessionTranscript.trim()) {
+      const wsTranscript = XLSX.utils.aoa_to_sheet([["Full Session Transcript"], [fullSessionTranscript.trim()]]);
+      wsTranscript["!cols"] = [{ wch: 100 }];
+      XLSX.utils.book_append_sheet(wb, wsTranscript, "Full Transcript");
+    }
+
+    const studentSlug = (userName || "student").replace(/\s+/g, "_").toLowerCase();
+    XLSX.writeFile(wb, `interview_${studentSlug}_${dateSlug}.xlsx`);
+  }, [computeSessionSTARStats, evaluations, fullSessionTranscript, questions, sessionId, userName]);
 
   const handleBackToDashboard = useCallback(async () => {
     if (isSessionStarted) {
