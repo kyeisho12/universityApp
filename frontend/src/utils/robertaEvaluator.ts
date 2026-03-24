@@ -31,6 +31,11 @@
 //   score = penalizedZslScore × (1 − anchorInfluence)
 //           + anchorScore × anchorInfluence
 //   Likert = clamp(score, 1, 5)
+//
+// SCORE ↔ BREAKDOWN CONTRACT:
+//   score is ALWAYS derived from breakdownToScore(finalBD) after scaling.
+//   The pre-scaling float is used only as the target for scaleBDToTarget().
+//   This guarantees the displayed breakdown average always equals the score.
 // ---------------------------------------------------------------------------
 
 import robertaDataset, { DatasetItem, STARBreakdown } from '../data/robertaDataset';
@@ -56,7 +61,7 @@ export interface EvaluationResult {
   datasetAnchorScore: number | null;
   datasetSimilarity: number;
   roberta_similarity: number;  // the 0–1 value the thesis refers to
-  score: number;               // final 1–5 Likert output
+  score: number;               // final 1–5 Likert output — always equals breakdownToScore(breakdown)
   breakdown: STARBreakdown;
   hrLabel: string;
   error?: string;
@@ -381,10 +386,6 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
     if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
   }
 
-  // if (import.meta.env.DEV) {
-  //   console.debug(`[lookupDataset] question="${question.slice(0, 40)}" bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0, 40) ?? 'none'}"`);
-  // }
-
   console.debug(`[lookupDataset] question="${question.slice(0, 40)}" bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0, 40) ?? 'none'}"`);
 
   if (!bestItem || bestQSim < DATASET_MATCH_THRESHOLD) {
@@ -492,6 +493,7 @@ function blendBreakdowns(a: STARBreakdown, b: STARBreakdown, bWeight: number): S
   };
 }
 
+// Plain average of the five STAR dimensions (floats accepted, result is float).
 function breakdownToScore(bd: STARBreakdown): number {
   return parseFloat(((bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5).toFixed(2));
 }
@@ -592,9 +594,12 @@ export async function evaluateAnswer(
       // ZSL quality gate — if penalized ZSL is below 2.0 the answer is too
       // weak to benefit from anchor blending. Return directly to prevent inflation.
       if (penalizedZslScore < 2.0) {
-        const rawScore = breakdownToScore(scaleBDToTarget(zslBD, penalizedZslScore));
-        const finalScore = isNegating ? Math.min(rawScore, 2) : rawScore;
-        const scaledBD = scaleBDToTarget(zslBD, finalScore);
+        const targetScore = isNegating
+          ? Math.min(penalizedZslScore, 2)
+          : penalizedZslScore;
+        // FIX: derive score FROM breakdown so they always match
+        const finalBD = scaleBDToTarget(zslBD, targetScore);
+        const finalScore = breakdownToScore(finalBD);
         return {
           source: 'roberta_similarity',
           matchedQuestion: lookup.item?.question ?? null,
@@ -603,7 +608,7 @@ export async function evaluateAnswer(
           datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
           roberta_similarity: parseFloat(similarity.toFixed(3)),
           score: finalScore,
-          breakdown: scaledBD,
+          breakdown: finalBD,
           hrLabel: getHRLabel(finalScore),
           ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
         };
@@ -625,11 +630,13 @@ export async function evaluateAnswer(
         : similarity < 0.70 ? 4
         : 5;
 
-      const cappedScore = Math.min(blendedScore, similarityCap);
-      const negationCappedScore = isNegating ? Math.min(cappedScore, 2) : cappedScore;
-      const cappedBD = negationCappedScore < blendedScore
-        ? scaleBDToTarget(zslBD, negationCappedScore)
-        : scaleBDToTarget(zslBD, blendedScore);
+      // FIX: compute a single agreed-upon target score, then derive everything from it.
+      // Previously, score was set to the pre-scaling float (negationCappedScore) while
+      // breakdown was scaled separately — causing a mismatch after integer rounding.
+      const cappedScore  = Math.min(blendedScore, similarityCap);
+      const targetScore  = isNegating ? Math.min(cappedScore, 2) : cappedScore;
+      const finalBD      = scaleBDToTarget(zslBD, targetScore);
+      const finalScore   = breakdownToScore(finalBD); // always matches breakdown
 
       return {
         source: 'roberta_similarity',
@@ -638,9 +645,9 @@ export async function evaluateAnswer(
         datasetAnchorScore: lookup.anchorScore,
         datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
         roberta_similarity: parseFloat(similarity.toFixed(3)),
-        score: negationCappedScore,
-        breakdown: cappedBD,
-        hrLabel: getHRLabel(negationCappedScore),
+        score: finalScore,
+        breakdown: finalBD,
+        hrLabel: getHRLabel(finalScore),
         ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
       };
     } catch (err) {
@@ -656,7 +663,7 @@ export async function evaluateAnswer(
     const lengthFactor = Math.min(1.0, wordCount / 50);
     const penalizedZslScore = zslScore * lengthFactor;
 
-    const targetScore = Math.max(1, Math.min(5,
+    const rawTarget = Math.max(1, Math.min(5,
       hasDataset && lookup.anchorScore !== null
         ? similarityToLikert(lookup.bestAnswerSimilarity, lookup.anchorScore, penalizedZslScore)
         : penalizedZslScore
@@ -669,11 +676,12 @@ export async function evaluateAnswer(
       : specificityScore < 0.3 ? 3
       : specificityScore < 0.5 ? 4
       : 5;
-    const cappedTarget = Math.min(targetScore, path2Cap);
-    const negationCappedTarget = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
 
-    const scaledBD = scaleBDToTarget(bd, negationCappedTarget);
-    const finalScore = breakdownToScore(scaledBD);
+    // FIX: single target score → scale BD → derive score from BD
+    const cappedTarget  = Math.min(rawTarget, path2Cap);
+    const targetScore   = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
+    const finalBD       = scaleBDToTarget(bd, targetScore);
+    const finalScore    = breakdownToScore(finalBD);
 
     return {
       source: 'zsl_roberta',
@@ -683,7 +691,7 @@ export async function evaluateAnswer(
       datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
       roberta_similarity: 0,
       score: finalScore,
-      breakdown: scaledBD,
+      breakdown: finalBD,
       hrLabel: getHRLabel(finalScore),
       ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
     };
@@ -701,16 +709,16 @@ export async function evaluateAnswer(
   const starScore = breakdownToScore(blendedBD);
   const jaccardSim = lookup.bestAnswerSimilarity;
 
-  const targetScore = Math.max(1, Math.min(5,
+  const rawTarget = Math.max(1, Math.min(5,
     hasDataset && lookup.anchorScore !== null
       ? similarityToLikert(jaccardSim, lookup.anchorScore, starScore)
       : starScore
   ));
 
-  const scaledBD = scaleBDToTarget(blendedBD, targetScore);
-  const rawFinalScore = breakdownToScore(scaledBD);
-  const finalScore = isNegating ? Math.min(rawFinalScore, 2) : rawFinalScore;
-  const finalBD = finalScore < rawFinalScore ? scaleBDToTarget(blendedBD, finalScore) : scaledBD;
+  // FIX: single target score → scale BD → derive score from BD
+  const targetScore = isNegating ? Math.min(rawTarget, 2) : rawTarget;
+  const finalBD    = scaleBDToTarget(blendedBD, targetScore);
+  const finalScore = breakdownToScore(finalBD);
 
   return {
     source: 'zsl_star_fallback',
