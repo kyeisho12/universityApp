@@ -15,6 +15,8 @@ def build_followup_prompt(
 		"- One short question only. No labels, bullets, quotes, or explanations.\n"
 		"- Use only details the candidate explicitly mentioned. Do not introduce new topics.\n"
 		"- If the answer is vague or incomplete, ask the candidate to clarify or provide more detail.\n"
+		"- If the original question asks about future plans, goals, or self-improvement: ask about their specific plan, next steps, or what they are already doing — NOT past examples.\n"
+		"- If the original question asks about past experience or behavior: ask for specific details (what exactly happened, what was the outcome).\n"
 		"- If the answer is incoherent, rambling, or doesn't make sense, respond with just: SKIP_FOLLOWUP\n"
 		"- Only generate a follow-up if the answer is coherent enough to build upon.\n\n"
 		f"Category: {interview_category}\n"
