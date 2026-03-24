@@ -171,20 +171,61 @@ async function callRoBERTaSimilarity(
 // No reference answer needed — works on any question.
 // ---------------------------------------------------------------------------
 
-// Fix 2: Short, distinct labels — ZSL/MNLI models classify more accurately
-// when labels are brief and non-overlapping. [0]=strong [1]=partial [2]=absent.
+// Labels: specific enough for the NLI model to score correctly,
+// short enough to stay distinct. [0]=strong(5) [1]=partial(3) [2]=absent(1).
 const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
-  situation:  ['clear situation',  'vague situation',  'no situation'],
-  task:       ['clear task',       'vague task',       'no task'],
-  action:     ['clear action',     'vague action',     'no action'],
-  result:     ['clear result',     'vague result',     'no result'],
-  reflection: ['clear reflection', 'vague reflection', 'no reflection'],
+  situation:  ['describes a specific past situation', 'mentions a general situation', 'no situation mentioned'],
+  task:       ['clearly states their role or responsibility', 'vaguely mentions a role', 'no role mentioned'],
+  action:     ['describes specific actions they took', 'mentions actions without detail', 'no action described'],
+  result:     ['states a clear or measurable outcome', 'mentions a vague outcome', 'no outcome mentioned'],
+  reflection: ['shares a lesson learned or insight', 'hints at growth without stating it', 'no reflection at all'],
 };
 
-// Fix 1: Weighted average — stable because probabilities sum to ~1.
+// Weighted average — stable because probabilities sum to ~1.
 // strong→5, partial→3, absent→1. No subtraction, no clamping issues.
 function probabilityToLikert(strong: number, mid: number, weak: number): number {
   return Math.max(1, Math.min(5, Math.round(strong * 5 + mid * 3 + weak * 1)));
+}
+
+// Classify a single STAR dimension — extracted so it can be batched.
+async function classifyDimension(
+  dim: keyof STARBreakdown,
+  text: string
+): Promise<[keyof STARBreakdown, number]> {
+  const controller = new AbortController();
+  const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/hf-classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        inputs: text,
+        candidate_labels: ZSL_LABELS[dim],
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`ZSL classify error ${res.status}`);
+    const data = await res.json();
+
+    // Guard against malformed API response before indexing.
+    if (!data.labels || !data.scores) throw new Error('Invalid ZSL response');
+
+    const labelIdx = (label: string) => (data.labels as string[]).indexOf(label);
+    const strongIdx = labelIdx(ZSL_LABELS[dim][0]);
+    const midIdx    = labelIdx(ZSL_LABELS[dim][1]);
+    const weakIdx   = labelIdx(ZSL_LABELS[dim][2]);
+
+    const strong = strongIdx >= 0 ? data.scores[strongIdx] : 0;
+    const mid    = midIdx    >= 0 ? data.scores[midIdx]    : 0;
+    const weak   = weakIdx   >= 0 ? data.scores[weakIdx]   : 0;
+
+    return [dim, probabilityToLikert(strong, mid, weak)];
+  } catch {
+    // Per-dimension fallback — one failed request doesn't fail all five.
+    return [dim, 1];
+  } finally {
+    window.clearTimeout(tid);
+  }
 }
 
 async function callZSLClassify(
@@ -193,50 +234,18 @@ async function callZSLClassify(
 ): Promise<STARBreakdown> {
   if (!BACKEND_URL) throw new Error('VITE_BACKEND_URL is not set.');
 
-  // Fix 5: Slice the combined string — preserves meaning instead of cutting each part mid-sentence.
+  // Slice the combined string — preserves meaning instead of cutting each part mid-sentence.
   const text = `Question: ${question}\nAnswer: ${answer}`.slice(0, 600);
 
   const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
 
-  // Fix 4: Run all 5 requests in parallel — ~5x faster than sequential.
-  const dimScores = await Promise.all(
-    dims.map(async (dim): Promise<[keyof STARBreakdown, number]> => {
-      const controller = new AbortController();
-      const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/hf-classify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inputs: text,
-            candidate_labels: ZSL_LABELS[dim],
-          }),
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`ZSL classify error ${res.status}`);
-        const data = await res.json();
-
-        // Fix 3: Guard against malformed API response before indexing.
-        if (!data.labels || !data.scores) throw new Error('Invalid ZSL response');
-
-        const labelIdx = (label: string) => (data.labels as string[]).indexOf(label);
-        const strongIdx = labelIdx(ZSL_LABELS[dim][0]);
-        const midIdx    = labelIdx(ZSL_LABELS[dim][1]);
-        const weakIdx   = labelIdx(ZSL_LABELS[dim][2]);
-
-        const strong = strongIdx >= 0 ? data.scores[strongIdx] : 0;
-        const mid    = midIdx    >= 0 ? data.scores[midIdx]    : 0;
-        const weak   = weakIdx   >= 0 ? data.scores[weakIdx]   : 0;
-
-        return [dim, probabilityToLikert(strong, mid, weak)];
-      } catch {
-        // Fix 6: Per-dimension fallback — one failed request doesn't fail all five.
-        return [dim, 1];
-      } finally {
-        window.clearTimeout(tid);
-      }
-    })
-  );
+  // Run in batches of 2 to avoid overwhelming the backend with simultaneous requests.
+  const dimScores: [keyof STARBreakdown, number][] = [];
+  for (let i = 0; i < dims.length; i += 2) {
+    const batch = dims.slice(i, i + 2);
+    const batchResults = await Promise.all(batch.map(dim => classifyDimension(dim, text)));
+    dimScores.push(...batchResults);
+  }
 
   const scores = Object.fromEntries(dimScores) as Record<keyof STARBreakdown, number>;
 
