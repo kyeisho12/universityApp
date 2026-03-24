@@ -510,32 +510,17 @@ export async function evaluateAnswer(
         };
       }
 
-      // Convert the 0–1 similarity to 1–5 Likert — this is the thesis claim
-      let targetScore: number;
-
-      if (lookup.bestAnswerSimilarity < 0.20) {
-        targetScore = zslScore; // skip anchor entirely
-      } else if (similarity < 0.3) {
-        targetScore = zslScore;
-      } else if (similarity < 0.6) {
-        targetScore = similarityToLikert(similarity * 0.5, lookup.anchorScore!, zslScore);  
-      } else {
-        targetScore = similarityToLikert(similarity, lookup.anchorScore!, zslScore);
-      }
+      // Anchor influence scales with ZSL quality — weak answers get less anchor
+      // help, so the dataset cannot inflate a poor answer toward the mean.
+      // anchorInfluence: 0→0.9 proportional to penalizedZslScore (max at score=5).
+      // Also scaled by RoBERTa similarity so low-similarity matches contribute less.
+      const anchorInfluence = Math.min(0.9, (penalizedZslScore / 5) * 0.9) * similarity;
+      const targetScore = Math.max(1, Math.min(5,
+        penalizedZslScore * (1 - anchorInfluence) + lookup.anchorScore! * anchorInfluence
+      ));
 
       const scaledBD = scaleBDToTarget(zslBD, targetScore);
       const finalScore = breakdownToScore(scaledBD);
-
-      // After computing finalScore in Path 1
-      const similarityCap = similarity < 0.35 && zslScore < 2.5 ? 2
-        : similarity < 0.50 && zslScore < 2.5 ? 3
-        : similarity < 0.70 ? 4
-        : 5;
-      const cappedScore = Math.min(finalScore, similarityCap);
-
-      const cappedBD = cappedScore < finalScore
-        ? scaleBDToTarget(zslBD, cappedScore)
-        : scaledBD;
 
       return {
         source: 'roberta_similarity',
@@ -544,9 +529,9 @@ export async function evaluateAnswer(
         datasetAnchorScore: lookup.anchorScore,
         datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
         roberta_similarity: parseFloat(similarity.toFixed(3)),
-        score: cappedScore,
-        breakdown: cappedBD,
-        hrLabel: getHRLabel(cappedScore),
+        score: finalScore,
+        breakdown: scaledBD,
+        hrLabel: getHRLabel(finalScore),
       };
     } catch (err) {
       console.warn('[evaluateAnswer] RoBERTa similarity failed, falling to Path 2:',
