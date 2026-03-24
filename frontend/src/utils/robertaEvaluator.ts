@@ -446,7 +446,7 @@ export async function evaluateAnswer(
 
   // Gate: answers under 5 words are meaningless — return score 1 immediately
   // This prevents short/garbage answers from being inflated by the dataset anchor
-  if (wordCount < 3) {
+  if (wordCount < 10) {
     const emptyBD: STARBreakdown = { situation: 1, task: 1, action: 1, result: 1, reflection: 1 };
     return {
       source: 'zsl_star_fallback',
