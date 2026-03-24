@@ -522,8 +522,8 @@ export async function evaluateAnswer(
       const finalScore = breakdownToScore(scaledBD);
 
       // After computing finalScore in Path 1
-      const similarityCap = similarity < 0.35 ? 2
-        : similarity < 0.50 ? 3
+      const similarityCap = similarity < 0.35 && zslScore < 3 ? 2
+        : similarity < 0.50 && zslScore < 3 ? 3
         : similarity < 0.70 ? 4
         : 5;
       const cappedScore = Math.min(finalScore, similarityCap);
