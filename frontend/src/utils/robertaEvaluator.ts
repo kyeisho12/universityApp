@@ -83,7 +83,8 @@ function getHRLabel(score: number): string {
 
 function normalizeText(s: string): string {
   return s.toLowerCase()
-    .replace(/["'`.,()—\-]/g, '')
+    .replace(/["'`.,()—]/g, '')   // remove punctuation (not hyphens)
+    .replace(/-/g, ' ')            // hyphen → space so "re-structured" → "re structured"
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -199,8 +200,9 @@ const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
 
 // Weighted average — stable because probabilities sum to ~1.
 // strong→5, partial→3, absent→1.
+// Clamp the float first, then round — prevents rounding below floor (e.g. 0.4 → 0).
 function probabilityToLikert(strong: number, mid: number, weak: number): number {
-  return Math.max(1, Math.min(5, Math.round(strong * 5 + mid * 3 + weak * 1)));
+  return Math.round(Math.max(1, Math.min(5, strong * 5 + mid * 3 + weak * 1)));
 }
 
 async function classifyDimension(
@@ -476,14 +478,17 @@ function computeBreakdown(n: string, wc: number): STARBreakdown {
   };
 }
 
+// Blend two breakdowns by weight. Rounding is deferred to the consumer
+// (breakdownToScore works fine on floats; scaleBDToTarget rounds at the end).
+// Early rounding loses fractional information, especially near boundaries like 2.5.
 function blendBreakdowns(a: STARBreakdown, b: STARBreakdown, bWeight: number): STARBreakdown {
   const aw = 1 - bWeight;
   return {
-    situation:  Math.round(a.situation  * aw + b.situation  * bWeight),
-    task:       Math.round(a.task       * aw + b.task       * bWeight),
-    action:     Math.round(a.action     * aw + b.action     * bWeight),
-    result:     Math.round(a.result     * aw + b.result     * bWeight),
-    reflection: Math.round(a.reflection * aw + b.reflection * bWeight),
+    situation:  Math.min(5, Math.max(1, a.situation  * aw + b.situation  * bWeight)),
+    task:       Math.min(5, Math.max(1, a.task       * aw + b.task       * bWeight)),
+    action:     Math.min(5, Math.max(1, a.action     * aw + b.action     * bWeight)),
+    result:     Math.min(5, Math.max(1, a.result     * aw + b.result     * bWeight)),
+    reflection: Math.min(5, Math.max(1, a.reflection * aw + b.reflection * bWeight)),
   };
 }
 
@@ -491,16 +496,36 @@ function breakdownToScore(bd: STARBreakdown): number {
   return parseFloat(((bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5).toFixed(2));
 }
 
+// Scale a breakdown toward a target average score while preserving the relative
+// shape of the answer (strong dims stay strong, weak dims absorb more correction).
+//
+// Strategy: compute the delta between target and current average, then distribute
+// that delta weighted inversely by each dimension's distance from the target —
+// dims further from the target absorb proportionally more of the correction.
+// Falls back to uniform scaling when all dims are equal (flat breakdown).
 function scaleBDToTarget(bd: STARBreakdown, targetScore: number): STARBreakdown {
-  const avg = (bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5;
-  const ratio = avg > 0 ? Math.min(5, targetScore / avg) : 1;
-  return {
-    situation:  Math.min(5, Math.max(1, Math.round(bd.situation  * ratio))),
-    task:       Math.min(5, Math.max(1, Math.round(bd.task       * ratio))),
-    action:     Math.min(5, Math.max(1, Math.round(bd.action     * ratio))),
-    result:     Math.min(5, Math.max(1, Math.round(bd.result     * ratio))),
-    reflection: Math.min(5, Math.max(1, Math.round(bd.reflection * ratio))),
-  };
+  const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
+  const avg = dims.reduce((s, d) => s + bd[d], 0) / 5;
+  const delta = targetScore - avg;
+
+  if (Math.abs(delta) < 0.01) return { ...bd };   // already at target
+
+  // Weight each dim by how far it is from the target (more room → more correction).
+  const gaps = dims.map(d => Math.abs(targetScore - bd[d]));
+  const totalGap = gaps.reduce((s, g) => s + g, 0);
+
+  let scaled: Partial<STARBreakdown> = {};
+  if (totalGap < 0.01) {
+    // Flat breakdown — fall back to uniform shift
+    for (const d of dims) scaled[d] = Math.min(5, Math.max(1, bd[d] + delta));
+  } else {
+    for (let i = 0; i < dims.length; i++) {
+      const correction = delta * (gaps[i] / totalGap) * dims.length;
+      scaled[dims[i]] = Math.min(5, Math.max(1, Math.round(bd[dims[i]] + correction)));
+    }
+  }
+
+  return scaled as STARBreakdown;
 }
 
 // ---------------------------------------------------------------------------
@@ -531,25 +556,12 @@ export async function evaluateAnswer(
     };
   }
 
-  // ── Gate 2: Negation — answers that explicitly deny quality cap at 2 ────────
-  // Detects self-dismissive language like "I didn't really do anything special",
-  // "I just did what was required", "nothing major". Applied before all paths
-  // so that high RoBERTa similarity cannot inflate a self-dismissive answer.
-  if (isNegatingAnswer(norm)) {
-    const negBD: STARBreakdown = { situation: 2, task: 2, action: 2, result: 2, reflection: 2 };
-    return {
-      source: 'zsl_star_fallback',
-      matchedQuestion: null,
-      questionAvgScore: null,
-      datasetAnchorScore: null,
-      datasetSimilarity: 0,
-      roberta_similarity: 0,
-      score: 2,
-      breakdown: negBD,
-      hrLabel: 'Fair — Below Standard',
-      error: 'Answer flagged as self-dismissive or negating.',
-    };
-  }
+  // ── Gate 2: Negation — flag self-dismissive answers; cap enforced at blend time ─
+  // Detects language like "I didn't really do anything special", "I just did what
+  // was required". Rather than returning immediately with a uniform {2,2,2,2,2}
+  // breakdown (which discards real ZSL signal), we let the pipeline run normally
+  // and clamp the final score to 2 at the end of whichever path fires.
+  const isNegating = isNegatingAnswer(norm);
 
   // Pre-compute specificity score — used in Path 1 cap decision
   const specificityScore = computeSpecificityScore(norm, wordCount);
@@ -580,8 +592,9 @@ export async function evaluateAnswer(
       // ZSL quality gate — if penalized ZSL is below 2.0 the answer is too
       // weak to benefit from anchor blending. Return directly to prevent inflation.
       if (penalizedZslScore < 2.0) {
-        const scaledBD = scaleBDToTarget(zslBD, penalizedZslScore);
-        const finalScore = breakdownToScore(scaledBD);
+        const rawScore = breakdownToScore(scaleBDToTarget(zslBD, penalizedZslScore));
+        const finalScore = isNegating ? Math.min(rawScore, 2) : rawScore;
+        const scaledBD = scaleBDToTarget(zslBD, finalScore);
         return {
           source: 'roberta_similarity',
           matchedQuestion: lookup.item?.question ?? null,
@@ -592,6 +605,7 @@ export async function evaluateAnswer(
           score: finalScore,
           breakdown: scaledBD,
           hrLabel: getHRLabel(finalScore),
+          ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
         };
       }
 
@@ -612,8 +626,9 @@ export async function evaluateAnswer(
         : 5;
 
       const cappedScore = Math.min(blendedScore, similarityCap);
-      const cappedBD = cappedScore < blendedScore
-        ? scaleBDToTarget(zslBD, cappedScore)
+      const negationCappedScore = isNegating ? Math.min(cappedScore, 2) : cappedScore;
+      const cappedBD = negationCappedScore < blendedScore
+        ? scaleBDToTarget(zslBD, negationCappedScore)
         : scaleBDToTarget(zslBD, blendedScore);
 
       return {
@@ -623,9 +638,10 @@ export async function evaluateAnswer(
         datasetAnchorScore: lookup.anchorScore,
         datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
         roberta_similarity: parseFloat(similarity.toFixed(3)),
-        score: cappedScore,
+        score: negationCappedScore,
         breakdown: cappedBD,
-        hrLabel: getHRLabel(cappedScore),
+        hrLabel: getHRLabel(negationCappedScore),
+        ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
       };
     } catch (err) {
       console.warn('[evaluateAnswer] RoBERTa similarity failed, falling to Path 2:',
@@ -646,11 +662,17 @@ export async function evaluateAnswer(
         : penalizedZslScore
     ));
 
-    // Apply specificity cap in Path 2 as well
-    const path2Cap = specificityScore < 0.2 ? 2 : specificityScore < 0.3 ? 3 : 5;
+    // Apply specificity cap in Path 2 as well.
+    // Four tiers prevent the cliff-edge jump from 3 → uncapped 5 that existed
+    // when specificityScore crossed 0.3.
+    const path2Cap = specificityScore < 0.2 ? 2
+      : specificityScore < 0.3 ? 3
+      : specificityScore < 0.5 ? 4
+      : 5;
     const cappedTarget = Math.min(targetScore, path2Cap);
+    const negationCappedTarget = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
 
-    const scaledBD = scaleBDToTarget(bd, cappedTarget);
+    const scaledBD = scaleBDToTarget(bd, negationCappedTarget);
     const finalScore = breakdownToScore(scaledBD);
 
     return {
@@ -663,6 +685,7 @@ export async function evaluateAnswer(
       score: finalScore,
       breakdown: scaledBD,
       hrLabel: getHRLabel(finalScore),
+      ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
     };
   } catch (err) {
     console.warn('[evaluateAnswer] ZSL failed entirely, using regex as last resort:',
@@ -685,7 +708,9 @@ export async function evaluateAnswer(
   ));
 
   const scaledBD = scaleBDToTarget(blendedBD, targetScore);
-  const finalScore = breakdownToScore(scaledBD);
+  const rawFinalScore = breakdownToScore(scaledBD);
+  const finalScore = isNegating ? Math.min(rawFinalScore, 2) : rawFinalScore;
+  const finalBD = finalScore < rawFinalScore ? scaleBDToTarget(blendedBD, finalScore) : scaledBD;
 
   return {
     source: 'zsl_star_fallback',
@@ -695,9 +720,11 @@ export async function evaluateAnswer(
     datasetSimilarity: parseFloat(jaccardSim.toFixed(3)),
     roberta_similarity: 0,
     score: finalScore,
-    breakdown: scaledBD,
+    breakdown: finalBD,
     hrLabel: getHRLabel(finalScore),
-    error: 'All RoBERTa paths unavailable. Regex STAR heuristic used as last resort.',
+    error: isNegating
+      ? 'Answer flagged as self-dismissive or negating.'
+      : 'All RoBERTa paths unavailable. Regex STAR heuristic used as last resort.',
   };
 }
 
