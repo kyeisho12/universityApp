@@ -596,6 +596,7 @@ export async function transcribeLiveAudioChunk({ audioBlob, language = 'en' }) {
  *   idealAnswer?: string | null,
  *   remainingBankQuestions?: number,
  *   followupCountForCurrent?: number,
+ *   bankQuestionPool?: Array<{id: string, question: string}>,
  * }} params
  */
 export async function decideNextQuestionStep({
@@ -605,6 +606,7 @@ export async function decideNextQuestionStep({
 	idealAnswer = null,
 	remainingBankQuestions = 0,
 	followupCountForCurrent = 0,
+	bankQuestionPool = [],
 }) {
 	if (!currentQuestion || !candidateAnswer) {
 		return { data: null, error: new Error('Missing currentQuestion or candidateAnswer') }
@@ -639,6 +641,9 @@ export async function decideNextQuestionStep({
 						ideal_answer: idealAnswer,
 						remaining_bank_questions: remainingBankQuestions,
 						followup_count_for_current: followupCountForCurrent,
+						bank_question_pool: bankQuestionPool.length > 0
+							? bankQuestionPool.map((q) => ({ id: q.id, question: q.question }))
+							: undefined,
 					}),
 				})
 				clearTimeout(timeoutId)

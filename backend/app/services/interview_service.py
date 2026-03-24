@@ -820,6 +820,12 @@ class InterviewService:
             ideal_answer = (data.get("ideal_answer") or "").strip() or None
             remaining_bank_questions = int(data.get("remaining_bank_questions") or 0)
             followup_count_for_current = int(data.get("followup_count_for_current") or 0)
+            raw_pool = data.get("bank_question_pool")
+            bank_question_pool = (
+                [{"id": str(q.get("id") or ""), "question": str(q.get("question") or "")} for q in raw_pool if isinstance(q, dict)]
+                if isinstance(raw_pool, list)
+                else None
+            )
 
             if not current_question:
                 return {
@@ -840,6 +846,7 @@ class InterviewService:
                 candidate_answer=candidate_answer,
                 remaining_bank_questions=remaining_bank_questions,
                 followup_count_for_current=followup_count_for_current,
+                bank_question_pool=bank_question_pool,
             )
 
             logger.info(
@@ -862,6 +869,8 @@ class InterviewService:
                 "reason": decision_result.get("reason"),
                 "source": decision_result.get("source", "unknown"),
             }
+            if action == "next_bank_question" and decision_result.get("selected_question_id"):
+                response_data["selected_question_id"] = decision_result["selected_question_id"]
 
             if action == "follow_up":
                 followup_result = self.phi3_followup_generator.generate_followup_question(

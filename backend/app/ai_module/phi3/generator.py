@@ -2,7 +2,7 @@ import os
 import re
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -241,6 +241,7 @@ class Phi3FollowupGenerator:
 		candidate_answer: str,
 		remaining_bank_questions: int,
 		followup_count_for_current: int,
+		bank_question_pool: Optional[List[Dict]] = None,
 	) -> Dict[str, Any]:
 		if remaining_bank_questions <= 0 or followup_count_for_current >= 1:
 			return {
@@ -264,6 +265,7 @@ class Phi3FollowupGenerator:
 			candidate_answer=candidate_answer,
 			remaining_bank_questions=remaining_bank_questions,
 			followup_count_for_current=followup_count_for_current,
+			bank_question_pool=bank_question_pool,
 		)
 
 		try:
@@ -271,7 +273,7 @@ class Phi3FollowupGenerator:
 				prompt=prompt,
 				temperature=0.1,
 				top_p=0.8,
-				max_tokens=80,
+				max_tokens=150,
 			)
 
 			if not generation.get("success"):
@@ -290,12 +292,15 @@ class Phi3FollowupGenerator:
 				parsed["action"] = self._fallback_action(candidate_answer)
 				parsed["reason"] = parsed.get("reason") or "unrecognized_action"
 
-			return {
+			result: Dict[str, Any] = {
 				"success": True,
 				"action": parsed["action"],
 				"reason": parsed.get("reason") or "phi3_decision",
 				"source": generation.get("source", "unknown"),
 			}
+			if parsed.get("selected_question_id"):
+				result["selected_question_id"] = parsed["selected_question_id"]
+			return result
 		except Exception:
 			default_action = self._fallback_action(candidate_answer)
 			return {
@@ -465,7 +470,11 @@ class Phi3FollowupGenerator:
 			payload = json.loads(candidate)
 			action = str(payload.get("action") or "").strip()
 			reason = str(payload.get("reason") or "").strip()
-			return {"action": action, "reason": reason}
+			selected_question_id = str(payload.get("selected_question_id") or "").strip()
+			result: Dict[str, str] = {"action": action, "reason": reason}
+			if selected_question_id:
+				result["selected_question_id"] = selected_question_id
+			return result
 		except Exception:
 			lower = raw_text.lower()
 			if "follow_up" in lower or "follow-up" in lower:

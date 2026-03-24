@@ -93,6 +93,7 @@ type DecideNextQuestionArgs = {
   idealAnswer?: string;
   remainingBankQuestions?: number;
   followupCountForCurrent?: number;
+  bankQuestionPool?: { id: string; question: string }[];
 };
 
 const getMockInterviewQuestionsExcludingTyped =
@@ -182,7 +183,14 @@ function buildEmergencyFollowupQuestion(candidateAnswer: string): string {
   ) {
     return "What was the hardest decision you made in that situation, and why?";
   }
-  return "If you faced the same situation again, what would you do differently and why?";
+  const fallbacks = [
+    "What was the most important factor in your decision-making process there?",
+    "How did you validate that your approach was working as expected?",
+    "What would you tell someone facing a similar situation?",
+    "What aspect of that experience do you think was most critical to the outcome?",
+    "How did you know you were on the right track during that process?",
+  ];
+  return fallbacks[answer.length % fallbacks.length];
 }
 
 function extractSegmentTranscriptFallback(
@@ -1101,7 +1109,7 @@ function MockInterviewPageContent({
           // ─────────────────────────────────────────────────────────────
 
           setEvaluations((prev) => {
-            const next = { ...(prev || {}), [qIndex]: { ...result, evaluatedAt: new Date().toISOString() } };
+            const next = { ...(prev || {}), [qIndex]: { ...result, evaluatedAt: new Date().toISOString(), transcript: transcriptText } };
             // persist per-stateKey so results survive reloads for this mock interview
             try {
               if (stateKey) {
@@ -2372,6 +2380,7 @@ function MockInterviewPageContent({
           category: activeQuestion.type,
           remainingBankQuestions: bankQuestionPool.length,
           followupCountForCurrent,
+          bankQuestionPool: bankQuestionPool.map((q) => ({ id: q.id, question: q.question })),
         });
       } finally {
         setIsDecidingNextQuestion(false);
@@ -2473,7 +2482,13 @@ function MockInterviewPageContent({
       }
 
       if (nextPool.length > 0) {
-        const [nextBankQuestion, ...remainingPool] = nextPool;
+        const selectedId = decisionResult.data?.selected_question_id;
+        const selectedIdx = selectedId ? nextPool.findIndex((q) => q.id === selectedId) : -1;
+        const orderedPool =
+          selectedIdx > 0
+            ? [nextPool[selectedIdx], ...nextPool.slice(0, selectedIdx), ...nextPool.slice(selectedIdx + 1)]
+            : nextPool;
+        const [nextBankQuestion, ...remainingPool] = orderedPool;
         setPreparedNextAction({
           kind: "bank",
           question: nextBankQuestion,
@@ -2751,7 +2766,7 @@ function MockInterviewPageContent({
       const score = ev?.score ?? (Object.keys(bd).length > 0
         ? (Object.values(bd).reduce((s: number, v) => s + (Number(v) || 0), 0) as number) / Object.keys(bd).length
         : null);
-      const transcript = lastEvaluatedTranscriptRef.current[idx] || "—";
+      const transcript = lastEvaluatedTranscriptRef.current[idx] || ev?.transcript || "—";
       return {
         "Q#":               idx + 1,
         "Question":         q.question,
