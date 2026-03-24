@@ -171,14 +171,14 @@ async function callRoBERTaSimilarity(
 // No reference answer needed — works on any question.
 // ---------------------------------------------------------------------------
 
-// Labels: specific enough for the NLI model to score correctly,
-// short enough to stay distinct. [0]=strong(5) [1]=partial(3) [2]=absent(1).
+// Labels require specificity — forces the NLI model to penalize vague/generic answers.
+// [0]=strong(5): must have concrete detail  [1]=partial(3): general but present  [2]=absent(1)
 const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
-  situation:  ['describes a specific past experience with time and place', 'mentions a general background or context', 'no background or situation mentioned'],
-  task:       ['clearly states a specific role and concrete responsibility', 'vaguely mentions a goal or intention', 'no role or responsibility mentioned'],
-  action:     ['describes concrete specific steps they personally executed', 'mentions doing something without any detail', 'no action or effort described'],
-  result:     ['states a measurable or clearly observable outcome', 'mentions a vague or assumed outcome', 'no result or outcome mentioned'],
-  reflection: ['shares a specific insight or lesson learned from experience', 'hints at personal growth without explaining it', 'no reflection or learning mentioned'],
+  situation:  ['describes a specific real past event with concrete context', 'mentions a general background with no specific event', 'no situation or context mentioned at all'],
+  task:       ['states a specific concrete role or responsibility they held', 'vaguely mentions wanting or trying something without a clear role', 'no role task or responsibility mentioned at all'],
+  action:     ['describes specific concrete steps or actions they personally took', 'mentions generic effort or attitude with no specific actions', 'no action or effort of any kind described'],
+  result:     ['states a concrete measurable or clearly observable outcome', 'expresses a vague hope wish or assumption about outcome', 'no result outcome or impact mentioned at all'],
+  reflection: ['states a specific lesson or insight gained from a real experience', 'expresses a general desire to grow with no real experience behind it', 'no reflection learning or self-awareness mentioned at all'],
 };
 
 
@@ -485,11 +485,17 @@ export async function evaluateAnswer(
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
       const zslScore = breakdownToScore(zslBD);
 
-      // ZSL quality gate — if ZSL says the answer is genuinely poor, trust it
-      // directly and skip anchor blending. Prevents a weak answer from being
-      // inflated just because it loosely matched the dataset question.
-      if (zslScore < 2.0) {
-        const scaledBD = scaleBDToTarget(zslBD, zslScore);
+      // Length penalty — a complete STAR answer needs ~50 words minimum.
+      // Scale the ZSL score down proportionally for short answers so that
+      // a 20-word generic answer cannot score as high as a 60-word specific one.
+      const lengthFactor = Math.min(1.0, wordCount / 50);
+      const penalizedZslScore = zslScore * lengthFactor;
+
+      // ZSL quality gate — if the length-penalized ZSL score is below 2.0,
+      // the answer is too weak or too short to benefit from anchor blending.
+      // Return the penalized score directly to prevent inflation.
+      if (penalizedZslScore < 2.0) {
+        const scaledBD = scaleBDToTarget(zslBD, penalizedZslScore);
         const finalScore = breakdownToScore(scaledBD);
         return {
           source: 'roberta_similarity',
