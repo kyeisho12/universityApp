@@ -239,12 +239,10 @@ async function callZSLClassify(
 
   const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
 
-  // Run in batches of 2 to avoid overwhelming the backend with simultaneous requests.
   const dimScores: [keyof STARBreakdown, number][] = [];
-  for (let i = 0; i < dims.length; i += 2) {
-    const batch = dims.slice(i, i + 2);
-    const batchResults = await Promise.all(batch.map(dim => classifyDimension(dim, text)));
-    dimScores.push(...batchResults);
+  for (const dim of dims) {
+    const result = await classifyDimension(dim, text);
+    dimScores.push(result);
   }
 
   const scores = Object.fromEntries(dimScores) as Record<keyof STARBreakdown, number>;
