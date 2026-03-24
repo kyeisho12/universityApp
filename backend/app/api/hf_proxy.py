@@ -47,11 +47,31 @@ def get_classify_model():
     if _classify_model is None:
         try:
             print("Loading cross-encoder/nli-roberta-base for ZSL...", flush=True)
-            from transformers import pipeline
+            import torch
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+
+            # Load tokenizer and model explicitly onto CPU.
+            # Do NOT rely on pipeline(device=-1) alone — when `accelerate` is installed,
+            # transformers may use device_map="auto" internally, placing weights on a
+            # "meta" device (no real tensors). Any computation then raises:
+            #   aten::_local_scalar_dense: attempted to run this operator with Meta tensors
+            # Explicitly constructing the model with low_cpu_mem_usage=False bypasses
+            # accelerate entirely and forces real CPU float32 tensors.
+            model_name = "cross-encoder/nli-roberta-base"
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForSequenceClassification.from_pretrained(
+                model_name,
+                torch_dtype=torch.float32,  # explicit dtype — avoids bfloat16 meta init
+                low_cpu_mem_usage=False,     # disable accelerate meta-tensor trick
+            )
+            model.eval()
+
             _classify_model = pipeline(
-                'zero-shot-classification',
-                model='cross-encoder/nli-roberta-base',
-                device=-1  # CPU
+                "zero-shot-classification",
+                model=model,
+                tokenizer=tokenizer,
+                device=-1,      # CPU (redundant but explicit)
+                framework="pt",
             )
             print("ZSL classification model loaded successfully.", flush=True)
         except Exception as e:
