@@ -78,6 +78,7 @@ const HR_LABELS: Record<number, string> = {
   2: 'Fair — Below Standard',
   1: 'Needs Improvement — Unsatisfactory',
 };
+
 function getHRLabel(score: number): string {
   return HR_LABELS[Math.max(1, Math.min(5, Math.round(score)))] ?? 'Unscored';
 }
@@ -94,9 +95,11 @@ function normalizeText(s: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
 function tokenSet(s: string): Set<string> {
   return new Set(normalizeText(s).split(' ').filter(Boolean));
 }
+
 function jaccard(a: Set<string>, b: Set<string>): number {
   const ia = Array.from(a).filter(x => b.has(x));
   return ia.length ? ia.length / (a.size + b.size - ia.length) : 0;
@@ -203,9 +206,6 @@ const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
   ],
 };
 
-// Weighted average — stable because probabilities sum to ~1.
-// strong→5, partial→3, absent→1.
-// Clamp the float first, then round — prevents rounding below floor (e.g. 0.4 → 0).
 function probabilityToLikert(strong: number, mid: number, weak: number): number {
   return Math.round(Math.max(1, Math.min(5, strong * 5 + mid * 3 + weak * 1)));
 }
@@ -242,7 +242,6 @@ async function classifyDimension(
 
     return [dim, probabilityToLikert(strong, mid, weak)];
   } catch {
-    // Per-dimension fallback — one failed request doesn't fail all five.
     return [dim, 1];
   } finally {
     window.clearTimeout(tid);
@@ -258,7 +257,6 @@ async function callZSLClassify(
   const text = `Question: ${question}\nAnswer: ${answer}`.slice(0, 600);
   const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
 
-  // Sequential — avoids overwhelming the backend with simultaneous requests
   const dimScores: [keyof STARBreakdown, number][] = [];
   for (const dim of dims) {
     const result = await classifyDimension(dim, text);
@@ -282,9 +280,9 @@ async function callZSLClassify(
 // ---------------------------------------------------------------------------
 
 function similarityToLikert(
-  similarity: number,   // RoBERTa cosine similarity, 0–1
-  anchorScore: number,  // weighted avg score of top-K HR-validated answers, 1–5
-  starScore: number     // STAR heuristic score, 1–5
+  similarity: number,
+  anchorScore: number,
+  starScore: number
 ): number {
   const anchorWeight = Math.min(0.90, similarity * 0.90);
   const starWeight   = 1 - anchorWeight;
@@ -295,61 +293,37 @@ function similarityToLikert(
 
 // ---------------------------------------------------------------------------
 // Specificity Detector
-//
-// Computes a 0–1 score based on token-level signals that ZSL cannot detect:
-//   - Numbers and metrics (strongest signal)
-//   - Strong past-tense action verbs
-//   - Role/context indicators (OJT, clinical, assigned, etc.)
-//   - Named context nouns (hospital, company, department, etc.)
-//   - Filler phrase penalty (I think, I feel, I guess, someday, maybe, etc.)
-//
-// A low specificity score combined with low RoBERTa similarity indicates
-// a vague, generic answer that should be capped regardless of ZSL output.
 // ---------------------------------------------------------------------------
 
 function computeSpecificityScore(norm: string, wordCount: number): number {
   let score = 0;
 
-  // Numbers and metrics — strongest signal of a concrete, specific answer
   const numbers = norm.match(/\b\d+\b/g) ?? [];
   score += Math.min(2, numbers.length) * 0.3;
 
-  // Strong specific past-tense action verbs
   const strongActions = /\b(implemented|developed|designed|led|created|built|organized|resolved|coordinated|launched|redesigned|trained|mentored|executed|deployed|spearheaded|initiated|restructured|formulated|overhauled|streamlined|automated|standardized|integrated|revamped|transformed|established|facilitated|supervised|directed)\b/;
   if (strongActions.test(norm)) score += 0.3;
 
-  // Role and context indicators — OJT, clinical, assigned, responsible for, etc.
   const roleContext = /\b(ojt|internship|clinical|rotation|thesis|capstone|practicum|assigned|responsible for|in charge of|my role|my task|my responsibility|student teaching|field work|community extension)\b/;
   if (roleContext.test(norm)) score += 0.2;
 
-  // Named context nouns — hospital, company, department, ward, etc.
   const namedContext = /\b(hospital|company|school|university|department|ward|firm|office|bureau|agency|clinic|laboratory|center|institution|organization)\b/;
   if (namedContext.test(norm)) score += 0.1;
 
-  // Recognition signals — supervisor/CI/mentor commended, praised, etc.
   const recognition = /\b(supervisor|professor|adviser|ci|instructor|manager|teacher|mentor) (commended|praised|mentioned|thanked|approved|said|told me|noted|recognized)\b/;
   if (recognition.test(norm)) score += 0.1;
 
-  // Filler phrase penalty — vague self-description language
   const fillerMatches = norm.match(
     /\b(i think|i believe|i feel|i guess|i hope|i suppose|maybe|kind of|sort of|someday|whatever|anything|everything|everyone|someone|somehow|somewhere|sometime|generally|usually|sometimes|often|always|never|just want|just do|just did|just try)\b/g
   ) ?? [];
   const fillerRatio = fillerMatches.length / wordCount;
   score -= fillerRatio * 2;
 
-  // Normalize to 0–1
   return Math.max(0, Math.min(1, score));
 }
 
 // ---------------------------------------------------------------------------
 // Negation Detector
-//
-// Detects answers that explicitly deny having the quality asked about.
-// e.g. "I didn't really do anything special", "I just did what was required"
-// These answers should be capped at 2 regardless of similarity or ZSL score.
-//
-// Important: targets self-dismissive language, NOT obstacle-overcoming language.
-// "I didn't give up" should NOT be caught. "I didn't do anything special" SHOULD.
 // ---------------------------------------------------------------------------
 
 function isNegatingAnswer(norm: string): boolean {
@@ -358,7 +332,7 @@ function isNegatingAnswer(norm: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Dataset lookup — finds the best-matching question & anchor score
+// Dataset lookup
 // ---------------------------------------------------------------------------
 
 export interface DatasetLookupResult {
@@ -371,14 +345,12 @@ export interface DatasetLookupResult {
 
 export function lookupDataset(question: string, candidateAnswer: string): DatasetLookupResult {
   if (!robertaDataset || !Array.isArray(robertaDataset) || robertaDataset.length === 0) {
-    console.error('[lookupDataset] Dataset empty or failed to load. Check import path.');
     return { item: null, questionSimilarity: 0, anchorScore: null, bestAnswerSimilarity: 0, topAnswer: null };
   }
 
   const qTokens = tokenSet(question);
   const aTokens = tokenSet(candidateAnswer);
 
-  // Find closest question by Jaccard
   let bestItem: DatasetItem | null = null;
   let bestQSim = 0;
   for (const it of robertaDataset) {
@@ -386,20 +358,15 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
     if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
   }
 
-  console.debug(`[lookupDataset] question="${question.slice(0, 40)}" bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0, 40) ?? 'none'}"`);
-
   if (!bestItem || bestQSim < DATASET_MATCH_THRESHOLD) {
     return { item: null, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0, topAnswer: null };
   }
 
-  // Score each answer by Jaccard similarity to the candidate
   const scored = bestItem.answers
     .map(ans => ({ similarity: jaccard(aTokens, tokenSet(ans.text)), avgScore: ans.avgScore, text: ans.text }))
     .sort((a, b) => b.similarity - a.similarity);
 
   const topK = scored.slice(0, TOP_K_ANSWERS).filter(s => s.similarity > 0);
-
-  // The reference answer for RoBERTa = the highest HR-scored answer in dataset
   const topByScore = [...bestItem.answers].sort((a, b) => b.avgScore - a.avgScore)[0];
 
   if (!topK.length) {
@@ -410,7 +377,6 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
     };
   }
 
-  // Weighted average of HR scores, weighted by Jaccard similarity
   const totalWeight = topK.reduce((s, x) => s + x.similarity, 0);
   const anchorScore = parseFloat(
     (topK.reduce((s, x) => s + x.avgScore * x.similarity, 0) / totalWeight).toFixed(2)
@@ -479,9 +445,6 @@ function computeBreakdown(n: string, wc: number): STARBreakdown {
   };
 }
 
-// Blend two breakdowns by weight. Rounding is deferred to the consumer
-// (breakdownToScore works fine on floats; scaleBDToTarget rounds at the end).
-// Early rounding loses fractional information, especially near boundaries like 2.5.
 function blendBreakdowns(a: STARBreakdown, b: STARBreakdown, bWeight: number): STARBreakdown {
   const aw = 1 - bWeight;
   return {
@@ -493,32 +456,22 @@ function blendBreakdowns(a: STARBreakdown, b: STARBreakdown, bWeight: number): S
   };
 }
 
-// Plain average of the five STAR dimensions (floats accepted, result is float).
 function breakdownToScore(bd: STARBreakdown): number {
   return parseFloat(((bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5).toFixed(2));
 }
 
-// Scale a breakdown toward a target average score while preserving the relative
-// shape of the answer (strong dims stay strong, weak dims absorb more correction).
-//
-// Strategy: compute the delta between target and current average, then distribute
-// that delta weighted inversely by each dimension's distance from the target —
-// dims further from the target absorb proportionally more of the correction.
-// Falls back to uniform scaling when all dims are equal (flat breakdown).
 function scaleBDToTarget(bd: STARBreakdown, targetScore: number): STARBreakdown {
   const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
   const avg = dims.reduce((s, d) => s + bd[d], 0) / 5;
   const delta = targetScore - avg;
 
-  if (Math.abs(delta) < 0.01) return { ...bd };   // already at target
+  if (Math.abs(delta) < 0.01) return { ...bd };
 
-  // Weight each dim by how far it is from the target (more room → more correction).
   const gaps = dims.map(d => Math.abs(targetScore - bd[d]));
   const totalGap = gaps.reduce((s, g) => s + g, 0);
 
   let scaled: Partial<STARBreakdown> = {};
   if (totalGap < 0.01) {
-    // Flat breakdown — fall back to uniform shift
     for (const d of dims) scaled[d] = Math.min(5, Math.max(1, bd[d] + delta));
   } else {
     for (let i = 0; i < dims.length; i++) {
@@ -541,7 +494,6 @@ export async function evaluateAnswer(
   const norm = normalizeText(answer);
   const wordCount = norm.split(/\s+/).filter(Boolean).length;
 
-  // ── Gate 1: Word count — answers under 15 words score 1 immediately ────────
   if (wordCount < 15) {
     const emptyBD: STARBreakdown = { situation: 1, task: 1, action: 1, result: 1, reflection: 1 };
     return {
@@ -558,21 +510,12 @@ export async function evaluateAnswer(
     };
   }
 
-  // ── Gate 2: Negation — flag self-dismissive answers; cap enforced at blend time ─
-  // Detects language like "I didn't really do anything special", "I just did what
-  // was required". Rather than returning immediately with a uniform {2,2,2,2,2}
-  // breakdown (which discards real ZSL signal), we let the pipeline run normally
-  // and clamp the final score to 2 at the end of whichever path fires.
   const isNegating = isNegatingAnswer(norm);
-
-  // Pre-compute specificity score — used in Path 1 cap decision
   const specificityScore = computeSpecificityScore(norm, wordCount);
 
-  // Step 1: Dataset lookup
   const lookup = lookupDataset(question, answer);
   const hasDataset = lookup.item !== null && lookup.anchorScore !== null;
 
-  // Step 2: ZSL breakdown — used as the shape source for all paths.
   let zslBD: STARBreakdown | null = null;
   try {
     zslBD = await callZSLClassify(question, answer);
@@ -581,23 +524,16 @@ export async function evaluateAnswer(
       err instanceof Error ? err.message : err);
   }
 
-  // ── Path 1: RoBERTa Sentence Similarity + ZSL breakdown ────────────────────
+  // Path 1
   if (hasDataset && lookup.topAnswer && zslBD) {
     try {
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
       const zslScore = breakdownToScore(zslBD);
-
-      // Length penalty — a complete STAR answer needs ~50 words minimum.
       const lengthFactor = Math.min(1.0, wordCount / 50);
       const penalizedZslScore = zslScore * lengthFactor;
 
-      // ZSL quality gate — if penalized ZSL is below 2.0 the answer is too
-      // weak to benefit from anchor blending. Return directly to prevent inflation.
       if (penalizedZslScore < 2.0) {
-        const targetScore = isNegating
-          ? Math.min(penalizedZslScore, 2)
-          : penalizedZslScore;
-        // FIX: derive score FROM breakdown so they always match
+        const targetScore = isNegating ? Math.min(penalizedZslScore, 2) : penalizedZslScore;
         const finalBD = scaleBDToTarget(zslBD, targetScore);
         const finalScore = breakdownToScore(finalBD);
         return {
@@ -614,29 +550,20 @@ export async function evaluateAnswer(
         };
       }
 
-      // Anchor influence scales with ZSL quality and RoBERTa similarity.
-      // Weak answers get less anchor help so the dataset cannot inflate them.
       const anchorInfluence = Math.min(0.9, (penalizedZslScore / 5) * 0.9) * similarity;
       const blendedScore = Math.max(1, Math.min(5,
         penalizedZslScore * (1 - anchorInfluence) + lookup.anchorScore! * anchorInfluence
       ));
 
-      // ── Specificity cap — prevents vague answers from reaching high scores
-      // Only caps when BOTH similarity AND specificity are low.
-      // High-specificity answers (concrete verbs, numbers, role context) are
-      // NOT capped even if RoBERTa similarity is low due to vocabulary mismatch.
       const similarityCap = similarity < 0.40 && specificityScore < 0.2 ? 2
         : similarity < 0.55 && specificityScore < 0.3 ? 3
         : similarity < 0.70 ? 4
         : 5;
 
-      // FIX: compute a single agreed-upon target score, then derive everything from it.
-      // Previously, score was set to the pre-scaling float (negationCappedScore) while
-      // breakdown was scaled separately — causing a mismatch after integer rounding.
       const cappedScore  = Math.min(blendedScore, similarityCap);
       const targetScore  = isNegating ? Math.min(cappedScore, 2) : cappedScore;
       const finalBD      = scaleBDToTarget(zslBD, targetScore);
-      const finalScore   = breakdownToScore(finalBD); // always matches breakdown
+      const finalScore   = breakdownToScore(finalBD);
 
       return {
         source: 'roberta_similarity',
@@ -656,7 +583,7 @@ export async function evaluateAnswer(
     }
   }
 
-  // ── Path 2: ZSL-only (RoBERTa similarity unavailable or no dataset match) ───
+  // Path 2
   try {
     const bd = zslBD ?? await callZSLClassify(question, answer);
     const zslScore = breakdownToScore(bd);
@@ -669,15 +596,11 @@ export async function evaluateAnswer(
         : penalizedZslScore
     ));
 
-    // Apply specificity cap in Path 2 as well.
-    // Four tiers prevent the cliff-edge jump from 3 → uncapped 5 that existed
-    // when specificityScore crossed 0.3.
     const path2Cap = specificityScore < 0.2 ? 2
       : specificityScore < 0.3 ? 3
       : specificityScore < 0.5 ? 4
       : 5;
 
-    // FIX: single target score → scale BD → derive score from BD
     const cappedTarget  = Math.min(rawTarget, path2Cap);
     const targetScore   = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
     const finalBD       = scaleBDToTarget(bd, targetScore);
@@ -700,7 +623,7 @@ export async function evaluateAnswer(
       err instanceof Error ? err.message : err);
   }
 
-  // ── Path 3: Regex STAR fallback (last resort, no network required) ──────────
+  // Path 3
   const rawBD = computeBreakdown(norm, wordCount);
   const blendedBD: STARBreakdown =
     hasDataset && lookup.bestAnswerSimilarity > 0.1
@@ -715,7 +638,6 @@ export async function evaluateAnswer(
       : starScore
   ));
 
-  // FIX: single target score → scale BD → derive score from BD
   const targetScore = isNegating ? Math.min(rawTarget, 2) : rawTarget;
   const finalBD    = scaleBDToTarget(blendedBD, targetScore);
   const finalScore = breakdownToScore(finalBD);
