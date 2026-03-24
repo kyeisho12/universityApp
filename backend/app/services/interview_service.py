@@ -827,6 +827,12 @@ class InterviewService:
                 if isinstance(raw_pool, list)
                 else None
             )
+            raw_history = data.get("conversation_history")
+            conversation_history = (
+                [{"question": str(h.get("question") or ""), "answer": str(h.get("answer") or "")} for h in raw_history if isinstance(h, dict)]
+                if isinstance(raw_history, list)
+                else None
+            )
 
             if not current_question:
                 return {
@@ -848,6 +854,7 @@ class InterviewService:
                 remaining_bank_questions=remaining_bank_questions,
                 followup_count_for_current=followup_count_for_current,
                 bank_question_pool=bank_question_pool,
+                conversation_history=conversation_history,
             )
 
             # If the frontend evaluation already flagged this answer as a quality gate
@@ -885,6 +892,8 @@ class InterviewService:
             }
             if action == "next_bank_question" and decision_result.get("selected_question_id"):
                 response_data["selected_question_id"] = decision_result["selected_question_id"]
+            if action == "next_question_new" and decision_result.get("generated_question"):
+                response_data["generated_question"] = decision_result["generated_question"]
 
             if action == "follow_up":
                 followup_result = self.phi3_followup_generator.generate_followup_question(
