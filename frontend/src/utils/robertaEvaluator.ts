@@ -226,7 +226,11 @@ async function classifyDimension(
       }),
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`ZSL classify error ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => '(unreadable)');
+      console.error(`[ZSL classify] ${res.status} for dim=${String(dim)}:`, errBody);
+      throw new Error(`ZSL classify error ${res.status}`);
+    }
     const data = await res.json();
 
     if (!data.labels || !data.scores) throw new Error('Invalid ZSL response');
