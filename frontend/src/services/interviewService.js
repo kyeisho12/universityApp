@@ -607,6 +607,7 @@ export async function decideNextQuestionStep({
 	remainingBankQuestions = 0,
 	followupCountForCurrent = 0,
 	bankQuestionPool = [],
+	evaluationSource = null,
 }) {
 	if (!currentQuestion || !candidateAnswer) {
 		return { data: null, error: new Error('Missing currentQuestion or candidateAnswer') }
@@ -644,6 +645,7 @@ export async function decideNextQuestionStep({
 						bank_question_pool: bankQuestionPool.length > 0
 							? bankQuestionPool.map((q) => ({ id: q.id, question: q.question }))
 							: undefined,
+					evaluation_source: evaluationSource || undefined,
 					}),
 				})
 				clearTimeout(timeoutId)

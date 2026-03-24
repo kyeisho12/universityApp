@@ -94,6 +94,7 @@ type DecideNextQuestionArgs = {
   remainingBankQuestions?: number;
   followupCountForCurrent?: number;
   bankQuestionPool?: { id: string; question: string }[];
+  evaluationSource?: string;
 };
 
 const getMockInterviewQuestionsExcludingTyped =
@@ -161,8 +162,27 @@ function normalizeQuestionKey(value: string): string {
     .trim();
 }
 
-function buildEmergencyFollowupQuestion(candidateAnswer: string): string {
+function buildEmergencyFollowupQuestion(candidateAnswer: string, originalQuestion: string): string {
   const answer = (candidateAnswer || "").trim().toLowerCase();
+  const question = (originalQuestion || "").trim().toLowerCase();
+
+  const futureMarkers = [
+    "five years", "10 years", "ten years", "see yourself", "your goal",
+    "career goal", "where do you want", "what do you want to", "plan to",
+    "aspire", "ambition", "future", "long-term", "short-term", "hope to",
+    "would like to", "looking to", "aim to", "next step",
+  ];
+  const isFutureQuestion = futureMarkers.some((m) => question.includes(m));
+
+  if (isFutureQuestion) {
+    if (answer.length < 30) return "What specific steps are you planning to take to reach that goal?";
+    if (["challenge", "difficult", "obstacle", "barrier"].some((k) => answer.includes(k)))
+      return "What do you think will be your biggest obstacle in getting there, and how do you plan to handle it?";
+    if (["result", "outcome", "achieve", "success", "grow", "improve"].some((k) => answer.includes(k)))
+      return "How will you measure your progress toward that goal?";
+    return "What skill or experience do you think you still need to develop to get there?";
+  }
+
   if (answer.length < 30) {
     return "Can you walk me through one specific example and what you personally did?";
   }
@@ -2381,6 +2401,7 @@ function MockInterviewPageContent({
           remainingBankQuestions: bankQuestionPool.length,
           followupCountForCurrent,
           bankQuestionPool: bankQuestionPool.map((q) => ({ id: q.id, question: q.question })),
+          evaluationSource: currentEvaluation?.source,
         });
       } finally {
         setIsDecidingNextQuestion(false);
@@ -2447,7 +2468,7 @@ function MockInterviewPageContent({
         const emergencyQuestion: Question = {
           id: `fallback-followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: "Follow-up",
-          question: buildEmergencyFollowupQuestion(candidateAnswer),
+          question: buildEmergencyFollowupQuestion(candidateAnswer, activeQuestion.question),
           tip: "Answer with concrete details and measurable outcomes.",
           source: "followup",
           baseQuestionId,

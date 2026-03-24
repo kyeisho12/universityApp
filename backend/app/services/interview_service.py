@@ -820,6 +820,7 @@ class InterviewService:
             ideal_answer = (data.get("ideal_answer") or "").strip() or None
             remaining_bank_questions = int(data.get("remaining_bank_questions") or 0)
             followup_count_for_current = int(data.get("followup_count_for_current") or 0)
+            evaluation_source = (data.get("evaluation_source") or "").strip() or None
             raw_pool = data.get("bank_question_pool")
             bank_question_pool = (
                 [{"id": str(q.get("id") or ""), "question": str(q.get("question") or "")} for q in raw_pool if isinstance(q, dict)]
@@ -848,6 +849,19 @@ class InterviewService:
                 followup_count_for_current=followup_count_for_current,
                 bank_question_pool=bank_question_pool,
             )
+
+            # If the frontend evaluation already flagged this answer as a quality gate
+            # failure (zsl_star_fallback), override Phi3's decision to ensure a
+            # follow-up is asked — Phi3 tends to skip follow-ups on dismissive answers.
+            if (
+                evaluation_source == "zsl_star_fallback"
+                and followup_count_for_current < 1
+                and decision_result.get("success")
+                and decision_result.get("action") == "next_bank_question"
+            ):
+                decision_result["action"] = "follow_up"
+                decision_result["reason"] = "zsl_fallback_override"
+                logger.info("next_question_decision overridden to follow_up due to zsl_star_fallback evaluation")
 
             logger.info(
                 "next_question_decision action=%s source=%s reason=%s",
