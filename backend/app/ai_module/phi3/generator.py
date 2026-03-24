@@ -242,6 +242,7 @@ class Phi3FollowupGenerator:
 		remaining_bank_questions: int,
 		followup_count_for_current: int,
 		bank_question_pool: Optional[List[Dict]] = None,
+		conversation_history: Optional[List[Dict]] = None,
 	) -> Dict[str, Any]:
 		if remaining_bank_questions <= 0 or followup_count_for_current >= 1:
 			return {
@@ -266,6 +267,7 @@ class Phi3FollowupGenerator:
 			remaining_bank_questions=remaining_bank_questions,
 			followup_count_for_current=followup_count_for_current,
 			bank_question_pool=bank_question_pool,
+			conversation_history=conversation_history,
 		)
 
 		try:
@@ -273,7 +275,7 @@ class Phi3FollowupGenerator:
 				prompt=prompt,
 				temperature=0.1,
 				top_p=0.8,
-				max_tokens=150,
+				max_tokens=200,
 			)
 
 			if not generation.get("success"):
@@ -288,7 +290,7 @@ class Phi3FollowupGenerator:
 			raw_text = str(generation.get("text") or "").strip()
 			parsed = self._parse_decision_json(raw_text)
 
-			if parsed["action"] not in {"follow_up", "next_bank_question"}:
+			if parsed["action"] not in {"follow_up", "next_bank_question", "next_question_new"}:
 				parsed["action"] = self._fallback_action(candidate_answer)
 				parsed["reason"] = parsed.get("reason") or "unrecognized_action"
 
@@ -300,6 +302,8 @@ class Phi3FollowupGenerator:
 			}
 			if parsed.get("selected_question_id"):
 				result["selected_question_id"] = parsed["selected_question_id"]
+			if parsed.get("generated_question"):
+				result["generated_question"] = parsed["generated_question"]
 			return result
 		except Exception:
 			default_action = self._fallback_action(candidate_answer)
@@ -495,14 +499,19 @@ class Phi3FollowupGenerator:
 			action = str(payload.get("action") or "").strip()
 			reason = str(payload.get("reason") or "").strip()
 			selected_question_id = str(payload.get("selected_question_id") or "").strip()
+			generated_question = str(payload.get("generated_question") or "").strip()
 			result: Dict[str, str] = {"action": action, "reason": reason}
 			if selected_question_id:
 				result["selected_question_id"] = selected_question_id
+			if generated_question:
+				result["generated_question"] = generated_question
 			return result
 		except Exception:
 			lower = raw_text.lower()
 			if "follow_up" in lower or "follow-up" in lower:
 				return {"action": "follow_up", "reason": "parsed_from_text"}
+			if "next_question_new" in lower:
+				return {"action": "next_question_new", "reason": "parsed_from_text"}
 			if "next_bank_question" in lower or "next bank" in lower:
 				return {"action": "next_bank_question", "reason": "parsed_from_text"}
 			return {"action": "", "reason": "parse_failed"}

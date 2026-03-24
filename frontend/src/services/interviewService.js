@@ -187,7 +187,7 @@ export async function getMockInterviewQuestionsExcluding({ limit = 5, excludeIds
 
 	const normalizedLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 5
 	const filtered = (data || []).filter((item) => !excluded.has(item.id))
-	const sorted = sortByCategory(filtered)
+	const sorted = [...filtered].sort(() => Math.random() - 0.5)
 	const selected = sorted.slice(0, normalizedLimit)
 
 	const questions = selected.map((item) => ({
@@ -607,6 +607,8 @@ export async function decideNextQuestionStep({
 	remainingBankQuestions = 0,
 	followupCountForCurrent = 0,
 	bankQuestionPool = [],
+	evaluationSource = null,
+	conversationHistory = [],
 }) {
 	if (!currentQuestion || !candidateAnswer) {
 		return { data: null, error: new Error('Missing currentQuestion or candidateAnswer') }
@@ -644,6 +646,8 @@ export async function decideNextQuestionStep({
 						bank_question_pool: bankQuestionPool.length > 0
 							? bankQuestionPool.map((q) => ({ id: q.id, question: q.question }))
 							: undefined,
+					evaluation_source: evaluationSource || undefined,
+					conversation_history: conversationHistory.length > 0 ? conversationHistory : undefined,
 					}),
 				})
 				clearTimeout(timeoutId)

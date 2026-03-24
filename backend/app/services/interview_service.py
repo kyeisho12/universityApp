@@ -820,10 +820,17 @@ class InterviewService:
             ideal_answer = (data.get("ideal_answer") or "").strip() or None
             remaining_bank_questions = int(data.get("remaining_bank_questions") or 0)
             followup_count_for_current = int(data.get("followup_count_for_current") or 0)
+            evaluation_source = (data.get("evaluation_source") or "").strip() or None
             raw_pool = data.get("bank_question_pool")
             bank_question_pool = (
                 [{"id": str(q.get("id") or ""), "question": str(q.get("question") or "")} for q in raw_pool if isinstance(q, dict)]
                 if isinstance(raw_pool, list)
+                else None
+            )
+            raw_history = data.get("conversation_history")
+            conversation_history = (
+                [{"question": str(h.get("question") or ""), "answer": str(h.get("answer") or "")} for h in raw_history if isinstance(h, dict)]
+                if isinstance(raw_history, list)
                 else None
             )
 
@@ -847,7 +854,21 @@ class InterviewService:
                 remaining_bank_questions=remaining_bank_questions,
                 followup_count_for_current=followup_count_for_current,
                 bank_question_pool=bank_question_pool,
+                conversation_history=conversation_history,
             )
+
+            # If the frontend evaluation already flagged this answer as a quality gate
+            # failure (zsl_star_fallback), override Phi3's decision to ensure a
+            # follow-up is asked — Phi3 tends to skip follow-ups on dismissive answers.
+            if (
+                evaluation_source == "zsl_star_fallback"
+                and followup_count_for_current < 1
+                and decision_result.get("success")
+                and decision_result.get("action") == "next_bank_question"
+            ):
+                decision_result["action"] = "follow_up"
+                decision_result["reason"] = "zsl_fallback_override"
+                logger.info("next_question_decision overridden to follow_up due to zsl_star_fallback evaluation")
 
             logger.info(
                 "next_question_decision action=%s source=%s reason=%s",
@@ -871,6 +892,8 @@ class InterviewService:
             }
             if action == "next_bank_question" and decision_result.get("selected_question_id"):
                 response_data["selected_question_id"] = decision_result["selected_question_id"]
+            if action == "next_question_new" and decision_result.get("generated_question"):
+                response_data["generated_question"] = decision_result["generated_question"]
 
             if action == "follow_up":
                 followup_result = self.phi3_followup_generator.generate_followup_question(

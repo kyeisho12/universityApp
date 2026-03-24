@@ -94,6 +94,8 @@ type DecideNextQuestionArgs = {
   remainingBankQuestions?: number;
   followupCountForCurrent?: number;
   bankQuestionPool?: { id: string; question: string }[];
+  evaluationSource?: string;
+  conversationHistory?: { question: string; answer: string }[];
 };
 
 const getMockInterviewQuestionsExcludingTyped =
@@ -161,8 +163,27 @@ function normalizeQuestionKey(value: string): string {
     .trim();
 }
 
-function buildEmergencyFollowupQuestion(candidateAnswer: string): string {
+function buildEmergencyFollowupQuestion(candidateAnswer: string, originalQuestion: string): string {
   const answer = (candidateAnswer || "").trim().toLowerCase();
+  const question = (originalQuestion || "").trim().toLowerCase();
+
+  const futureMarkers = [
+    "five years", "10 years", "ten years", "see yourself", "your goal",
+    "career goal", "where do you want", "what do you want to", "plan to",
+    "aspire", "ambition", "future", "long-term", "short-term", "hope to",
+    "would like to", "looking to", "aim to", "next step",
+  ];
+  const isFutureQuestion = futureMarkers.some((m) => question.includes(m));
+
+  if (isFutureQuestion) {
+    if (answer.length < 30) return "What specific steps are you planning to take to reach that goal?";
+    if (["challenge", "difficult", "obstacle", "barrier"].some((k) => answer.includes(k)))
+      return "What do you think will be your biggest obstacle in getting there, and how do you plan to handle it?";
+    if (["result", "outcome", "achieve", "success", "grow", "improve"].some((k) => answer.includes(k)))
+      return "How will you measure your progress toward that goal?";
+    return "What skill or experience do you think you still need to develop to get there?";
+  }
+
   if (answer.length < 30) {
     return "Can you walk me through one specific example and what you personally did?";
   }
@@ -193,6 +214,42 @@ function buildEmergencyFollowupQuestion(candidateAnswer: string): string {
   return fallbacks[answer.length % fallbacks.length];
 }
 
+const SIMILARITY_STOPWORDS = new Set([
+  "the", "a", "an", "is", "are", "was", "were", "in", "on", "at", "to",
+  "for", "of", "and", "or", "you", "your", "what", "how", "did", "do",
+  "that", "this", "with", "have", "it", "be", "me", "my", "about",
+  "can", "tell", "give", "us", "when", "why", "has", "had",
+]);
+
+function findSimilarBankQuestion(generatedQuestion: string, bankPool: Question[]): Question | null {
+  const words1 = normalizeQuestionKey(generatedQuestion)
+    .split(" ")
+    .filter((w) => w.length > 2 && !SIMILARITY_STOPWORDS.has(w));
+  if (words1.length === 0) return null;
+  const set1 = new Set(words1);
+
+  let bestMatch: Question | null = null;
+  let bestScore = 0;
+
+  for (const q of bankPool) {
+    const words2 = normalizeQuestionKey(q.question)
+      .split(" ")
+      .filter((w) => w.length > 2 && !SIMILARITY_STOPWORDS.has(w));
+    if (words2.length === 0) continue;
+    const set2 = new Set(words2);
+    let overlap = 0;
+    for (const w of set1) {
+      if (set2.has(w)) overlap++;
+    }
+    const score = overlap / Math.min(set1.size, set2.size);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = q;
+    }
+  }
+  return bestScore >= 0.4 ? bestMatch : null;
+}
+
 function extractSegmentTranscriptFallback(
   segmentMeta: ActiveSegmentMeta,
   liveDraftTranscriptValue: string,
@@ -211,7 +268,7 @@ function extractSegmentTranscriptFallback(
 const LIVE_CHUNK_INTERVAL_MS = 4000;
 const LIVE_DRAFT_FALLBACK_TIMEOUT_MS = 1200;
 const OPENING_QUESTION_ID = "890b7831-97c4-4f25-bf26-590ca44fbee7";
-const RANDOM_BANK_QUESTION_COUNT = 5;
+const RANDOM_BANK_QUESTION_COUNT = 10;
 const MIN_SESSION_QUESTION_COUNT = 10;
 const MAX_SESSION_QUESTION_COUNT = 20;
 const STAR_AVERAGE_TARGET_SCORE = 3.0;
@@ -2371,6 +2428,15 @@ function MockInterviewPageContent({
         return;
       }
 
+      const conversationHistory = questions
+        .slice(0, currentQuestion)
+        .map((q, idx) => ({
+          question: q.question,
+          answer: ((evaluations[idx] as any)?.transcript || "").slice(0, 200),
+        }))
+        .filter((pair) => pair.answer.length > 5)
+        .slice(-3);
+
       setIsDecidingNextQuestion(true);
       let decisionResult;
       try {
@@ -2381,6 +2447,8 @@ function MockInterviewPageContent({
           remainingBankQuestions: bankQuestionPool.length,
           followupCountForCurrent,
           bankQuestionPool: bankQuestionPool.map((q) => ({ id: q.id, question: q.question })),
+          evaluationSource: currentEvaluation?.source,
+          conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
         });
       } finally {
         setIsDecidingNextQuestion(false);
@@ -2447,7 +2515,7 @@ function MockInterviewPageContent({
         const emergencyQuestion: Question = {
           id: `fallback-followup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: "Follow-up",
-          question: buildEmergencyFollowupQuestion(candidateAnswer),
+          question: buildEmergencyFollowupQuestion(candidateAnswer, activeQuestion.question),
           tip: "Answer with concrete details and measurable outcomes.",
           source: "followup",
           baseQuestionId,
@@ -2465,6 +2533,52 @@ function MockInterviewPageContent({
           setRecordingError(
             "Decision API is temporarily unavailable. A recovery follow-up is ready. Click Next Question again to continue."
           );
+          return;
+        }
+      }
+
+      // Handle AI-generated next question (Phi3 decided no bank question fits the topic)
+      const shouldUseAIGeneratedQuestion =
+        !decisionResult.error &&
+        decisionResult.data?.action === "next_question_new" &&
+        Boolean(decisionResult.data?.generated_question) &&
+        questions.length < MAX_SESSION_QUESTION_COUNT;
+
+      if (shouldUseAIGeneratedQuestion) {
+        const generatedText: string = decisionResult.data.generated_question;
+        const existingKeysAI = new Set(questions.map((q) => normalizeQuestionKey(q.question)).filter(Boolean));
+
+        // Check if any bank question is similar — if so, prefer the bank version
+        const similarBankQ = findSimilarBankQuestion(generatedText, bankQuestionPool);
+        if (similarBankQ && !existingKeysAI.has(normalizeQuestionKey(similarBankQ.question))) {
+          const remainingPool = bankQuestionPool.filter((q) => q.id !== similarBankQ.id);
+          setPreparedNextAction({
+            kind: "bank",
+            question: similarBankQ,
+            nextQuestionIndex: questions.length,
+            remainingPool,
+          });
+          setRecordingError(preparedMessage);
+          return;
+        }
+
+        // No bank match — use Phi3's generated question
+        if (!existingKeysAI.has(normalizeQuestionKey(generatedText))) {
+          const aiQuestion: Question = {
+            id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type: "AI Generated",
+            question: generatedText,
+            tip: "Answer with concrete details and measurable outcomes.",
+            source: "bank",
+            baseQuestionId,
+          };
+          setPreparedNextAction({
+            kind: "bank",
+            question: aiQuestion,
+            nextQuestionIndex: questions.length,
+            remainingPool: bankQuestionPool, // pool unchanged — question came from AI
+          });
+          setRecordingError(preparedMessage);
           return;
         }
       }
