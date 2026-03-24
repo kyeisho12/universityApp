@@ -526,6 +526,10 @@ export async function evaluateAnswer(
         : 5;
       const cappedScore = Math.min(finalScore, similarityCap);
 
+      const cappedBD = cappedScore < finalScore
+        ? scaleBDToTarget(zslBD, cappedScore)
+        : scaledBD;
+
       return {
         source: 'roberta_similarity',
         matchedQuestion: lookup.item?.question ?? null,
@@ -534,7 +538,7 @@ export async function evaluateAnswer(
         datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
         roberta_similarity: parseFloat(similarity.toFixed(3)),
         score: cappedScore,
-        breakdown: scaledBD,
+        breakdown: cappedBD,
         hrLabel: getHRLabel(cappedScore),
       };
     } catch (err) {
