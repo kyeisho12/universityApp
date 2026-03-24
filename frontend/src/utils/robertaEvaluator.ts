@@ -508,16 +508,25 @@ export async function evaluateAnswer(
       // Convert the 0–1 similarity to 1–5 Likert — this is the thesis claim
       let targetScore: number;
 
-      if (similarity < 0.3) {
+      if (lookup.bestAnswerSimilarity < 0.20) {
+        targetScore = zslScore; // skip anchor entirely
+      } else if (similarity < 0.3) {
         targetScore = zslScore;
       } else if (similarity < 0.6) {
-        targetScore = similarityToLikert(similarity * 0.5, lookup.anchorScore!, zslScore);
+        targetScore = similarityToLikert(similarity * 0.5, lookup.anchorScore!, zslScore);  
       } else {
         targetScore = similarityToLikert(similarity, lookup.anchorScore!, zslScore);
       }
 
       const scaledBD = scaleBDToTarget(zslBD, targetScore);
       const finalScore = breakdownToScore(scaledBD);
+
+      // After computing finalScore in Path 1
+      const similarityCap = similarity < 0.35 ? 2
+        : similarity < 0.50 ? 3
+        : similarity < 0.70 ? 4
+        : 5;
+      const cappedScore = Math.min(finalScore, similarityCap);
 
       return {
         source: 'roberta_similarity',
@@ -526,9 +535,9 @@ export async function evaluateAnswer(
         datasetAnchorScore: lookup.anchorScore,
         datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
         roberta_similarity: parseFloat(similarity.toFixed(3)),
-        score: finalScore,
+        score: cappedScore,
         breakdown: scaledBD,
-        hrLabel: getHRLabel(finalScore),
+        hrLabel: getHRLabel(cappedScore),
       };
     } catch (err) {
       console.warn('[evaluateAnswer] RoBERTa similarity failed, falling to Path 2:',
