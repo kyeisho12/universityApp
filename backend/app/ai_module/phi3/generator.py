@@ -328,6 +328,30 @@ class Phi3FollowupGenerator:
 
 	def _fallback_question(self, original_question: str, candidate_answer: str) -> str:
 		answer = (candidate_answer or "").strip().lower()
+		question_lower = (original_question or "").strip().lower()
+
+		# Detect future/aspirational questions to avoid past-situation phrasing
+		future_markers = [
+			"five years", "10 years", "ten years", "see yourself", "your goal",
+			"career goal", "where do you want", "what do you want to", "plan to",
+			"aspire", "ambition", "future", "long-term", "short-term", "hope to",
+			"would like to", "looking to", "aim to", "next step"
+		]
+		is_future_question = any(marker in question_lower for marker in future_markers)
+
+		if is_future_question:
+			if len(answer) < 30:
+				return "What specific steps are you planning to take to reach that goal?"
+			challenge_keywords = [
+				"challenge", "difficult", "problem", "issue", "struggle", "obstacle",
+				"barrier", "constraint", "limitation", "risk", "pressure"
+			]
+			if any(kw in answer for kw in challenge_keywords):
+				return "What do you think will be your biggest obstacle in getting there, and how do you plan to handle it?"
+			impact_keywords = ["result", "outcome", "impact", "achieve", "success", "grow", "improve"]
+			if any(kw in answer for kw in impact_keywords):
+				return "How will you measure your progress toward that goal?"
+			return "What skill or experience do you think you still need to develop to get there?"
 
 		# Short answers need more detail
 		if len(answer) < 30:
