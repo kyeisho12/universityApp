@@ -446,7 +446,7 @@ export async function evaluateAnswer(
 
   // Gate: answers under 5 words are meaningless — return score 1 immediately
   // This prevents short/garbage answers from being inflated by the dataset anchor
-  if (wordCount < 10) {
+  if (wordCount < 3) {
     const emptyBD: STARBreakdown = { situation: 1, task: 1, action: 1, result: 1, reflection: 1 };
     return {
       source: 'zsl_star_fallback',
@@ -485,6 +485,25 @@ export async function evaluateAnswer(
     try {
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
       const zslScore = breakdownToScore(zslBD);
+
+      // ZSL quality gate — if ZSL says the answer is genuinely poor, trust it
+      // directly and skip anchor blending. Prevents a weak answer from being
+      // inflated just because it loosely matched the dataset question.
+      if (zslScore < 2.0) {
+        const scaledBD = scaleBDToTarget(zslBD, zslScore);
+        const finalScore = breakdownToScore(scaledBD);
+        return {
+          source: 'roberta_similarity',
+          matchedQuestion: lookup.item?.question ?? null,
+          questionAvgScore: lookup.item?.questionAvgScore ?? null,
+          datasetAnchorScore: lookup.anchorScore,
+          datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
+          roberta_similarity: parseFloat(similarity.toFixed(3)),
+          score: finalScore,
+          breakdown: scaledBD,
+          hrLabel: getHRLabel(finalScore),
+        };
+      }
 
       // Convert the 0–1 similarity to 1–5 Likert — this is the thesis claim
       const targetScore = similarityToLikert(similarity, lookup.anchorScore!, zslScore);
