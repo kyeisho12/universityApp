@@ -79,6 +79,7 @@ export async function getPreferredOpeningQuestion(preferredQuestionId = null) {
 		.from('interview_question_bank')
 		.select('id, question_text, question_normalized, category')
 		.eq('is_active', true)
+		.or('quality.is.null,quality.neq.bad')
 
 	if (error) {
 		return { data: null, error }
@@ -779,4 +780,20 @@ export async function triggerPendingSessionTranscriptions({ sessionId, force = f
 	}
 }
 
-
+export async function rateQuestion(questionId, quality) {
+	const baseUrls = getInterviewApiBaseUrls()
+	for (const baseUrl of baseUrls) {
+		try {
+			const response = await fetch(`${baseUrl}/interviews/questions/${questionId}/rate`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ quality }),
+			})
+			if (response.ok) {
+				const data = await response.json()
+				return { data, error: null }
+			}
+		} catch (_) {}
+	}
+	return { data: null, error: new Error('Failed to rate question') }
+}

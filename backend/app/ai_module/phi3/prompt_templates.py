@@ -17,6 +17,7 @@ def build_followup_prompt(
 		"- If the answer is vague or incomplete, ask the candidate to clarify or provide more detail.\n"
 		"- If the original question asks about future plans, goals, or self-improvement: ask about their specific plan, next steps, or what they are already doing — NOT past examples.\n"
 		"- If the original question asks about past experience or behavior: ask for specific details (what exactly happened, what was the outcome).\n"
+		"- If the answer is very short or lacks any specific details (no names, examples, roles, or outcomes): ask a broad opening question like 'Can you tell me more about that?' or 'What specifically did you work on?' — do NOT probe about details the candidate did not mention.\n"
 		"- If the answer is incoherent, rambling, or doesn't make sense, respond with just: SKIP_FOLLOWUP\n"
 		"- Only generate a follow-up if the answer is coherent enough to build upon.\n\n"
 		f"Category: {interview_category}\n"

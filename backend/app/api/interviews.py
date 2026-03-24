@@ -338,3 +338,16 @@ def decide_next_question():
             "success": False,
             "error": str(e)
         }), 500
+
+
+@interviews_bp.route("/questions/<question_id>/rate", methods=["POST"])
+@require_auth
+def rate_question(question_id):
+    """Rate a question as good or bad for Phi3 quality filtering."""
+    try:
+        data = request.get_json(silent=True) or {}
+        quality = data.get("quality", "")
+        result = get_interview_service().rate_question(question_id, quality)
+        return jsonify(result), result.get("status_code", 200)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

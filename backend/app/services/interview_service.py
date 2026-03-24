@@ -893,7 +893,20 @@ class InterviewService:
             if action == "next_bank_question" and decision_result.get("selected_question_id"):
                 response_data["selected_question_id"] = decision_result["selected_question_id"]
             if action == "next_question_new" and decision_result.get("generated_question"):
-                response_data["generated_question"] = decision_result["generated_question"]
+                generated_question_text = decision_result["generated_question"]
+                response_data["generated_question"] = generated_question_text
+                persist_result = self._persist_generated_followup_question(
+                    followup_question=generated_question_text,
+                    category=category,
+                    parent_question_text=current_question,
+                    source_model="phi-3-mini",
+                    generation_context={
+                        "flow": "next_question_new",
+                        "decision_reason": decision_result.get("reason"),
+                    },
+                )
+                if persist_result.get("success"):
+                    response_data["generated_question_bank_id"] = persist_result.get("question_bank_id")
 
             if action == "follow_up":
                 followup_result = self.phi3_followup_generator.generate_followup_question(
@@ -944,3 +957,16 @@ class InterviewService:
                 "error": str(error),
                 "status_code": 500,
             }
+
+    def rate_question(self, question_id: str, quality: str) -> Dict[str, Any]:
+        """Set quality rating (good/bad) on a question in the bank."""
+        if quality not in ("good", "bad"):
+            return {"success": False, "error": "quality must be 'good' or 'bad'", "status_code": 400}
+        result = self._make_request(
+            "PATCH",
+            f"/interview_question_bank?id=eq.{question_id}",
+            data={"quality": quality},
+        )
+        if result.get("success"):
+            return {"success": True, "status_code": 200}
+        return {"success": False, "error": result.get("error", "Failed to rate question"), "status_code": result.get("status_code", 500)}

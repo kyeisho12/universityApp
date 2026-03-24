@@ -35,6 +35,7 @@ import {
   getQuestionById,
   getPreferredOpeningQuestion,
   insertRecordingSegmentMetadata,
+  rateQuestion,
   startInterviewSession,
   triggerPendingSessionTranscriptions,
   triggerSegmentTranscription,
@@ -454,6 +455,7 @@ function MockInterviewPageContent({
     initialStateRef.current?.preparedNextAction ?? null
   );
   const [isNextConfirmed, setIsNextConfirmed] = useState(false);
+  const [questionRatings, setQuestionRatings] = useState<Record<string, "good" | "bad">>({});
   const [questionHighlighted, setQuestionHighlighted] = useState(false);
   const [recordingCountdown, setRecordingCountdown] = useState<number | null>(null);
   const prevQuestionForHighlightRef = useRef<number | null>(null);
@@ -544,6 +546,7 @@ function MockInterviewPageContent({
   const autoPauseInFlightRef = useRef(false);
   const nextQuestionInFlightRef = useRef(false);
   const tabBackgroundPauseInFlightRef = useRef(false);
+  const transcriptRefreshInFlightRef = useRef(false);
   const isApplyingPopstateRef = useRef(false);
   const hasInitializedHistoryStateRef = useRef(false);
 
@@ -948,6 +951,12 @@ function MockInterviewPageContent({
     return initialQuestions;
   }, []);
 
+  const handleRateQuestion = useCallback(async (questionId: string, quality: "good" | "bad") => {
+    if (!questionId || questionId.startsWith("ai-")) return; // temp IDs not in bank yet
+    setQuestionRatings((prev) => ({ ...prev, [questionId]: quality }));
+    await (rateQuestion as (id: string, q: string) => Promise<any>)(questionId, quality);
+  }, []);
+
   const syncSessionResumeState = useCallback(
     async (nextQuestionIndex?: number) => {
       if (!sessionId) {
@@ -1199,6 +1208,8 @@ function MockInterviewPageContent({
   }, [stateKey]);
 
   const refreshTranscriptAfterPause = useCallback(async () => {
+    if (transcriptRefreshInFlightRef.current) return;
+    transcriptRefreshInFlightRef.current = true;
     const maxAttempts = 6;
     const draftTranscript = (liveDraftTranscript || "").trim();
     setIsPauseTranscriptPending(true);
@@ -1231,6 +1242,8 @@ function MockInterviewPageContent({
       setIsPauseTranscriptPending(false);
     } catch {
       setIsPauseTranscriptPending(false);
+    } finally {
+      transcriptRefreshInFlightRef.current = false;
     }
   }, [liveDraftTranscript, refreshLiveTranscript]);
 
@@ -1243,6 +1256,16 @@ function MockInterviewPageContent({
       setIsPauseTranscriptPending(false);
     }
   }, [isPauseTranscriptPending, latestWhisperStatus]);
+
+  // Recovery: if the page reloaded while isPauseTranscriptPending was true, the
+  // refresh loop is gone. Re-trigger it once on mount so the flag gets cleared
+  // and the user can continue the session.
+  useEffect(() => {
+    if (isHydrated && isPaused && isPauseTranscriptPending) {
+      void refreshTranscriptAfterPause();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentional empty deps — read initial state only, run once on mount
 
   useEffect(() => {
     const previousSessionStarted = previousSessionStartedRef.current;
@@ -2565,7 +2588,7 @@ function MockInterviewPageContent({
         // No bank match — use Phi3's generated question
         if (!existingKeysAI.has(normalizeQuestionKey(generatedText))) {
           const aiQuestion: Question = {
-            id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            id: decisionResult.data?.generated_question_bank_id || `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             type: "AI Generated",
             question: generatedText,
             tip: "Answer with concrete details and measurable outcomes.",
@@ -4135,9 +4158,28 @@ function MockInterviewPageContent({
                   />
                 </div>
               </div>
-              <p className="text-cyan-600 text-sm font-semibold mb-2 uppercase">
-                {questions[currentQuestion]?.type || "Question"}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-cyan-600 text-sm font-semibold uppercase">
+                  {questions[currentQuestion]?.type || "Question"}
+                </p>
+                {questions[currentQuestion]?.type === "AI Generated" && questions[currentQuestion]?.id && !questions[currentQuestion].id.startsWith("ai-") && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400 mr-1">Rate this question:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRateQuestion(questions[currentQuestion].id, "good")}
+                      className={`text-lg px-1 rounded transition-opacity ${questionRatings[questions[currentQuestion].id] === "good" ? "opacity-100" : "opacity-40 hover:opacity-80"}`}
+                      title="Good question"
+                    >👍</button>
+                    <button
+                      type="button"
+                      onClick={() => handleRateQuestion(questions[currentQuestion].id, "bad")}
+                      className={`text-lg px-1 rounded transition-opacity ${questionRatings[questions[currentQuestion].id] === "bad" ? "opacity-100" : "opacity-40 hover:opacity-80"}`}
+                      title="Bad question"
+                    >👎</button>
+                  </div>
+                )}
+              </div>
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 leading-snug">
                 {questions[currentQuestion]?.question || "Loading question..."}
               </h3>
