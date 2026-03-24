@@ -489,9 +489,21 @@ function scaleBDToTarget(bd: STARBreakdown, targetScore: number): STARBreakdown 
 // Public evaluate function
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Public evaluate function
+//
+// isFollowUp — pass true when the question is a follow-up (source === 'followup').
+//   Follow-up answers are contextual/reflective by nature and will not contain
+//   OJT/number/strong-verb signals even when high quality, so the specificity
+//   cap is bypassed and the length-penalty floor is relaxed to 30 words.
+//   The caller (MockInterviewPage) already knows this from question.source —
+//   no regex detection is needed here.
+// ---------------------------------------------------------------------------
+
 export async function evaluateAnswer(
   question: string,
-  answer: string
+  answer: string,
+  isFollowUp = false
 ): Promise<EvaluationResult> {
   const norm = normalizeText(answer);
   const wordCount = norm.split(/\s+/).filter(Boolean).length;
@@ -515,6 +527,10 @@ export async function evaluateAnswer(
   const isNegating = isNegatingAnswer(norm);
   const specificityScore = computeSpecificityScore(norm, wordCount);
 
+  // Follow-up answers are shorter and lack OJT/number signals by design.
+  // Relax the length-penalty floor and skip the specificity cap entirely.
+  const lengthPenaltyFloor = isFollowUp ? 30 : 50;
+
   const lookup = lookupDataset(question, answer);
   const hasDataset = lookup.item !== null && lookup.anchorScore !== null;
 
@@ -531,7 +547,7 @@ export async function evaluateAnswer(
     try {
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
       const zslScore = breakdownToScore(zslBD);
-      const lengthFactor = Math.min(1.0, wordCount / 50);
+      const lengthFactor = Math.min(1.0, wordCount / lengthPenaltyFloor);
       const penalizedZslScore = zslScore * lengthFactor;
 
       if (penalizedZslScore < 2.0) {
@@ -557,7 +573,9 @@ export async function evaluateAnswer(
         penalizedZslScore * (1 - anchorInfluence) + lookup.anchorScore! * anchorInfluence
       ));
 
-      const similarityCap = similarity < 0.40 && specificityScore < 0.2 ? 2
+      // Specificity cap — skipped for follow-up questions so ZSL scores freely.
+      const similarityCap = isFollowUp ? 5
+        : similarity < 0.40 && specificityScore < 0.2 ? 2
         : similarity < 0.55 && specificityScore < 0.3 ? 3
         : similarity < 0.70 ? 4
         : 5;
@@ -585,11 +603,11 @@ export async function evaluateAnswer(
     }
   }
 
-  // Path 2
+  // Path 2 — primary path for all follow-up questions (no dataset match)
   try {
     const bd = zslBD ?? await callZSLClassify(question, answer);
     const zslScore = breakdownToScore(bd);
-    const lengthFactor = Math.min(1.0, wordCount / 50);
+    const lengthFactor = Math.min(1.0, wordCount / lengthPenaltyFloor);
     const penalizedZslScore = zslScore * lengthFactor;
 
     const rawTarget = Math.max(1, Math.min(5,
@@ -598,7 +616,9 @@ export async function evaluateAnswer(
         : penalizedZslScore
     ));
 
-    const path2Cap = specificityScore < 0.2 ? 2
+    // Specificity cap — skipped for follow-up questions so ZSL scores freely.
+    const path2Cap = isFollowUp ? 5
+      : specificityScore < 0.2 ? 2
       : specificityScore < 0.3 ? 3
       : specificityScore < 0.5 ? 4
       : 5;

@@ -1138,7 +1138,8 @@ function MockInterviewPageContent({
           };
 
           const questionText = questions[qIndex]?.question || "";
-          const result = await evaluateAnswer(questionText, transcriptText);
+          const isFollowUp = questions[qIndex]?.source === 'followup';
+          const result = await evaluateAnswer(questionText, transcriptText, isFollowUp);
 
           // ── Evaluation result console log ────────────────────────────
           console.log(
