@@ -506,7 +506,16 @@ export async function evaluateAnswer(
       }
 
       // Convert the 0–1 similarity to 1–5 Likert — this is the thesis claim
-      const targetScore = similarityToLikert(similarity, lookup.anchorScore!, zslScore);
+      let targetScore: number;
+
+      if (similarity < 0.3) {
+        targetScore = zslScore;
+      } else if (similarity < 0.6) {
+        targetScore = similarityToLikert(similarity * 0.5, lookup.anchorScore!, zslScore);
+      } else {
+        targetScore = similarityToLikert(similarity, lookup.anchorScore!, zslScore);
+      }
+
       const scaledBD = scaleBDToTarget(zslBD, targetScore);
       const finalScore = breakdownToScore(scaledBD);
 
