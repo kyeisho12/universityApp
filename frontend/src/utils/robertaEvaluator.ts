@@ -536,7 +536,7 @@ export async function evaluateAnswer(
   // "I just did what was required", "nothing major". Applied before all paths
   // so that high RoBERTa similarity cannot inflate a self-dismissive answer.
   if (isNegatingAnswer(norm)) {
-    const negBD: STARBreakdown = { situation: 2, task: 2, action: 2, result: 1, reflection: 2 };
+    const negBD: STARBreakdown = { situation: 2, task: 2, action: 2, result: 2, reflection: 2 };
     return {
       source: 'zsl_star_fallback',
       matchedQuestion: null,
