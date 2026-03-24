@@ -174,12 +174,13 @@ async function callRoBERTaSimilarity(
 // Labels: specific enough for the NLI model to score correctly,
 // short enough to stay distinct. [0]=strong(5) [1]=partial(3) [2]=absent(1).
 const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
-  situation:  ['describes a specific past situation', 'mentions a general situation', 'no situation mentioned'],
-  task:       ['clearly states their role or responsibility', 'vaguely mentions a role', 'no role mentioned'],
-  action:     ['describes specific actions they took', 'mentions actions without detail', 'no action described'],
-  result:     ['states a clear or measurable outcome', 'mentions a vague outcome', 'no outcome mentioned'],
-  reflection: ['shares a lesson learned or insight', 'hints at growth without stating it', 'no reflection at all'],
+  situation:  ['describes a specific past experience with time and place', 'mentions a general background or context', 'no background or situation mentioned'],
+  task:       ['clearly states a specific role and concrete responsibility', 'vaguely mentions a goal or intention', 'no role or responsibility mentioned'],
+  action:     ['describes concrete specific steps they personally executed', 'mentions doing something without any detail', 'no action or effort described'],
+  result:     ['states a measurable or clearly observable outcome', 'mentions a vague or assumed outcome', 'no result or outcome mentioned'],
+  reflection: ['shares a specific insight or lesson learned from experience', 'hints at personal growth without explaining it', 'no reflection or learning mentioned'],
 };
+
 
 // Weighted average — stable because probabilities sum to ~1.
 // strong→5, partial→3, absent→1. No subtraction, no clamping issues.
