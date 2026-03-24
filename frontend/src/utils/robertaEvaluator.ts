@@ -444,9 +444,9 @@ export async function evaluateAnswer(
   const norm = normalizeText(answer);
   const wordCount = norm.split(' ').filter(Boolean).length;
 
-  // Gate: answers under 5 words are meaningless — return score 1 immediately
+  // Gate: answers under 15 words are meaningless — return score 1 immediately
   // This prevents short/garbage answers from being inflated by the dataset anchor
-  if (wordCount < 3) {
+  if (wordCount < 15) {
     const emptyBD: STARBreakdown = { situation: 1, task: 1, action: 1, result: 1, reflection: 1 };
     return {
       source: 'zsl_star_fallback',
