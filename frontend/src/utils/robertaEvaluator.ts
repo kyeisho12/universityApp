@@ -358,6 +358,8 @@ export function lookupDataset(question: string, candidateAnswer: string): Datase
     if (sim > bestQSim) { bestQSim = sim; bestItem = it; }
   }
 
+  console.debug(`[lookupDataset] question="${question.slice(0, 40)}" bestQSim=${bestQSim.toFixed(3)} matched="${bestItem?.question?.slice(0, 40) ?? 'none'}"`);
+
   if (!bestItem || bestQSim < DATASET_MATCH_THRESHOLD) {
     return { item: null, questionSimilarity: bestQSim, anchorScore: null, bestAnswerSimilarity: 0, topAnswer: null };
   }
