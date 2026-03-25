@@ -175,47 +175,52 @@ async function callRoBERTaSimilarity(
 // Path 2 — ZSL RoBERTa Classification (cross-encoder/nli-roberta-base)
 //
 // Labels require specificity — forces the NLI model to penalize vague/generic
-// answers. [0]=strong(5) [1]=partial(3) [2]=absent(1)
-// ---------------------------------------------------------------------------
-
+// answers. [0]=strong(5): must have concrete detail  [1]=partial(3): general but present  [2]=absent(1)
 const ZSL_LABELS: Record<keyof STARBreakdown, string[]> = {
-  situation:  [
-    'describes a specific real past event with concrete context',
-    'mentions a general background with no specific event',
-    'no situation or context mentioned at all',
-  ],
-  task: [
-    'states a specific concrete role or responsibility they held',
-    'vaguely mentions wanting or trying something without a clear role',
-    'no role task or responsibility mentioned at all',
-  ],
-  action: [
-    'describes specific concrete steps or actions they personally took',
-    'mentions generic effort or attitude with no specific actions',
-    'no action or effort of any kind described',
-  ],
-  result: [
-    'states a concrete measurable or clearly observable outcome',
-    'expresses a vague hope wish or assumption about outcome',
-    'no result outcome or impact mentioned at all',
-  ],
-  reflection: [
-    'states a specific lesson or insight gained from a real experience',
-    'expresses a general desire to grow with no real experience behind it',
-    'no reflection learning or self-awareness mentioned at all',
-  ],
+  situation:  ['describes a specific real past event with concrete context', 'mentions a general background with no specific event', 'no situation or context mentioned at all'],
+  task:       ['states a specific concrete role or responsibility they held', 'vaguely mentions wanting or trying something without a clear role', 'no role task or responsibility mentioned at all'],
+  action:     ['describes specific concrete steps or actions they personally took', 'mentions generic effort or attitude with no specific actions', 'no action or effort of any kind described'],
+  result:     ['states a concrete measurable or clearly observable outcome', 'expresses a vague hope wish or assumption about outcome', 'no result outcome or impact mentioned at all'],
+  reflection: ['states a specific lesson or insight gained from a real experience', 'expresses a general desire to grow with no real experience behind it', 'no reflection learning or self-awareness mentioned at all'],
 };
 
+// Dimension-specific focus questions — appended to the NLI input per dimension.
+// This steers the model to evaluate a targeted hypothesis for each STAR component
+// rather than the same generic text for all five, producing genuinely different
+// probability distributions and thus varied per-dimension scores.
+const FOCUS_QUESTIONS: Record<keyof STARBreakdown, string> = {
+  situation:  'Does this answer describe a specific past situation or event with context?',
+  task:       'Does this answer clearly state the role or responsibility the speaker held?',
+  action:     'Does this answer describe concrete steps or actions personally taken?',
+  result:     'Does this answer provide a measurable or clearly observable outcome?',
+  reflection: 'Does this answer share a specific lesson or insight gained from experience?',
+};
+
+// Weighted average — stable because probabilities sum to ~1.
+// strong→5, partial→3, absent→1. No subtraction, no clamping issues.
 function probabilityToLikert(strong: number, mid: number, weak: number): number {
-  return Math.round(Math.max(1, Math.min(5, strong * 5 + mid * 3 + weak * 1)));
+  return Math.max(1, Math.min(5, Math.round(strong * 5 + mid * 3 + weak * 1)));
 }
 
+// Negation detector — catches answers that explicitly deny having STAR content.
+// e.g. "I don't really have anything", "nothing special", "I just did my part".
+// These are capped at 2 regardless of anchor blending to prevent inflation.
+function isNegatingAnswer(norm: string): boolean {
+  return /(i (didn't|didnt|don't|dont|did not|do not) (really|think|have|know|feel|make|do|consider)|i just (did|wanted|finished|went|showed up|helped)|nothing (special|major|significant|notable|big)|not (really|anything|much|significant)|i (only|merely|barely) (did|finished|helped|participated)|i don't think i have|i haven't really|i didn't really|i don't really (have|know|think|care)|i can't (really|think)|nothing (much|really) (happened|stands out|to say)|i just (go|kind of|keep)|i'm not sure (what|how|if))/.test(norm);
+}
+
+// Classify a single STAR dimension with its own focus question.
+// Each dimension call appends a different focus question to the shared base text,
+// so the NLI model evaluates a distinct hypothesis per STAR component.
 async function classifyDimension(
   dim: keyof STARBreakdown,
-  text: string
+  baseText: string
 ): Promise<[keyof STARBreakdown, number]> {
   const controller = new AbortController();
   const tid = window.setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
+  // Append the dimension-specific focus question to the base text.
+  const text = `${baseText}
+${FOCUS_QUESTIONS[dim]}`.slice(0, 650);
   try {
     const res = await fetch(`${BACKEND_URL}/api/hf-classify`, {
       method: 'POST',
@@ -226,11 +231,7 @@ async function classifyDimension(
       }),
       signal: controller.signal,
     });
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => '(unreadable)');
-      console.error(`[ZSL classify] ${res.status} for dim=${String(dim)}:`, errBody);
-      throw new Error(`ZSL classify error ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`ZSL classify error ${res.status}`);
     const data = await res.json();
 
     if (!data.labels || !data.scores) throw new Error('Invalid ZSL response');
@@ -258,12 +259,15 @@ async function callZSLClassify(
 ): Promise<STARBreakdown> {
   if (!BACKEND_URL) throw new Error('VITE_BACKEND_URL is not set.');
 
-  const text = `Question: ${question}\nAnswer: ${answer}`.slice(0, 600);
+  // Base text shared across all dimension calls — each gets its own focus question appended.
+  const baseText = `Question: ${question}
+Answer: ${answer}`.slice(0, 600);
+
   const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
 
   const dimScores: [keyof STARBreakdown, number][] = [];
   for (const dim of dims) {
-    const result = await classifyDimension(dim, text);
+    const result = await classifyDimension(dim, baseText);
     dimScores.push(result);
   }
 
