@@ -872,18 +872,20 @@ function MockInterviewPageContent({
       setHistorySegmentsByQuestion({ ...grouped });
       setLoadingHistorySegments(false);
 
-      // Phase 1b: run evaluations in background, update per segment
-      for (const seg of segments) {
-        if (!seg.transcript_text?.trim()) continue;
-        const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const evaluation = await evaluateAnswer(questionText, seg.transcript_text);
-          const qk = String(seg.question_index ?? 0);
-          grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
-          setHistorySegmentsByQuestion({ ...grouped });
-        } catch (e) { console.warn("evaluation:", e); }
-      }
+      // Phase 1b: run all evaluations in parallel — each updates the UI as it resolves
+      await Promise.allSettled(
+        segments
+          .filter((seg) => seg.transcript_text?.trim())
+          .map(async (seg) => {
+            const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
+            try {
+              const evaluation = await evaluateAnswer(questionText, seg.transcript_text!);
+              const qk = String(seg.question_index ?? 0);
+              grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
+              setHistorySegmentsByQuestion({ ...grouped });
+            } catch (e) { console.warn("evaluation:", e); }
+          })
+      );
 
       // Phase 2: fetch video URLs in background
       const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
@@ -3965,6 +3967,7 @@ function MockInterviewPageContent({
 
               {/* Start Button */}
               <button
+                type="button"
                 onClick={() => {
                   const nextState = {
                     hasStarted: true,
@@ -4170,12 +4173,14 @@ function MockInterviewPageContent({
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
+                  type="button"
                   onClick={handleExportSummary}
                   className="flex-1 border-2 border-[#1B2744] text-[#1B2744] py-3.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
                 >
                   Download Summary
                 </button>
                 <button
+                  type="button"
                   onClick={handlePracticeAgain}
                   className="flex-1 bg-[#1B2744] text-white py-3.5 rounded-lg font-semibold hover:bg-[#131d33] transition-colors"
                 >
@@ -4231,6 +4236,7 @@ function MockInterviewPageContent({
               />
             </div>
             <button
+              type="button"
               aria-label="Close sidebar"
               className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
               onClick={() => setMobileOpen(false)}
@@ -4312,6 +4318,7 @@ function MockInterviewPageContent({
                       <div className="absolute top-2 right-2 left-2 sm:left-auto sm:max-w-[220px] bg-black/70 text-white rounded-lg px-3 py-2 text-xs leading-snug backdrop-blur-sm flex items-start gap-2">
                         <span className="flex-1">💡 Test your camera & mic, then click <strong>Start Session</strong>.</span>
                         <button
+                          type="button"
                           onClick={() => setShowPreviewTip(false)}
                           className="flex-shrink-0 opacity-70 hover:opacity-100 mt-0.5"
                           aria-label="Close tip"
@@ -4346,6 +4353,7 @@ function MockInterviewPageContent({
                       <div className="absolute top-2 right-2 left-2 sm:left-auto sm:max-w-[220px] bg-gray-800/85 text-white rounded-lg px-3 py-2 text-xs leading-snug flex items-start gap-2">
                         <span className="flex-1">💡 Test your camera & mic, then click <strong>Start Session</strong>.</span>
                         <button
+                          type="button"
                           onClick={() => setShowPreviewTip(false)}
                           className="flex-shrink-0 opacity-70 hover:opacity-100 mt-0.5"
                           aria-label="Close tip"
@@ -4365,6 +4373,7 @@ function MockInterviewPageContent({
                   <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch sm:gap-3 bg-white rounded-xl sm:rounded-2xl px-2 sm:px-4 py-2.5 sm:py-3 shadow-md border border-gray-200 animate-in fade-in duration-200">
                     {/* Mic */}
                     <button
+                      type="button"
                       onClick={handleToggleMic}
                       className={
                         isMicOn
@@ -4380,6 +4389,7 @@ function MockInterviewPageContent({
                     </button>
                     {/* Camera */}
                     <button
+                      type="button"
                       onClick={handleToggleCamera}
                       className={
                         isCameraOn
@@ -4395,6 +4405,7 @@ function MockInterviewPageContent({
                     </button>
                     {/* Mic Test - full width on mobile */}
                     <button
+                      type="button"
                       onClick={handleToggleMicLoopback}
                       disabled={!isMicOn || isSessionStarted}
                       className={
@@ -4419,6 +4430,7 @@ function MockInterviewPageContent({
                     </button>
                     {/* Start/Next - full width on mobile, flex-1 on desktop */}
                     <button
+                      type="button"
                       disabled={
                         isUploadingSegment ||
                         isDecidingNextQuestion ||
@@ -4550,6 +4562,7 @@ function MockInterviewPageContent({
                     </button>
                     {/* Restart - col-span-1 on mobile */}
                     <button
+                      type="button"
                       onClick={handleRestartCurrentAnswer}
                       disabled={!isSessionStarted || !isPaused || isPauseTranscriptPending || isUploadingSegment || isDecidingNextQuestion || isAdvancingNextQuestion}
                       className={
@@ -4573,6 +4586,7 @@ function MockInterviewPageContent({
                     </button>
                     {/* End Session - col-span-1 on mobile */}
                     <button
+                      type="button"
                       onClick={handleEndSession}
                       disabled={!isSessionStarted || isAdvancingNextQuestion}
                       className={
@@ -4596,6 +4610,7 @@ function MockInterviewPageContent({
                 </div>
                 {/* Toggle Button - Mobile only, placed BELOW panel so it stays in view */}
                 <button
+                  type="button"
                   onClick={() => setControlsOpen(!controlsOpen)}
                   className="md:hidden w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-colors border border-gray-300"
                 >
@@ -4790,6 +4805,7 @@ function MockInterviewPageContent({
             </p>
             <div className="mt-4 flex items-center justify-end gap-3">
               <button
+                type="button"
                 onClick={handleContinueSpeaking}
                 className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors font-semibold"
                 title="No, continue recording"
@@ -4797,6 +4813,7 @@ function MockInterviewPageContent({
                 X
               </button>
               <button
+                type="button"
                 onClick={handleConfirmFinishedSpeaking}
                 className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors font-semibold"
                 title="Yes, save this answer"
