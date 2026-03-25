@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Video,
@@ -369,7 +370,7 @@ function SessionStarBar({ label, value }: { label: string; value: number | undef
   );
 }
 
-function SessionQuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; segments: StudentSegment[]; loadingVideos?: boolean }) {
+function SessionQuestionCard({ qIdx, segments, loadingVideos, loadingEvaluations }: { qIdx: string; segments: StudentSegment[]; loadingVideos?: boolean; loadingEvaluations?: boolean }) {
   const [open, setOpen] = React.useState(true);
   const first = segments[0];
   const score: number | null = first?.evaluation?.score ?? null;
@@ -443,6 +444,11 @@ function SessionQuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; 
                           ))}
                         </div>
                       )}
+                    </div>
+                  ) : loadingEvaluations && seg.transcript_text?.trim() ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center gap-2 text-sm text-gray-400">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span>Fetching evaluation, please wait a few moments…</span>
                     </div>
                   ) : (
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-400 italic">
@@ -614,6 +620,7 @@ function MockInterviewPageContent({
   const [historySegmentsByQuestion, setHistorySegmentsByQuestion] = useState<Record<string, StudentSegment[]>>({});
   const [loadingHistorySegments, setLoadingHistorySegments] = useState(false);
   const [loadingHistoryVideos, setLoadingHistoryVideos] = useState(false);
+  const [loadingHistoryEvaluations, setLoadingHistoryEvaluations] = useState(false);
   const [exportingHistoryId, setExportingHistoryId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>(
     initialStateRef.current?.questions ?? []
@@ -871,6 +878,7 @@ function MockInterviewPageContent({
 
       setHistorySegmentsByQuestion({ ...grouped });
       setLoadingHistorySegments(false);
+      setLoadingHistoryEvaluations(true);
 
       // Phase 1b: run all evaluations in parallel — each updates the UI as it resolves
       await Promise.allSettled(
@@ -886,6 +894,7 @@ function MockInterviewPageContent({
             } catch (e) { console.warn("evaluation:", e); }
           })
       );
+      setLoadingHistoryEvaluations(false);
 
       // Phase 2: fetch video URLs in background
       const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
@@ -938,6 +947,7 @@ function MockInterviewPageContent({
     } finally {
       setLoadingHistorySegments(false);
       setLoadingHistoryVideos(false);
+      setLoadingHistoryEvaluations(false);
     }
   }
 
@@ -3683,6 +3693,72 @@ function MockInterviewPageContent({
     useLiveChunkFallback,
   ]);
 
+  // Portal-based modal — renders into document.body regardless of which view branch is active,
+  // so it persists when the user switches browser tabs or any state change swaps the view.
+  const historyModal = selectedHistorySession ? createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/50">
+      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-gray-200 flex-shrink-0">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Session Details</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {selectedHistorySession.startedAt
+                ? new Date(selectedHistorySession.startedAt).toLocaleString()
+                : new Date(selectedHistorySession.createdAt).toLocaleString()}
+            </p>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 capitalize">
+                {selectedHistorySession.status.replace("_", " ")}
+              </span>
+              {selectedHistorySession.totalQuestions != null && (
+                <span className="text-xs text-gray-400">
+                  {selectedHistorySession.totalQuestions} question{selectedHistorySession.totalQuestions !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Close dialog"
+            onClick={() => setSelectedHistorySession(null)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+        {/* Body */}
+        <div className="p-6 space-y-4 overflow-y-auto">
+          {loadingHistorySegments ? (
+            <div className="text-center py-16 text-gray-400">
+              <Loader2 className="w-8 h-8 mx-auto mb-3 opacity-40 animate-spin" />
+              <p>Loading questions and evaluations…</p>
+              <p className="text-xs mt-1 text-gray-300">This may take a moment</p>
+            </div>
+          ) : Object.keys(historySegmentsByQuestion).length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Video className="w-8 h-8 mx-auto mb-3 opacity-40" />
+              <p>No recorded segments for this session.</p>
+            </div>
+          ) : (
+            Object.keys(historySegmentsByQuestion)
+              .sort((a, b) => Number(a) - Number(b))
+              .map((qIdx) => (
+                <SessionQuestionCard
+                  key={qIdx}
+                  qIdx={qIdx}
+                  segments={historySegmentsByQuestion[qIdx]}
+                  loadingVideos={loadingHistoryVideos}
+                  loadingEvaluations={loadingHistoryEvaluations}
+                />
+              ))
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-600">
@@ -3822,74 +3898,13 @@ function MockInterviewPageContent({
             </div>
           </div>
 
-          {/* Session Details Modal */}
-          {selectedHistorySession && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/50">
-              <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
-                {/* Header */}
-                <div className="flex items-start justify-between p-6 border-b border-gray-200 flex-shrink-0">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Session Details</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {selectedHistorySession.startedAt
-                        ? new Date(selectedHistorySession.startedAt).toLocaleString()
-                        : new Date(selectedHistorySession.createdAt).toLocaleString()}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 capitalize">
-                        {selectedHistorySession.status.replace("_", " ")}
-                      </span>
-                      {selectedHistorySession.totalQuestions != null && (
-                        <span className="text-xs text-gray-400">
-                          {selectedHistorySession.totalQuestions} question{selectedHistorySession.totalQuestions !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Close dialog"
-                    onClick={() => setSelectedHistorySession(null)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <X className="w-5 h-5 text-gray-600" />
-                  </button>
-                </div>
-
-                {/* Body */}
-                <div className="p-6 space-y-4 overflow-y-auto">
-                  {loadingHistorySegments ? (
-                    <div className="text-center py-16 text-gray-400">
-                      <Loader2 className="w-8 h-8 mx-auto mb-3 opacity-40 animate-spin" />
-                      <p>Loading questions and evaluations…</p>
-                      <p className="text-xs mt-1 text-gray-300">This may take a moment</p>
-                    </div>
-                  ) : Object.keys(historySegmentsByQuestion).length === 0 ? (
-                    <div className="text-center py-16 text-gray-400">
-                      <Video className="w-8 h-8 mx-auto mb-3 opacity-40" />
-                      <p>No recorded segments for this session.</p>
-                    </div>
-                  ) : (
-                    Object.keys(historySegmentsByQuestion)
-                      .sort((a, b) => Number(a) - Number(b))
-                      .map((qIdx) => (
-                        <SessionQuestionCard
-                          key={qIdx}
-                          qIdx={qIdx}
-                          segments={historySegmentsByQuestion[qIdx]}
-                          loadingVideos={loadingHistoryVideos}
-                        />
-                      ))
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          {historyModal}
         </div>
       );
     }
 
     return (
+      <>
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
         <div className="flex-shrink-0">
@@ -4009,6 +4024,8 @@ function MockInterviewPageContent({
           </div>
         </div>
       </div>
+      {historyModal}
+      </>
     );
   }
 
@@ -4017,6 +4034,7 @@ function MockInterviewPageContent({
     const sessionStats = computeSessionSTARStats();
     const overallPercent = Math.max(0, Math.min(100, (sessionStats.overallAverage / 5) * 100));
     return (
+      <>
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
         <div className="flex-shrink-0">
@@ -4191,6 +4209,8 @@ function MockInterviewPageContent({
           </div>
         </div>
       </div>
+      {historyModal}
+    </>
     );
   }
 
@@ -4824,6 +4844,7 @@ function MockInterviewPageContent({
           </div>
         </div>
       )}
+      {historyModal}
     </>
   );
 }
