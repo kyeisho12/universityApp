@@ -72,7 +72,7 @@ function statusBadgeClass(status: string) {
 // ---------------------------------------------------------------------------
 // VideoPlayer
 // ---------------------------------------------------------------------------
-function VideoPlayer({ src, mime }: { src: string | null; mime?: string }) {
+function VideoPlayer({ src, mime, loading }: { src: string | null; mime?: string; loading?: boolean }) {
   const ref = React.useRef<HTMLVideoElement>(null);
   const [error, setError] = React.useState(false);
 
@@ -80,6 +80,15 @@ function VideoPlayer({ src, mime }: { src: string | null; mime?: string }) {
     setError(false);
     if (ref.current) ref.current.load();
   }, [src]);
+
+  if (loading && !src) {
+    return (
+      <div className="w-full aspect-video bg-gray-900 rounded-xl flex flex-col items-center justify-center gap-2">
+        <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
+        <span className="text-sm text-gray-400">Loading video…</span>
+      </div>
+    );
+  }
 
   if (!src || error) {
     return (
@@ -128,7 +137,7 @@ function StarBar({ label, value }: { label: string; value: number | undefined })
 // ---------------------------------------------------------------------------
 // Question accordion card
 // ---------------------------------------------------------------------------
-function QuestionCard({ qIdx, segments }: { qIdx: string; segments: Segment[] }) {
+function QuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; segments: Segment[]; loadingVideos?: boolean }) {
   const [open, setOpen] = React.useState(true);
   const first = segments[0];
   const score: number | null = first?.evaluation?.score ?? null;
@@ -177,7 +186,7 @@ function QuestionCard({ qIdx, segments }: { qIdx: string; segments: Segment[] })
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                   Recording{segments.length > 1 && seg.segment_order != null ? ` — Segment ${seg.segment_order}` : ""}
                 </p>
-                <VideoPlayer src={seg.signedUrl} mime={seg.mime_type || seg.metadata?.mime_type || "video/webm"} />
+                <VideoPlayer src={seg.signedUrl} mime={seg.mime_type || seg.metadata?.mime_type || "video/webm"} loading={loadingVideos && !seg.signedUrl} />
               </div>
 
               {/* RIGHT — Transcript + Evaluation */}
@@ -252,6 +261,7 @@ export default function AdminMockInterview() {
   const [selectedSession, setSelectedSession] = React.useState<Session | null>(null);
   const [segmentsByQuestion, setSegmentsByQuestion] = React.useState<Record<string, Segment[]>>({});
   const [loadingSegments, setLoadingSegments] = React.useState(false);
+  const [loadingVideos, setLoadingVideos] = React.useState(false);
   const [exportingId, setExportingId] = React.useState<string | null>(null);
   const viewStateKey = `admin_mock_interview_view_${user?.id || "anon"}`;
   const pendingSessionIdRef = React.useRef<string | null>(null);
@@ -350,6 +360,7 @@ export default function AdminMockInterview() {
   async function handleViewSession(session: Session) {
     setSelectedSession(session);
     setLoadingSegments(true);
+    setLoadingVideos(true);
     setSegmentsByQuestion({});
     try {
       const { data: segs, error } = await supabase
@@ -359,7 +370,7 @@ export default function AdminMockInterview() {
         .order("question_index", { ascending: true })
         .order("segment_order", { ascending: true });
 
-      if (error) { console.error("fetchSegments:", error); setSegmentsByQuestion({}); return; }
+      if (error) { console.error("fetchSegments:", error); setSegmentsByQuestion({}); setLoadingSegments(false); setLoadingVideos(false); return; }
 
       const segments = segs || [];
 
@@ -376,88 +387,9 @@ export default function AdminMockInterview() {
         } catch (e) { console.warn("fetchQuestions:", e); }
       }
 
-      // Enrich each segment
+      // Phase 1: build grouped with evaluations, no video URLs yet
       const grouped: Record<string, Segment[]> = {};
       for (const seg of segments) {
-        let signedUrl: string | null = null;
-        if (seg.storage_path) {
-          const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
-            try {
-              const { data, error } = await supabase.storage
-                .from(bucket)
-                .createSignedUrl(path, 60 * 60);
-              if (error) {
-                console.warn(`[video] bucket="${bucket}" path="${path}" → ${error.message}`);
-                return null;
-              }
-              return data?.signedUrl ?? (data as any)?.signedURL ?? null;
-            } catch (e) {
-              console.warn("[video] createSignedUrl threw:", e);
-              return null;
-            }
-          };
-
-          const tryPublicUrl = (bucket: string, path: string): string | null => {
-            try {
-              const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-              return data?.publicUrl ?? null;
-            } catch {
-              return null;
-            }
-          };
-
-          const bucketFromMeta =
-            typeof seg.metadata?.storage_bucket === "string"
-              ? seg.metadata.storage_bucket
-              : typeof seg.metadata?.bucket === "string"
-              ? seg.metadata.bucket
-              : null;
-          const bucketCandidates = Array.from(
-            new Set([bucketFromMeta, "interview-recordings"].filter(Boolean) as string[])
-          );
-
-          const rawPath = String(seg.storage_path).trim();
-          const normalizedPaths = Array.from(
-            new Set(
-              [
-                rawPath,
-                rawPath.replace(/^\/+/, ""),
-                rawPath.replace(/^interview-recordings\//, ""),
-                rawPath.replace(/^\/interview-recordings\//, ""),
-              ].filter(Boolean)
-            )
-          );
-
-          // Prefer signed URLs first; public URLs for private buckets return a URL string
-          // but still fail at playback time.
-          for (const bucket of bucketCandidates) {
-            for (const path of normalizedPaths) {
-              // eslint-disable-next-line no-await-in-loop
-              signedUrl = await trySignedUrl(bucket, path);
-              if (signedUrl) break;
-            }
-            if (signedUrl) break;
-          }
-
-          // Fallback to public URL for projects using a public bucket.
-          if (!signedUrl) {
-            for (const bucket of bucketCandidates) {
-              for (const path of normalizedPaths) {
-                signedUrl = tryPublicUrl(bucket, path);
-                if (signedUrl) break;
-              }
-              if (signedUrl) break;
-            }
-          }
-
-          if (!signedUrl) {
-            console.error(
-              `[video] Could not get URL for storage_path="${rawPath}". ` +
-                "Check storage bucket policies and whether storage_path includes a bucket prefix."
-            );
-          }
-        }
-
         const questionText =
           (seg.metadata?.question_text) ||
           questionMap[String(seg.question_id)] ||
@@ -474,14 +406,100 @@ export default function AdminMockInterview() {
 
         const qk = String(seg.question_index ?? 0);
         if (!grouped[qk]) grouped[qk] = [];
-        grouped[qk].push({ ...seg, signedUrl, questionText, evaluation });
+        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation });
       }
 
-      setSegmentsByQuestion(grouped);
+      // Show questions/transcripts/evaluations immediately
+      setSegmentsByQuestion({ ...grouped });
+      setLoadingSegments(false);
+
+      // Phase 2: fetch video URLs in the background and update as each resolves
+      const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
+        try {
+          const { data, error } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(path, 60 * 60);
+          if (error) {
+            console.warn(`[video] bucket="${bucket}" path="${path}" → ${error.message}`);
+            return null;
+          }
+          return data?.signedUrl ?? (data as any)?.signedURL ?? null;
+        } catch (e) {
+          console.warn("[video] createSignedUrl threw:", e);
+          return null;
+        }
+      };
+
+      const tryPublicUrl = (bucket: string, path: string): string | null => {
+        try {
+          const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+          return data?.publicUrl ?? null;
+        } catch {
+          return null;
+        }
+      };
+
+      for (const seg of segments) {
+        if (!seg.storage_path) continue;
+
+        const bucketFromMeta =
+          typeof seg.metadata?.storage_bucket === "string"
+            ? seg.metadata.storage_bucket
+            : typeof seg.metadata?.bucket === "string"
+            ? seg.metadata.bucket
+            : null;
+        const bucketCandidates = Array.from(
+          new Set([bucketFromMeta, "interview-recordings"].filter(Boolean) as string[])
+        );
+
+        const rawPath = String(seg.storage_path).trim();
+        const normalizedPaths = Array.from(
+          new Set(
+            [
+              rawPath,
+              rawPath.replace(/^\/+/, ""),
+              rawPath.replace(/^interview-recordings\//, ""),
+              rawPath.replace(/^\/interview-recordings\//, ""),
+            ].filter(Boolean)
+          )
+        );
+
+        let signedUrl: string | null = null;
+        for (const bucket of bucketCandidates) {
+          for (const path of normalizedPaths) {
+            // eslint-disable-next-line no-await-in-loop
+            signedUrl = await trySignedUrl(bucket, path);
+            if (signedUrl) break;
+          }
+          if (signedUrl) break;
+        }
+
+        if (!signedUrl) {
+          for (const bucket of bucketCandidates) {
+            for (const path of normalizedPaths) {
+              signedUrl = tryPublicUrl(bucket, path);
+              if (signedUrl) break;
+            }
+            if (signedUrl) break;
+          }
+        }
+
+        if (!signedUrl) {
+          console.error(
+            `[video] Could not get URL for storage_path="${rawPath}". ` +
+              "Check storage bucket policies and whether storage_path includes a bucket prefix."
+          );
+        }
+
+        const qk = String(seg.question_index ?? 0);
+        grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, signedUrl } : s));
+        setSegmentsByQuestion({ ...grouped });
+      }
     } catch (err) {
       console.error(err); setSegmentsByQuestion({});
     } finally {
       setLoadingSegments(false);
+      setLoadingVideos(false);
     }
   }
 
@@ -824,8 +842,8 @@ export default function AdminMockInterview() {
             <div className="p-6 space-y-4 overflow-y-auto">
               {loadingSegments ? (
                 <div className="text-center py-16 text-gray-400">
-                  <Video className="w-8 h-8 mx-auto mb-3 opacity-40" />
-                  <p>Loading recordings and evaluations…</p>
+                  <Loader2 className="w-8 h-8 mx-auto mb-3 opacity-40 animate-spin" />
+                  <p>Loading questions and evaluations…</p>
                   <p className="text-xs mt-1 text-gray-300">This may take a moment</p>
                 </div>
               ) : Object.keys(segmentsByQuestion).length === 0 ? (
@@ -837,7 +855,7 @@ export default function AdminMockInterview() {
                 Object.keys(segmentsByQuestion)
                   .sort((a, b) => Number(a) - Number(b))
                   .map((qIdx) => (
-                    <QuestionCard key={qIdx} qIdx={qIdx} segments={segmentsByQuestion[qIdx]} />
+                    <QuestionCard key={qIdx} qIdx={qIdx} segments={segmentsByQuestion[qIdx]} loadingVideos={loadingVideos} />
                   ))
               )}
             </div>

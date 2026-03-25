@@ -20,6 +20,8 @@ import {
   Menu,
   X,
   ArrowLeft,
+  Loader2,
+  Download,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
@@ -156,6 +158,22 @@ interface SessionHistoryItem {
   evaluatedCount: number | null;
 }
 
+interface StudentSegment {
+  id: string;
+  question_id: string | null;
+  question_index: number | null;
+  segment_order: number | null;
+  storage_path: string | null;
+  mime_type: string | null;
+  transcript_text: string | null;
+  whisper_status: string | null;
+  metadata: Record<string, any> | null;
+  created_at: string;
+  signedUrl: string | null;
+  questionText: string;
+  evaluation: any | null;
+}
+
 function normalizeQuestionKey(value: string): string {
   return String(value || "")
     .toLowerCase()
@@ -288,6 +306,158 @@ const AUTO_CAPTURE_ARM_DELAY_MS = 3000;
 const LIVE_TRANSCRIBE_REQUEST_TIMEOUT_MS = 3500;
 const SEGMENT_PERSIST_TIMEOUT_MS = 15000;
 const STOP_RECORDING_FALLBACK_TIMEOUT_MS = 12000;
+
+// ---------------------------------------------------------------------------
+// Session Details Modal helpers
+// ---------------------------------------------------------------------------
+function sessionScoreBadgeClass(score: number | null | undefined) {
+  if (score == null) return "bg-gray-100 text-gray-500";
+  if (score >= 4) return "bg-emerald-100 text-emerald-700";
+  if (score >= 3) return "bg-cyan-100 text-cyan-700";
+  if (score >= 2) return "bg-yellow-100 text-yellow-700";
+  return "bg-red-100 text-red-700";
+}
+
+function SessionVideoPlayer({ src, mime, loading }: { src: string | null; mime?: string; loading?: boolean }) {
+  const ref = React.useRef<HTMLVideoElement>(null);
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    setError(false);
+    if (ref.current) ref.current.load();
+  }, [src]);
+
+  if (loading && !src) {
+    return (
+      <div className="w-full aspect-video bg-gray-900 rounded-xl flex flex-col items-center justify-center gap-2">
+        <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
+        <span className="text-sm text-gray-400">Loading video…</span>
+      </div>
+    );
+  }
+
+  if (!src || error) {
+    return (
+      <div className="w-full aspect-video bg-gray-900 rounded-xl flex flex-col items-center justify-center gap-2">
+        <Video className="w-8 h-8 text-gray-500" />
+        <span className="text-sm text-gray-400">{!src ? "No recording available" : "Video could not be loaded"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <video ref={ref} controls className="w-full aspect-video bg-black rounded-xl" onError={() => setError(true)}>
+      <source src={src} type={mime || "video/webm"} />
+      Your browser does not support the video tag.
+    </video>
+  );
+}
+
+function SessionStarBar({ label, value }: { label: string; value: number | undefined }) {
+  const v = value ?? 0;
+  const color = v >= 4 ? "bg-emerald-500" : v >= 3 ? "bg-cyan-500" : v >= 2 ? "bg-yellow-400" : "bg-red-400";
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-gray-600 capitalize">{label}</span>
+        <span className="font-medium text-gray-800">{v} / 5</span>
+      </div>
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${(v / 5) * 100}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SessionQuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; segments: StudentSegment[]; loadingVideos?: boolean }) {
+  const [open, setOpen] = React.useState(true);
+  const first = segments[0];
+  const score: number | null = first?.evaluation?.score ?? null;
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-sm font-semibold text-gray-900 shrink-0">Question #{Number(qIdx) + 1}</span>
+          {first?.questionText && (
+            <span className="text-sm text-gray-500 truncate hidden sm:block">— {first.questionText}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0 ml-3">
+          {score != null && (
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sessionScoreBadgeClass(score)}`}>
+              {score.toFixed(2)} / 5
+            </span>
+          )}
+          {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="p-5 space-y-5">
+          {first?.questionText && (
+            <p className="text-sm font-medium text-gray-800 bg-cyan-50 border border-cyan-100 rounded-lg px-4 py-3">
+              {first.questionText}
+            </p>
+          )}
+          {segments.map((seg) => (
+            <div key={seg.id} className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Recording{segments.length > 1 && seg.segment_order != null ? ` — Segment ${seg.segment_order}` : ""}
+                </p>
+                <SessionVideoPlayer
+                  src={seg.signedUrl}
+                  mime={seg.mime_type || seg.metadata?.mime_type || "video/webm"}
+                  loading={loadingVideos && !seg.signedUrl}
+                />
+              </div>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Transcript</p>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-800 leading-relaxed min-h-[100px] max-h-48 overflow-y-auto">
+                    {seg.transcript_text?.trim() || <span className="text-gray-400 italic">No transcript available.</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">AI Evaluation</p>
+                  {seg.evaluation?.score != null ? (
+                    <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-800">Overall Score</span>
+                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${sessionScoreBadgeClass(seg.evaluation.score)}`}>
+                          {seg.evaluation.score.toFixed(2)} / 5
+                        </span>
+                      </div>
+                      {seg.evaluation.hrLabel && (
+                        <p className="text-xs text-gray-500 italic">{seg.evaluation.hrLabel}</p>
+                      )}
+                      {seg.evaluation.breakdown && (
+                        <div className="space-y-2 pt-1">
+                          {Object.entries(seg.evaluation.breakdown).map(([k, v]) => (
+                            <SessionStarBar key={k} label={k} value={v as number} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-400 italic">
+                      No evaluation available.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MockInterviewPageContent({
   email,
@@ -440,6 +610,11 @@ function MockInterviewPageContent({
   const [showHistoryView, setShowHistoryView] = useState(true);
   const [historySessions, setHistorySessions] = useState<SessionHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistorySession, setSelectedHistorySession] = useState<SessionHistoryItem | null>(null);
+  const [historySegmentsByQuestion, setHistorySegmentsByQuestion] = useState<Record<string, StudentSegment[]>>({});
+  const [loadingHistorySegments, setLoadingHistorySegments] = useState(false);
+  const [loadingHistoryVideos, setLoadingHistoryVideos] = useState(false);
+  const [exportingHistoryId, setExportingHistoryId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>(
     initialStateRef.current?.questions ?? []
   );
@@ -658,6 +833,218 @@ function MockInterviewPageContent({
       void fetchSessionHistory();
     }
   }, [fetchSessionHistory, hasStarted, isCompleted, showHistoryView]);
+
+  async function handleViewHistorySession(session: SessionHistoryItem) {
+    setSelectedHistorySession(session);
+    setLoadingHistorySegments(true);
+    setLoadingHistoryVideos(true);
+    setHistorySegmentsByQuestion({});
+    try {
+      const { data: segs, error } = await supabase
+        .from("interview_recording_segments")
+        .select("id, question_id, question_index, segment_order, storage_path, mime_type, transcript_text, whisper_status, metadata, created_at")
+        .eq("session_id", session.id)
+        .order("question_index", { ascending: true })
+        .order("segment_order", { ascending: true });
+
+      if (error) { console.error("fetchSegments:", error); setHistorySegmentsByQuestion({}); setLoadingHistorySegments(false); setLoadingHistoryVideos(false); return; }
+
+      const segments = segs || [];
+
+      const qIds = Array.from(new Set(segments.map((s: any) => s.question_id).filter(Boolean)));
+      const questionMap: Record<string, string> = {};
+      if (qIds.length > 0) {
+        try {
+          const { data: qdata } = await supabase.from("interview_question_bank").select("id, question_text").in("id", qIds);
+          if (qdata) for (const q of qdata) questionMap[String(q.id)] = q.question_text;
+        } catch (e) { console.warn("fetchQuestions:", e); }
+      }
+
+      // Phase 1: build with evaluations, no video URLs yet
+      const grouped: Record<string, StudentSegment[]> = {};
+      for (const seg of segments) {
+        const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
+        let evaluation: any = null;
+        try {
+          if (seg.transcript_text?.trim()) {
+            // eslint-disable-next-line no-await-in-loop
+            evaluation = await evaluateAnswer(questionText, seg.transcript_text);
+          }
+        } catch (e) { console.warn("evaluation:", e); }
+        const qk = String(seg.question_index ?? 0);
+        if (!grouped[qk]) grouped[qk] = [];
+        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation });
+      }
+
+      setHistorySegmentsByQuestion({ ...grouped });
+      setLoadingHistorySegments(false);
+
+      // Phase 2: fetch video URLs in background
+      const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
+        try {
+          const { data, error: urlError } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+          if (urlError) { console.warn(`[video] bucket="${bucket}" path="${path}" → ${urlError.message}`); return null; }
+          return data?.signedUrl ?? (data as any)?.signedURL ?? null;
+        } catch (e) { console.warn("[video] createSignedUrl threw:", e); return null; }
+      };
+
+      const tryPublicUrl = (bucket: string, path: string): string | null => {
+        try {
+          const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+          return data?.publicUrl ?? null;
+        } catch { return null; }
+      };
+
+      for (const seg of segments) {
+        if (!seg.storage_path) continue;
+        const bucketFromMeta = typeof seg.metadata?.storage_bucket === "string" ? seg.metadata.storage_bucket : typeof seg.metadata?.bucket === "string" ? seg.metadata.bucket : null;
+        const bucketCandidates = Array.from(new Set([bucketFromMeta, "interview-recordings"].filter(Boolean) as string[]));
+        const rawPath = String(seg.storage_path).trim();
+        const normalizedPaths = Array.from(new Set([rawPath, rawPath.replace(/^\/+/, ""), rawPath.replace(/^interview-recordings\//, ""), rawPath.replace(/^\/interview-recordings\//, "")].filter(Boolean)));
+
+        let signedUrl: string | null = null;
+        for (const bucket of bucketCandidates) {
+          for (const path of normalizedPaths) {
+            // eslint-disable-next-line no-await-in-loop
+            signedUrl = await trySignedUrl(bucket, path);
+            if (signedUrl) break;
+          }
+          if (signedUrl) break;
+        }
+        if (!signedUrl) {
+          for (const bucket of bucketCandidates) {
+            for (const path of normalizedPaths) {
+              signedUrl = tryPublicUrl(bucket, path);
+              if (signedUrl) break;
+            }
+            if (signedUrl) break;
+          }
+        }
+
+        const qk = String(seg.question_index ?? 0);
+        grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, signedUrl } : s));
+        setHistorySegmentsByQuestion({ ...grouped });
+      }
+    } catch (err) {
+      console.error(err); setHistorySegmentsByQuestion({});
+    } finally {
+      setLoadingHistorySegments(false);
+      setLoadingHistoryVideos(false);
+    }
+  }
+
+  async function handleExportHistorySession(session: SessionHistoryItem) {
+    setExportingHistoryId(session.id);
+    try {
+      if (!(window as any).XLSX) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load SheetJS"));
+          document.head.appendChild(s);
+        });
+      }
+      const XLSX = (window as any).XLSX;
+
+      const { data: segs, error } = await supabase
+        .from("interview_recording_segments")
+        .select("id, question_id, question_index, segment_order, transcript_text, whisper_status, metadata, created_at")
+        .eq("session_id", session.id)
+        .order("question_index", { ascending: true })
+        .order("segment_order", { ascending: true });
+
+      if (error || !segs || segs.length === 0) {
+        await messageBox.alert({ title: "No Recordings Found", message: "No recorded segments were found for this session.", tone: "warning" });
+        return;
+      }
+
+      const qIds = Array.from(new Set(segs.map((s: any) => s.question_id).filter(Boolean)));
+      const questionMap: Record<string, string> = {};
+      if (qIds.length > 0) {
+        const { data: qdata } = await supabase.from("interview_question_bank").select("id, question_text").in("id", qIds);
+        if (qdata) for (const q of qdata) questionMap[String(q.id)] = q.question_text;
+      }
+
+      const byQ: Record<number, { questionText: string; transcripts: string[]; createdAt: string }> = {};
+      for (const seg of segs) {
+        const qi: number = seg.question_index ?? 0;
+        const qText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${qi + 1}`;
+        if (!byQ[qi]) byQ[qi] = { questionText: qText, transcripts: [], createdAt: seg.created_at };
+        if (seg.transcript_text?.trim()) byQ[qi].transcripts.push(seg.transcript_text.trim());
+      }
+
+      const questionRows: any[] = [];
+      const allScores: number[] = [];
+      const sortedIndices = Object.keys(byQ).map(Number).sort((a, b) => a - b);
+
+      for (const qi of sortedIndices) {
+        const { questionText, transcripts, createdAt } = byQ[qi];
+        const fullTranscript = transcripts.join(" ").trim();
+        let evaluation: any = null;
+        try {
+          if (fullTranscript) {
+            // eslint-disable-next-line no-await-in-loop
+            evaluation = await evaluateAnswer(questionText, fullTranscript);
+          }
+        } catch {}
+        const score = evaluation?.score ?? null;
+        if (score != null) allScores.push(score);
+        questionRows.push({
+          "Q#": qi + 1,
+          "Question": questionText,
+          "Answer Transcript": fullTranscript || "—",
+          "Score (1–5)": score != null ? score.toFixed(2) : "—",
+          "HR Label": evaluation?.hrLabel ?? "—",
+          "Situation": evaluation?.breakdown?.situation ?? "—",
+          "Task": evaluation?.breakdown?.task ?? "—",
+          "Action": evaluation?.breakdown?.action ?? "—",
+          "Result": evaluation?.breakdown?.result ?? "—",
+          "Reflection": evaluation?.breakdown?.reflection ?? "—",
+          "Dataset Similarity": evaluation?.datasetSimilarity != null ? `${(evaluation.datasetSimilarity * 100).toFixed(0)}%` : "—",
+          "Evaluated At": createdAt ? new Date(createdAt).toLocaleString() : "—",
+        });
+      }
+
+      const overallScore = allScores.length > 0 ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2) : "—";
+
+      const summaryRows = [
+        { Field: "Session ID", Value: session.id },
+        { Field: "Status", Value: session.status },
+        { Field: "Started At", Value: session.startedAt ? new Date(session.startedAt).toLocaleString() : "—" },
+        { Field: "Ended At", Value: session.endedAt ? new Date(session.endedAt).toLocaleString() : "—" },
+        { Field: "Total Questions", Value: String(session.totalQuestions ?? questionRows.length) },
+        { Field: "Overall Avg Score (1–5)", Value: overallScore },
+      ];
+
+      const wbSummary = XLSX.utils.json_to_sheet(summaryRows, { skipHeader: false });
+      wbSummary["!cols"] = [{ wch: 28 }, { wch: 60 }];
+
+      const wbDetail = XLSX.utils.json_to_sheet(questionRows);
+      wbDetail["!cols"] = [{ wch: 4 }, { wch: 45 }, { wch: 60 }, { wch: 12 }, { wch: 30 }, { wch: 11 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 22 }];
+
+      const range = XLSX.utils.decode_range(wbDetail["!ref"]);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!wbDetail[cellAddress]) continue;
+          wbDetail[cellAddress].s = { alignment: { horizontal: "center", vertical: "center", wrapText: true }, font: R === 0 ? { bold: true } : {} };
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, wbSummary, "Summary");
+      XLSX.utils.book_append_sheet(wb, wbDetail, "Question Details");
+
+      const dateSlug = session.startedAt ? new Date(session.startedAt).toISOString().slice(0, 10) : "unknown";
+      XLSX.writeFile(wb, `my_interview_${dateSlug}.xlsx`);
+    } catch (err) {
+      console.error("Export failed:", err);
+      await messageBox.alert({ title: "Export Failed", message: "Export failed. Please try again.", tone: "error" });
+    } finally {
+      setExportingHistoryId(null);
+    }
+  }
 
   useEffect(() => {
     if (stateKey === derivedStateKey) return;
@@ -3351,6 +3738,7 @@ function MockInterviewPageContent({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Past Sessions</h3>
                   <button
+                    type="button"
                     onClick={() => setShowHistoryView(false)}
                     className="bg-[#1B2744] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#131d33] transition-colors"
                   >
@@ -3366,18 +3754,19 @@ function MockInterviewPageContent({
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Status</th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Questions</th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Score</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {historyLoading ? (
                         <tr>
-                          <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={4}>
+                          <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={5}>
                             Loading sessions...
                           </td>
                         </tr>
                       ) : historySessions.length === 0 ? (
                         <tr>
-                          <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={4}>
+                          <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={5}>
                             No interview sessions yet.
                           </td>
                         </tr>
@@ -3395,6 +3784,31 @@ function MockInterviewPageContent({
                                 <span className="text-xs text-gray-500 ml-2">({session.evaluatedCount} answers)</span>
                               ) : null}
                             </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewHistorySession(session)}
+                                  className="flex items-center gap-1.5 text-xs font-medium text-cyan-700 hover:text-cyan-900 px-2.5 py-1.5 rounded-lg hover:bg-cyan-50 transition-colors"
+                                >
+                                  <Video className="w-3.5 h-3.5" />
+                                  View
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportHistorySession(session)}
+                                  disabled={exportingHistoryId === session.id}
+                                  className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                >
+                                  {exportingHistoryId === session.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Download className="w-3.5 h-3.5" />
+                                  )}
+                                  Export
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -3404,6 +3818,70 @@ function MockInterviewPageContent({
               </div>
             </div>
           </div>
+
+          {/* Session Details Modal */}
+          {selectedHistorySession && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/50">
+              <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
+                {/* Header */}
+                <div className="flex items-start justify-between p-6 border-b border-gray-200 flex-shrink-0">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Session Details</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {selectedHistorySession.startedAt
+                        ? new Date(selectedHistorySession.startedAt).toLocaleString()
+                        : new Date(selectedHistorySession.createdAt).toLocaleString()}
+                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 capitalize">
+                        {selectedHistorySession.status.replace("_", " ")}
+                      </span>
+                      {selectedHistorySession.totalQuestions != null && (
+                        <span className="text-xs text-gray-400">
+                          {selectedHistorySession.totalQuestions} question{selectedHistorySession.totalQuestions !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close dialog"
+                    onClick={() => setSelectedHistorySession(null)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-4 overflow-y-auto">
+                  {loadingHistorySegments ? (
+                    <div className="text-center py-16 text-gray-400">
+                      <Loader2 className="w-8 h-8 mx-auto mb-3 opacity-40 animate-spin" />
+                      <p>Loading questions and evaluations…</p>
+                      <p className="text-xs mt-1 text-gray-300">This may take a moment</p>
+                    </div>
+                  ) : Object.keys(historySegmentsByQuestion).length === 0 ? (
+                    <div className="text-center py-16 text-gray-400">
+                      <Video className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                      <p>No recorded segments for this session.</p>
+                    </div>
+                  ) : (
+                    Object.keys(historySegmentsByQuestion)
+                      .sort((a, b) => Number(a) - Number(b))
+                      .map((qIdx) => (
+                        <SessionQuestionCard
+                          key={qIdx}
+                          qIdx={qIdx}
+                          segments={historySegmentsByQuestion[qIdx]}
+                          loadingVideos={loadingHistoryVideos}
+                        />
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
