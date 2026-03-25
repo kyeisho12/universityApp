@@ -553,8 +553,8 @@ export async function evaluateAnswer(
 
       if (penalizedZslScore < 2.0) {
         const targetScore = isNegating ? Math.min(penalizedZslScore, 2) : penalizedZslScore;
-        const finalBD = scaleBDToTarget(zslBD, targetScore);
-        const finalScore = breakdownToScore(finalBD);
+        const finalScore = targetScore;  // score comes from the blending formula
+        const finalBD = zslBD;           // breakdown stays as raw ZSL output 
         return {
           source: 'roberta_similarity',
           matchedQuestion: lookup.item?.question ?? null,
@@ -583,8 +583,8 @@ export async function evaluateAnswer(
 
       const cappedScore  = Math.min(blendedScore, similarityCap);
       const targetScore  = isNegating ? Math.min(cappedScore, 2) : cappedScore;
-      const finalBD      = scaleBDToTarget(zslBD, targetScore);
-      const finalScore   = breakdownToScore(finalBD);
+      const finalScore = targetScore;  // score comes from the blending formula
+      const finalBD = zslBD;           // breakdown stays as raw ZSL output
 
       return {
         source: 'roberta_similarity',
@@ -626,8 +626,8 @@ export async function evaluateAnswer(
 
     const cappedTarget  = Math.min(rawTarget, path2Cap);
     const targetScore   = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
-    const finalBD       = scaleBDToTarget(bd, targetScore);
-    const finalScore    = breakdownToScore(finalBD);
+    const finalScore = targetScore;  // score comes from the blending formula
+    const finalBD = zslBD;           // breakdown stays as raw ZSL output
 
     return {
       source: 'zsl_roberta',
@@ -662,8 +662,8 @@ export async function evaluateAnswer(
   ));
 
   const targetScore = isNegating ? Math.min(rawTarget, 2) : rawTarget;
-  const finalBD    = scaleBDToTarget(blendedBD, targetScore);
-  const finalScore = breakdownToScore(finalBD);
+  const finalScore = targetScore;  // score comes from the blending formula
+  const finalBD = zslBD;           // breakdown stays as raw ZSL output
 
   return {
     source: 'zsl_star_fallback',
