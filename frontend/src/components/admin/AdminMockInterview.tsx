@@ -387,31 +387,36 @@ export default function AdminMockInterview() {
         } catch (e) { console.warn("fetchQuestions:", e); }
       }
 
-      // Phase 1: build grouped with evaluations, no video URLs yet
+      // Phase 1: build grouped WITHOUT evaluations → render immediately
       const grouped: Record<string, Segment[]> = {};
       for (const seg of segments) {
         const questionText =
           (seg.metadata?.question_text) ||
           questionMap[String(seg.question_id)] ||
           `Question #${(seg.question_index ?? 0) + 1}`;
-
-        // Evaluation
-        let evaluation: any = null;
-        try {
-          if (seg.transcript_text?.trim()) {
-            // eslint-disable-next-line no-await-in-loop
-            evaluation = await evaluateAnswer(questionText, seg.transcript_text);
-          }
-        } catch (e) { console.warn("evaluation:", e); }
-
         const qk = String(seg.question_index ?? 0);
         if (!grouped[qk]) grouped[qk] = [];
-        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation });
+        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation: null });
       }
 
-      // Show questions/transcripts/evaluations immediately
       setSegmentsByQuestion({ ...grouped });
       setLoadingSegments(false);
+
+      // Phase 1b: run evaluations in background, update per segment
+      for (const seg of segments) {
+        if (!seg.transcript_text?.trim()) continue;
+        const questionText =
+          (seg.metadata?.question_text) ||
+          questionMap[String(seg.question_id)] ||
+          `Question #${(seg.question_index ?? 0) + 1}`;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const evaluation = await evaluateAnswer(questionText, seg.transcript_text);
+          const qk = String(seg.question_index ?? 0);
+          grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
+          setSegmentsByQuestion({ ...grouped });
+        } catch (e) { console.warn("evaluation:", e); }
+      }
 
       // Phase 2: fetch video URLs in the background and update as each resolves
       const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {

@@ -860,24 +860,30 @@ function MockInterviewPageContent({
         } catch (e) { console.warn("fetchQuestions:", e); }
       }
 
-      // Phase 1: build with evaluations, no video URLs yet
+      // Phase 1: build WITHOUT evaluations or video URLs → render immediately
       const grouped: Record<string, StudentSegment[]> = {};
       for (const seg of segments) {
         const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
-        let evaluation: any = null;
-        try {
-          if (seg.transcript_text?.trim()) {
-            // eslint-disable-next-line no-await-in-loop
-            evaluation = await evaluateAnswer(questionText, seg.transcript_text);
-          }
-        } catch (e) { console.warn("evaluation:", e); }
         const qk = String(seg.question_index ?? 0);
         if (!grouped[qk]) grouped[qk] = [];
-        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation });
+        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation: null });
       }
 
       setHistorySegmentsByQuestion({ ...grouped });
       setLoadingHistorySegments(false);
+
+      // Phase 1b: run evaluations in background, update per segment
+      for (const seg of segments) {
+        if (!seg.transcript_text?.trim()) continue;
+        const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const evaluation = await evaluateAnswer(questionText, seg.transcript_text);
+          const qk = String(seg.question_index ?? 0);
+          grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
+          setHistorySegmentsByQuestion({ ...grouped });
+        } catch (e) { console.warn("evaluation:", e); }
+      }
 
       // Phase 2: fetch video URLs in background
       const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
