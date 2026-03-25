@@ -1026,18 +1026,12 @@ function MockInterviewPageContent({
     if (!evalEntries.length) return 0;
 
     const total = evalEntries.reduce((sum, entry) => {
-      const bd = entry.val?.breakdown;
-      if (bd && typeof bd === "object") {
-        const dims = [bd.situation, bd.task, bd.action, bd.result, bd.reflection].map(Number);
-        const validDims = dims.filter(Number.isFinite);
-        if (validDims.length === 5) {
-          const per = validDims.reduce((s, x) => s + x, 0) / 5;
-          return sum + per;
-        }
-      }
-      const fallback = Number(entry.val?.score);
-      return sum + (Number.isFinite(fallback) ? fallback : 0);
-    }, 0);
+    // Always use result.score — it is the final capped/blended Likert value.
+    // The breakdown is the raw ZSL output and its average intentionally differs
+    // from score (that's what allows differentiated per-dimension display).
+    const score = Number(entry.val?.score);
+    return sum + (Number.isFinite(score) ? score : 0);
+  }, 0);
 
     return total / evalEntries.length;
   }, [evaluations]);

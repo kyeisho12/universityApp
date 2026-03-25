@@ -548,7 +548,9 @@ export async function evaluateAnswer(
     try {
       const similarity = await callRoBERTaSimilarity(question, answer, lookup.topAnswer);
       const zslScore = breakdownToScore(zslBD);
-      const lengthFactor = Math.min(1.0, wordCount / lengthPenaltyFloor);
+      const lengthFactor = specificityScore > 0.3
+        ? 1.0
+        : Math.min(1.0, wordCount / lengthPenaltyFloor);
       const penalizedZslScore = zslScore * lengthFactor;
 
       if (penalizedZslScore < 2.0) {
