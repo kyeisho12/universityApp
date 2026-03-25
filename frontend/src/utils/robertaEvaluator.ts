@@ -530,7 +530,7 @@ export async function evaluateAnswer(
 
   // Follow-up answers are shorter and lack OJT/number signals by design.
   // Relax the length-penalty floor and skip the specificity cap entirely.
-  const lengthPenaltyFloor = isFollowUp ? 30 : 50;
+  const lengthPenaltyFloor = isFollowUp ? 25 : 40;
 
   const lookup = lookupDataset(question, answer);
   const hasDataset = lookup.item !== null && lookup.anchorScore !== null;
@@ -610,7 +610,9 @@ export async function evaluateAnswer(
   try {
     const bd = zslBD ?? await callZSLClassify(question, answer);
     const zslScore = breakdownToScore(bd);
-    const lengthFactor = Math.min(1.0, wordCount / lengthPenaltyFloor);
+    const lengthFactor = specificityScore > 0.3
+      ? 1.0
+      : Math.min(1.0, wordCount / lengthPenaltyFloor);
     const penalizedZslScore = zslScore * lengthFactor;
 
     const rawTarget = Math.max(1, Math.min(5,
