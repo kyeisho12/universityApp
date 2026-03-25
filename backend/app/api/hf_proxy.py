@@ -18,7 +18,6 @@ def _prewarm_model():
     """Pre-warm the embedding model so the first request isn't slow."""
     get_model()
 
-
 def get_model():
     global _model
     if _model is None:
@@ -36,20 +35,43 @@ def get_model():
             return None
     return _model
 
-
 # ── ZSL Classification model (Path 2: cross-encoder/nli-roberta-base) ─────────
 _classify_model = None
+
+def _prewarm_classify_model():
+    """Pre-warm the ZSL model so the first classify request isn't slow."""
+    get_classify_model()
 
 def get_classify_model():
     global _classify_model
     if _classify_model is None:
         try:
             print("Loading cross-encoder/nli-roberta-base for ZSL...", flush=True)
-            from transformers import pipeline
+            import torch
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+
+            # Load tokenizer and model explicitly onto CPU.
+            # Do NOT rely on pipeline(device=-1) alone — when `accelerate` is installed,
+            # transformers may use device_map="auto" internally, placing weights on a
+            # "meta" device (no real tensors). Any computation then raises:
+            #   aten::_local_scalar_dense: attempted to run this operator with Meta tensors
+            # Explicitly constructing the model with low_cpu_mem_usage=False bypasses
+            # accelerate entirely and forces real CPU float32 tensors.
+            model_name = "cross-encoder/nli-roberta-base"
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForSequenceClassification.from_pretrained(
+                model_name,
+                torch_dtype=torch.float32,  # explicit dtype — avoids bfloat16 meta init
+                low_cpu_mem_usage=False,     # disable accelerate meta-tensor trick
+            )
+            model.eval()
+
             _classify_model = pipeline(
-                'zero-shot-classification',
-                model='cross-encoder/nli-roberta-base',
-                device=-1  # CPU
+                "zero-shot-classification",
+                model=model,
+                tokenizer=tokenizer,
+                device=-1,      # CPU (redundant but explicit)
+                framework="pt",
             )
             print("ZSL classification model loaded successfully.", flush=True)
         except Exception as e:
@@ -58,8 +80,17 @@ def get_classify_model():
             return None
     return _classify_model
 
+def prewarm_all():
+    """
+    Called once at app startup (via threading.Thread) to warm both models
+    in parallel so neither the embed nor classify endpoint is slow on first hit.
+    """
+    t1 = threading.Thread(target=_prewarm_model,          daemon=True)
+    t2 = threading.Thread(target=_prewarm_classify_model, daemon=True)
+    t1.start()
+    t2.start()
 
-# ── /hf-embed (Path 1) ────────────────────────────────────────────────────────
+# ── /hf-embed (Path 1) ──────────────────────────────────────────────────────
 @hf_proxy_bp.route('/hf-embed', methods=['POST'])
 def hf_embed():
 
@@ -87,8 +118,15 @@ def hf_embed():
             'traceback': traceback.format_exc()
         }), 500
 
+# ── /hf-classify (Path 2: ZSL per STAR dimension) ───────────────────────────
+# cross-encoder/nli-roberta-base has a hard limit of 512 tokens.
+# The NLI pipeline internally formats each call as:
+#   "[CLS] <premise> [SEP] <hypothesis> [SEP]"
+# where hypothesis is one candidate label at a time.
+# A safe premise length is ~350 chars (~87 tokens), leaving room for the
+# longest label (~15 tokens) + special tokens + template overhead.
+_MAX_CLASSIFY_INPUT_CHARS = 350
 
-# ── /hf-classify (Path 2: ZSL per STAR dimension) ────────────────────────────
 @hf_proxy_bp.route('/hf-classify', methods=['POST'])
 def hf_classify():
 
@@ -107,12 +145,15 @@ def hf_classify():
     if not candidate_labels or not isinstance(candidate_labels, list):
         return jsonify({'error': 'candidate_labels must be a list'}), 400
 
+    # Truncate before hitting the model — prevents token-overflow 500s on long answers.
+    safe_inputs = inputs[:_MAX_CLASSIFY_INPUT_CHARS]
+
     classifier = get_classify_model()
     if classifier is None:
         return jsonify({'error': 'ZSL model failed to load'}), 500
 
     try:
-        result = classifier(inputs, candidate_labels, multi_label=False)
+        result = classifier(safe_inputs, candidate_labels, multi_label=False)
         return jsonify({
             'labels': result['labels'],
             'scores': result['scores'],
