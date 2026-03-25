@@ -402,23 +402,21 @@ export default function AdminMockInterview() {
       setSegmentsByQuestion({ ...grouped });
       setLoadingSegments(false);
 
-      // Phase 1b: run all evaluations in parallel — each updates the UI as it resolves
-      await Promise.allSettled(
-        segments
-          .filter((seg) => seg.transcript_text?.trim())
-          .map(async (seg) => {
-            const questionText =
-              (seg.metadata?.question_text) ||
-              questionMap[String(seg.question_id)] ||
-              `Question #${(seg.question_index ?? 0) + 1}`;
-            try {
-              const evaluation = await evaluateAnswer(questionText, seg.transcript_text!);
-              const qk = String(seg.question_index ?? 0);
-              grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
-              setSegmentsByQuestion({ ...grouped });
-            } catch (e) { console.warn("evaluation:", e); }
-          })
-      );
+      // Phase 1b: run evaluations in background, update per segment
+      for (const seg of segments) {
+        if (!seg.transcript_text?.trim()) continue;
+        const questionText =
+          (seg.metadata?.question_text) ||
+          questionMap[String(seg.question_id)] ||
+          `Question #${(seg.question_index ?? 0) + 1}`;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const evaluation = await evaluateAnswer(questionText, seg.transcript_text);
+          const qk = String(seg.question_index ?? 0);
+          grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
+          setSegmentsByQuestion({ ...grouped });
+        } catch (e) { console.warn("evaluation:", e); }
+      }
 
       // Phase 2: fetch video URLs in the background and update as each resolves
       const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
@@ -711,7 +709,7 @@ export default function AdminMockInterview() {
                 onNavigate={(r) => { setMobileOpen(false); handleNavigate(r); }}
                 activeNav="admin/mock_interview" />
             </div>
-            <button type="button" aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
+            <button aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded-md bg-white/90" onClick={() => setMobileOpen(false)}>
               <X className="w-5 h-5 text-gray-800" />
             </button>
           </div>
@@ -722,7 +720,7 @@ export default function AdminMockInterview() {
       <div className="md:ml-72">
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center px-6 py-4">
-            <button type="button" aria-label="Open navigation menu" onClick={() => setMobileOpen(true)} className="md:hidden p-2 hover:bg-gray-100 rounded-lg">
+            <button aria-label="Open navigation menu" onClick={() => setMobileOpen(true)} className="md:hidden p-2 hover:bg-gray-100 rounded-lg">
               <Menu className="w-6 h-6 text-gray-600" />
             </button>
           </div>
@@ -789,7 +787,7 @@ export default function AdminMockInterview() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <button type="button" onClick={() => handleViewSession(session)} className="inline-flex items-center gap-1.5 text-sm text-cyan-600 hover:text-cyan-800 font-medium">
+                            <button onClick={() => handleViewSession(session)} className="inline-flex items-center gap-1.5 text-sm text-cyan-600 hover:text-cyan-800 font-medium">
                               <Eye className="w-4 h-4" />View
                             </button>
                             
@@ -797,7 +795,6 @@ export default function AdminMockInterview() {
                         </td>
                         <td>
                           <button
-                              type="button"
                               onClick={() => handleExportSession(session)}
                               disabled={exportingId === session.id}
                               className="inline-flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -841,7 +838,7 @@ export default function AdminMockInterview() {
                   )}
                 </div>
               </div>
-              <button type="button" aria-label="Close dialog" onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <button aria-label="Close dialog" onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
