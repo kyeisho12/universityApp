@@ -202,13 +202,6 @@ function probabilityToLikert(strong: number, mid: number, weak: number): number 
   return Math.max(1, Math.min(5, Math.round(strong * 5 + mid * 3 + weak * 1)));
 }
 
-// Negation detector — catches answers that explicitly deny having STAR content.
-// e.g. "I don't really have anything", "nothing special", "I just did my part".
-// These are capped at 2 regardless of anchor blending to prevent inflation.
-function isNegatingAnswer(norm: string): boolean {
-  return /(i (didn't|didnt|don't|dont|did not|do not) (really|think|have|know|feel|make|do|consider)|i just (did|wanted|finished|went|showed up|helped)|nothing (special|major|significant|notable|big)|not (really|anything|much|significant)|i (only|merely|barely) (did|finished|helped|participated)|i don't think i have|i haven't really|i didn't really|i don't really (have|know|think|care)|i can't (really|think)|nothing (much|really) (happened|stands out|to say)|i just (go|kind of|keep)|i'm not sure (what|how|if))/.test(norm);
-}
-
 // Classify a single STAR dimension with its own focus question.
 // Each dimension call appends a different focus question to the shared base text,
 // so the NLI model evaluates a distinct hypothesis per STAR component.
