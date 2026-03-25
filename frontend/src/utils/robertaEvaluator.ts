@@ -239,8 +239,6 @@ ${FOCUS_QUESTIONS[dim]}`.slice(0, 650);
     const weak   = weakIdx   >= 0 ? data.scores[weakIdx]   : 0;
 
     return [dim, probabilityToLikert(strong, mid, weak)];
-  } catch {
-    return [dim, 1];
   } finally {
     window.clearTimeout(tid);
   }
@@ -667,7 +665,7 @@ export async function evaluateAnswer(
 
   const targetScore = isNegating ? Math.min(rawTarget, 2) : rawTarget;
   const finalScore = targetScore;  // score comes from the blending formula
-  const finalBD = zslBD;           // breakdown stays as raw ZSL output
+  const finalBD = blendedBD;       // zslBD is null here (ZSL unavailable), use regex breakdown
 
   return {
     source: 'zsl_star_fallback',
