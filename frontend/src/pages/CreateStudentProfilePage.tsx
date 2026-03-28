@@ -49,6 +49,46 @@ interface ProfileForm {
   expected_salary_range: string
 }
 
+const UNIVERSITIES = [
+  'Tarlac State University',
+  'University of the Philippines Diliman',
+  'University of the Philippines Los Baños',
+  'University of the Philippines Manila',
+  'Ateneo de Manila University',
+  'De La Salle University',
+  'University of Santo Tomas',
+  'Mapúa University',
+  'Far Eastern University',
+  'Polytechnic University of the Philippines',
+  'Technological University of the Philippines',
+  'Philippine Normal University',
+  'Adamson University',
+  'Bulacan State University',
+  'Cavite State University',
+  'Central Luzon State University',
+  'Holy Angel University',
+  'Nueva Ecija University of Science and Technology',
+  'Pampanga State Agricultural University',
+  'Saint Louis University',
+  'University of Baguio',
+  'Benguet State University',
+  'Cagayan State University',
+  'Isabela State University',
+  'Batangas State University',
+  'Laguna State Polytechnic University',
+  'Lyceum of the Philippines University',
+  'Wesleyan University Philippines',
+  'Cebu Institute of Technology - University',
+  'University of San Carlos',
+  'University of the Visayas',
+  'Visayas State University',
+  'University of San Agustin',
+  'Mindanao State University',
+  'University of Southeastern Philippines',
+  'Xavier University - Ateneo de Cagayan',
+  'Ateneo de Davao University',
+]
+
 const initialState: ProfileForm = {
   full_name: '',
   student_number: '',
@@ -83,6 +123,13 @@ export default function CreateStudentProfilePage() {
     return `student_profile_draft_${id}`
   }, [profile?.id])
   const [isDirty, setIsDirty] = useState(false)
+  const [universityOpen, setUniversityOpen] = useState(false)
+  const universitySuggestions = useMemo(() => {
+    if (!universityOpen) return []
+    const query = formData.university.toLowerCase()
+    if (!query) return UNIVERSITIES.slice(0, 8)
+    return UNIVERSITIES.filter((u) => u.toLowerCase().includes(query)).slice(0, 8)
+  }, [formData.university, universityOpen])
 
   const normalizeList = (value: unknown): string[] => {
     if (Array.isArray(value)) {
@@ -491,17 +538,40 @@ export default function CreateStudentProfilePage() {
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
         </label>
-        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+        <div className="grid gap-1 text-sm font-semibold text-neutral-800">
           University *
-          <input
-            type="text"
-            name="university"
-            value={formData.university}
-            onChange={handleChange}
-            required
-            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-        />
-        </label>
+          <div className="relative">
+            <input
+              type="text"
+              name="university"
+              aria-label="University"
+              placeholder="e.g., Tarlac State University"
+              value={formData.university}
+              onChange={handleChange}
+              onFocus={() => setUniversityOpen(true)}
+              onBlur={() => setTimeout(() => setUniversityOpen(false), 150)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setUniversityOpen(false) }}
+              required
+              className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            />
+            {universityOpen && universitySuggestions.length > 0 && (
+              <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
+                {universitySuggestions.map((u) => (
+                  <li
+                    key={u}
+                    onMouseDown={() => {
+                      setFormData((prev) => ({ ...prev, university: u }))
+                      setUniversityOpen(false)
+                    }}
+                    className="cursor-pointer px-4 py-2.5 text-sm font-normal text-neutral-800 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    {u}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
           College *
           <select

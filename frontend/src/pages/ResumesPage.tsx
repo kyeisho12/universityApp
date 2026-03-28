@@ -40,6 +40,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showResumeBuilder, setShowResumeBuilder] = useState(false);
+  const [resumeBuilderError, setResumeBuilderError] = useState<string | null>(null);
   const [showCoverLetterBuilder, setShowCoverLetterBuilder] = useState(false);
   const [coverLetterDocumentIds, setCoverLetterDocumentIds] = useState<string[]>([]);
   const [resumeName, setResumeName] = useState("");
@@ -127,6 +128,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     } catch (error) {
       console.error("Failed to clear modal state:", error);
     }
+    setResumeBuilderError(null);
     setShowResumeBuilder(false);
   };
 
@@ -527,7 +529,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       return;
     }
     if (!userId) {
-      setErrorMessage("You must be signed in to upload a résumé.");
+      setErrorMessage("You must be signed in to upload a resume.");
       return;
     }
 
@@ -536,11 +538,11 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setErrorMessage(null);
     const { data, error } = await uploadResume(file, userId);
     if (error || !data) {
-      setErrorMessage(error?.message || "Failed to upload résumé. Please try again.");
+      setErrorMessage(error?.message || "Failed to upload resume. Please try again.");
     } else {
       queryCache.invalidate(`resumes-list-${userId}`);
       refetch();
-      setStatusMessage("Résumé uploaded successfully.");
+      setStatusMessage("Resume uploaded successfully.");
     }
     setIsUploading(false);
   };
@@ -621,13 +623,14 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
   const handleSaveResume = async () => {
     if (!userId) {
-      setErrorMessage("You must be signed in to save a résumé.");
+      setErrorMessage("You must be signed in to save a resume.");
       return;
     }
     if (!resumeName.trim() || !personalInfo.fullName.trim() || !personalInfo.email.trim()) {
-      setErrorMessage("Please fill in the résumé name, full name, and email.");
+      setResumeBuilderError("Please fill in the resume name, full name, and email.");
       return;
     }
+    setResumeBuilderError(null);
 
     setIsUploading(true);
     setErrorMessage(null);
@@ -660,11 +663,11 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
         extractedSkills
       );
       if (error || !data) {
-        setErrorMessage(error?.message || "Failed to save résumé. Please try again.");
+        setErrorMessage(error?.message || "Failed to save resume. Please try again.");
       } else {
         queryCache.invalidate(`resumes-list-${userId}`);
         refetch();
-        setStatusMessage("Résumé saved successfully.");
+        setStatusMessage("Resume saved successfully.");
         resetResumeBuilder(); // This also clears the draft
         closeResumeBuilder();
       }
@@ -688,7 +691,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     setErrorMessage(null);
     const { error } = await deleteResume(resume.id, resume.file_path, userId);
     if (error) {
-      setErrorMessage(error.message || "Failed to delete résumé.");
+      setErrorMessage(error.message || "Failed to delete resume.");
       return;
     }
     queryCache.invalidate(`resumes-list-${userId}`);
@@ -777,7 +780,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     ) {
       return "Cover Letter";
     }
-    return "Résumé";
+    return "Resume";
   };
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString();
@@ -837,8 +840,8 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
         <div className="p-4 sm:p-6 lg:p-8">
           {/* Page Header */}
           <div className="mb-6">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Résumé Management</h1>
-            <p className="text-gray-500">Upload, create, and manage your résumés and cover letters</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Resume Management</h1>
+            <p className="text-gray-500">Upload, create, and manage your resumes and cover letters</p>
           </div>
 
           {(errorMessage || statusMessage) && (
@@ -860,7 +863,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Upload className="w-8 h-8 text-gray-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Upload Your Résumé</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Upload Your Resume</h3>
             <p className="text-gray-600 mb-6">
               Drag and drop your file here, or click to browse.
               <br />
@@ -944,8 +947,8 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
             ) : resumes.length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-600">
                 <FileText className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                <p className="font-semibold text-gray-800 mb-1">No résumés yet</p>
-                <p className="text-gray-500 text-sm">Upload your first résumé to get started.</p>
+                <p className="font-semibold text-gray-800 mb-1">No resumes yet</p>
+                <p className="text-gray-500 text-sm">Upload your first resume to get started.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -986,7 +989,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       <button
                         onClick={() => handleDelete(resume)}
                         className="p-2 text-gray-500 hover:text-red-600 transition-colors"
-                        title="Delete résumé"
+                        title="Delete resume"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -999,9 +1002,9 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
           {/* Tips Section */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Tips for Your Résumé</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Tips for Your Resume</h3>
             <div className="space-y-3">
-              <TipItem text="Keep your résumé concise and relevant to the job you're applying for" />
+              <TipItem text="Keep your resume concise and relevant to the job you're applying for" />
               <TipItem text="Use action verbs and quantify achievements when possible" />
               <TipItem text="Proofread carefully for spelling and grammar errors" />
               <TipItem text="Use a professional format and easy-to-read fonts" />
@@ -1017,7 +1020,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <FileText className="w-6 h-6 text-gray-700" />
-                <h2 className="text-2xl font-bold text-gray-900">Create New Résumé</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Create New Resume</h2>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1045,7 +1048,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               <div className="max-w-3xl mx-auto space-y-6">
                 {/* Resume Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Résumé Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Resume Name</label>
                   <input
                     type="text"
                     value={resumeName}
@@ -1581,6 +1584,12 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               </div>
             </div>
 
+            {resumeBuilderError && (
+              <div className="px-6 py-3 bg-red-50 border-t border-red-100 flex items-center gap-2 text-sm text-red-700">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {resumeBuilderError}
+              </div>
+            )}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
               <button
                 onClick={closeResumeBuilder}
@@ -1594,7 +1603,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium flex items-center gap-2 disabled:opacity-60"
               >
                 <FileText className="w-4 h-4" />
-                {isUploading ? "Saving..." : "Save Résumé"}
+                {isUploading ? "Saving..." : "Save Resume"}
               </button>
             </div>
           </div>

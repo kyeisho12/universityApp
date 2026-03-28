@@ -338,13 +338,6 @@ const MyApplicationsPage: React.FC = () => {
                 <Menu className="w-5 h-5 text-gray-700" />
               </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="ml-auto p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-              aria-label="Logout"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
 
           {/* Scrollable Content Area */}

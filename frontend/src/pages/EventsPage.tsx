@@ -150,6 +150,12 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
 
     if (eventIdFromUrl && events.some((event) => event.id === eventIdFromUrl)) {
       setSpotlightEventId(eventIdFromUrl);
+      window.setTimeout(() => {
+        const target = document.getElementById(`event-card-${eventIdFromUrl}`);
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 300);
     }
   }, [location.search, events]);
 
@@ -321,7 +327,7 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
       if (target) {
         target.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-    }, 140);
+    }, 300);
   };
 
   useEffect(() => {

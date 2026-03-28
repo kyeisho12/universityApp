@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useMessageBox } from '../common/MessageBoxProvider'
 import { supabase } from '../../lib/supabaseClient'
@@ -281,6 +281,12 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
 
     {/* Form */}
     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-red-700 text-xs sm:text-sm">{error}</p>
+        </div>
+      )}
       {/* Full Name */}
       <div className="space-y-1.5 sm:space-y-2">
         <label className="block text-xs sm:text-sm font-medium text-gray-800">Full Name</label>
@@ -299,13 +305,15 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
         <label className="block text-xs sm:text-sm font-medium text-gray-800">Email Address</label>
         <input
           type="email"
-          placeholder="Enter your email"
+          placeholder="yourname@student.tsu.edu.ph"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full rounded-xl border-2 border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base placeholder-gray-400 focus:border-[#1B2744] focus:ring-0 outline-none transition-all duration-200 text-gray-700"
           required
         />
-        {error && <p className="text-red-500 text-xs sm:text-sm mt-1">{error}</p>}
+        {email.endsWith(ADMIN_DOMAIN) && (
+          <p className="text-amber-600 text-xs mt-1">Admin accounts require approval from an existing admin before you can log in.</p>
+        )}
       </div>
 
       {/* Password */}
@@ -515,7 +523,7 @@ export default function Login() {
   }
 
   const handleSignUp = async (email: string, password: string, fullName: string) => {
-    const role = email.endsWith(ADMIN_DOMAIN) ? 'admin' : 'student'
+    const role = 'student'
 
     const result = await signUp(email, password, {
       full_name: fullName.trim(),

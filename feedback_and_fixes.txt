@@ -1,0 +1,126 @@
+FEEDBACK & FIXES — TSU Career Management System
+================================================
+
+1.  Weak password accepted (e.g. "password")
+    - Added password strength checker; minimum "Medium" strength required (8+ chars with letters and numbers)
+
+2.  Too easy to create admin account
+    - Removed admin role self-assignment; all signups default to student, admin must be granted by an existing admin
+
+3.  "@admin.tsu.edu.ph" in error message gives hackers a clue
+    - Removed domain hint from error message; replaced with an amber notice when admin email is detected
+
+4.  Sign out should have a confirmation
+    - Added confirmation dialog before signing out
+
+5.  Used a non-existent email to register, password reset doesn't work
+    - Integrated Resend for email auth; account creation now requires a real email to receive a confirmation link
+
+6.  Can't get back to dashboard after signing out
+    - Not a real bug; likely a one-time session issue, cannot reproduce
+
+7.  University field needs a suggestive dropdown
+    - Added autocomplete dropdown in both the registration form and student profile form
+
+8.  Live transcription not working (multiple reports)
+    - Works on most browsers; high-security browsers (Brave, Firefox strict mode) block mic access by design — cannot fix
+
+9.  Mic not detecting audio / no transcript recorded
+    - Fixed
+
+10. Mock interview videos slow to load / playback frozen
+    - Fixed / root cause unclear (likely a transient network or Supabase issue)
+
+11. Past interviews can't be continued even when "Pause" is shown
+    - By design — sessions are one-way and cannot be resumed mid-session
+
+12. Completed interviews not showing in history
+    - Fixed
+
+13. Follow-up questions don't reference previous answers/context
+    - Fixed — AI now receives full previous Q&A as context when generating follow-up questions
+
+14. Too many button clicks to proceed to next question
+    - Current workflow is already the most streamlined — no change needed
+
+15. No progress bar while waiting after answering
+    - Added question number indicator (e.g. "Question 2 of 5") and running score average display
+
+16. Camera/mic permission warning is too small and easy to miss
+    - Improved — recording errors now shown in a visible bordered box; amber color for critical warnings like mic muted or camera required
+
+17. No countdown before recording starts
+    - Already implemented — 3-2-1 countdown timer plays before each question
+
+18. Feedback after each question is not visible / not obvious
+    - Added a previous answer score card shown during the next question, displaying score out of 5 and AI feedback text
+
+19. Can't re-view results of past sessions
+    - Fixed — session history is accessible with full results per question
+
+20. No back/close button on mock interview to return to sessions list
+    - Fixed — back button added to mock interview page
+
+21. Mock interview page not rendering (one report)
+    - Fixed
+
+22. Add new user walkthrough when first signing in
+    - Added welcome modal on first login + onboarding checklist card on dashboard with live progress tracking
+    - Added "Reset Onboarding" button in profile page for re-testing the flow
+
+23. Placeholder text missing in sign up form
+    - Improved email placeholder to show expected format (yourname@student.tsu.edu.ph)
+
+24. Error messages shown in wrong/confusing places
+    - Fixed in sign up form — error banner now appears at the top of the form instead of under a specific field
+
+25. Can't drag and drop resume in resume management
+    - Fixed
+
+26. Can't edit previously saved resumes
+    - By design — resumes are generated and saved as PDFs
+
+27. Spelling inconsistency: "Résumé" vs "resume"
+    - Fixed — standardized to "resume" throughout the system
+
+28. Job recommendations appear when using search
+    - Fixed — recommendations section is hidden when a search term is active
+
+29. Job filter not applied to recommended jobs section
+    - Fixed — recommended jobs now respect active job type and category filters
+
+30. Job filter button not working (general listings)
+    - Already implemented on general job listings
+
+31. Add ability to cancel, edit, and view applications
+    - Not applicable — real job applications cannot be canceled once submitted
+
+32. Recent Job Listings and Upcoming Events on dashboard not clickable
+    - Fixed — both sections are now clickable and navigate to the respective pages
+
+33. Clicking an event on dashboard doesn't scroll to that specific event
+    - Fixed
+
+34. No unregister button for career events
+    - Fixed — unregister option added
+
+35. Only 1 job experience allowed in profile
+    - Already supported — users can add multiple work experience entries
+
+36. Improve responsiveness on different phone/screen sizes
+    - Fixed
+
+37. Add pagination to reduce server load
+    - Implemented — still being refined, will improve further
+
+38. Improve AI accuracy
+    - Added to future recommendations
+
+39. Real-time on-the-fly answer analysis during interview
+    - Added to future recommendations
+
+40. Interactive questions for mock interview
+    - Added to future recommendations
+
+41. UI design improvements (general)
+    - Added to future recommendations

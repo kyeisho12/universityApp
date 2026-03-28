@@ -441,11 +441,11 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
     }
 
     const matchesCategory =
-      filterCategory === "All Types" 
-        ? true 
+      filterCategory === "All Types"
+        ? true
         : filterCategory === "Other"
           ? (!customCat || jobCategory.includes(customCat) || customCat.includes(jobCategory))
-          : jobCategory === normalize(filterCategory);
+          : jobCategory.includes(normalize(filterCategory)) || normalize(filterCategory).includes(jobCategory);
 
     return matchesSearch && matchesType && matchesCategory;
   }), [jobs, searchTerm, filterType, filterCategory, customJobType, customCategory]);
@@ -491,7 +491,7 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
       ...workKeywords,
     ]);
 
-    // Résumé skills and ratings (from parsed upload)
+    // Resume skills and ratings (from parsed upload)
     const resumeSkills = Array.isArray(userResumes[0]?.skills) ? userResumes[0].skills : [];
     const resumeRatings = userResumes[0]?.ratings || {};
     const resumeKeywords = uniqueTokens([
@@ -511,7 +511,7 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
     const preferredLocation = userData?.preferred_location;
     const preferredCategory = userData?.preferred_category;
 
-    return jobs
+    return filteredJobs
       .map((job) => {
         const requirements = Array.isArray(job.requirements) ? job.requirements : [];
         const requirementMatches = requirements.filter((req) =>
@@ -519,7 +519,7 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
         );
         const skillScore = requirements.length
           ? requirementMatches.length / requirements.length
-          : 0;
+          : 0.5; // No requirements = open to everyone, give a neutral base score
 
         let preferenceMatches = 0;
         let preferenceTotal = 0;
@@ -582,7 +582,7 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
       .filter(({ job }) => !appliedJobs.has(job.id ?? ''))
       .sort((a, b) => b.score - a.score)
       .slice(0, 4);
-  }, [jobs, userData, userResumes, appliedJobs]);
+  }, [filteredJobs, userData, userResumes, appliedJobs]);
 
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)

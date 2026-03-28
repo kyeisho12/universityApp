@@ -11,6 +11,8 @@ import {
   Upload,
   Eye,
   X,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import { Sidebar } from "../common/Sidebar";
 import { supabase } from "../../lib/supabaseClient";
@@ -48,6 +50,23 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
   const [jobs, setJobs] = React.useState<JobData[]>([]);
   const [events, setEvents] = React.useState<EventData[]>([]);
   const [loading, setLoading] = React.useState<boolean>(true);
+  const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
+  const [showOnboardingCard, setShowOnboardingCard] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!localStorage.getItem('tsu_onboarding_welcome_seen')) setShowWelcomeModal(true);
+    if (!localStorage.getItem('tsu_onboarding_card_dismissed')) setShowOnboardingCard(true);
+  }, []);
+
+  const handleWelcomeClose = () => {
+    localStorage.setItem('tsu_onboarding_welcome_seen', '1');
+    setShowWelcomeModal(false);
+  };
+
+  const handleCardDismiss = () => {
+    localStorage.setItem('tsu_onboarding_card_dismissed', '1');
+    setShowOnboardingCard(false);
+  };
 
   // Fetch dashboard data
   React.useEffect(() => {
@@ -156,7 +175,78 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
     }
   };
 
+  const onboardingSteps = [
+    { label: 'Create your account', done: true, route: null },
+    { label: 'Complete your profile', done: true, route: null },
+    { label: 'Build your first resume', done: !loading && resumesCount > 0, route: 'student/resumes' },
+    { label: 'Start a mock interview', done: !loading && interviewsCount > 0, route: 'student/interview' },
+  ];
+  const allOnboardingDone = onboardingSteps.every((s) => s.done);
+
   return (
+    <>
+    {/* Welcome Modal */}
+    {showWelcomeModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8">
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 bg-[#1B2744] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
+              </svg>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Welcome to TSU Career Management System!</h2>
+            <p className="text-gray-500 text-sm">Here's what you can do with your account</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Briefcase className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">Browse Jobs</p>
+                <p className="text-gray-500 text-xs mt-0.5">Find and apply to job openings</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-xl">
+              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Bot className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">Mock Interviews</p>
+                <p className="text-gray-500 text-xs mt-0.5">Practice with AI feedback</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-green-50 rounded-xl">
+              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">Career Events</p>
+                <p className="text-gray-500 text-xs mt-0.5">Join workshops and job fairs</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-xl">
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">Resume Builder</p>
+                <p className="text-gray-500 text-xs mt-0.5">Create professional resumes</p>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleWelcomeClose}
+            className="w-full bg-[#1B2744] text-white py-3 rounded-xl font-semibold hover:bg-[#14203a] transition-colors flex items-center justify-center gap-2"
+          >
+            Get Started <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    )}
     <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Sidebar (hidden on small screens) */}
       <div className="hidden md:block">
@@ -226,6 +316,50 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
               Here's what's happening with your career journey
             </p>
           </div>
+
+          {/* Onboarding Checklist Card */}
+          {showOnboardingCard && (
+            <div className="mb-3 sm:mb-4 md:mb-5 lg:mb-6 bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="font-bold text-gray-900 text-base">Getting Started</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {allOnboardingDone
+                      ? "You're all set! Feel free to dismiss this."
+                      : `${onboardingSteps.filter((s) => s.done).length} of ${onboardingSteps.length} steps completed`}
+                  </p>
+                </div>
+                <button type="button" onClick={handleCardDismiss} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600" aria-label="Dismiss">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-4">
+                <div
+                  className="bg-[#00B4D8] h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${(onboardingSteps.filter((s) => s.done).length / onboardingSteps.length) * 100}%` }}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {onboardingSteps.map((step, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      step.done ? 'bg-green-50' : step.route ? 'bg-gray-50 hover:bg-gray-100 cursor-pointer' : 'bg-gray-50'
+                    }`}
+                    onClick={() => step.route && !step.done && onNavigate && onNavigate(step.route)}
+                  >
+                    {step.done
+                      ? <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      : <Circle className="w-5 h-5 text-gray-300 flex-shrink-0" />}
+                    <span className={`text-sm flex-1 ${step.done ? 'text-green-700 line-through decoration-green-400' : 'text-gray-700'}`}>
+                      {step.label}
+                    </span>
+                    {step.route && !step.done && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-5 lg:mb-6">
@@ -381,6 +515,7 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
         </div>
       </div>
     </div>
+    </>
   );
 };
 

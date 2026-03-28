@@ -162,13 +162,28 @@ export default function StudentProfilePage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Profile</h1>
               <p className="text-gray-500">Manage your personal information, education, and skills</p>
             </div>
-            <button
-              onClick={() => navigate("/create-profile?edit=1")}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#1B2744] text-white font-semibold hover:bg-[#14203a]"
-            >
-              <PencilLine className="w-4 h-4" />
-              Edit Profile
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('tsu_onboarding_welcome_seen');
+                  localStorage.removeItem('tsu_onboarding_card_dismissed');
+                  navigate('/student/dashboard');
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-600 font-medium text-sm hover:bg-gray-50"
+                title="Reset onboarding so it shows again on the dashboard"
+              >
+                Reset Onboarding
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/create-profile?edit=1")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#1B2744] text-white font-semibold hover:bg-[#14203a]"
+              >
+                <PencilLine className="w-4 h-4" />
+                Edit Profile
+              </button>
+            </div>
           </div>
 
           {loading ? (

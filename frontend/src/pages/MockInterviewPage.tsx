@@ -3950,13 +3950,28 @@ function MockInterviewPageContent({
                 transcribed, and evaluated based on HR-validated criteria.
               </p>
 
+              {/* Browser/transcription compatibility warning */}
+              {(!isSpeechRecognitionSupported() || isBraveBrowser()) && (
+                <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-800 text-sm">Live transcription not supported in this browser</p>
+                    <p className="text-amber-700 text-sm mt-1">
+                      {isBraveBrowser()
+                        ? "Brave browser blocks the microphone API needed for live transcription. Please use Chrome or Edge for the best experience."
+                        : "Your browser does not support live transcription. Please use Chrome or Edge for the best experience."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Checklist */}
               <div className="bg-cyan-50 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
                 <h3 className="font-semibold text-gray-900 mb-4">
                   Before You Start
                 </h3>
                 <ul className="space-y-3">
-                  <ChecklistItem text="Ensure your microphone and camera are working" />
+                  <ChecklistItem text="Allow microphone and camera access when prompted by your browser" />
                   <ChecklistItem text="Find a quiet environment" />
                   <ChecklistItem text="Respond in English for accurate transcription" />
                   <ChecklistItem text="Speak clearly and at a moderate pace" />
@@ -4609,9 +4624,13 @@ function MockInterviewPageContent({
                 </p>
               )}
               {(recordingError || isUploadingSegment) && (
-                <p className="text-xs text-center mt-2 text-gray-700">
+                <div className={`mt-2 px-3 py-2 rounded-lg text-xs text-center font-medium border ${
+                  recordingError && (recordingError.toLowerCase().includes('required') || recordingError.toLowerCase().includes('muted') || recordingError.toLowerCase().includes('not ready') || recordingError.toLowerCase().includes('permission'))
+                    ? 'bg-amber-50 border-amber-300 text-amber-800'
+                    : 'bg-gray-50 border-gray-200 text-gray-600'
+                }`}>
                   {recordingError || "Uploading recorded segment..."}
-                </p>
+                </div>
               )}
             </div>
           </div>
@@ -4690,6 +4709,17 @@ function MockInterviewPageContent({
                   </span>
                 </p>
               </div>
+              {currentQuestion > 0 && (evaluations as Record<number, any>)[currentQuestion - 1]?.score != null && (
+                <div className="mt-2.5 bg-purple-50 border border-purple-200 rounded-lg p-2.5">
+                  <p className="text-xs text-purple-800 flex items-center justify-between">
+                    <span>Previous answer score</span>
+                    <span className="font-bold">{Number((evaluations as Record<number, any>)[currentQuestion - 1].score).toFixed(1)} / 5</span>
+                  </p>
+                  {(evaluations as Record<number, any>)[currentQuestion - 1]?.feedback && (
+                    <p className="text-xs text-purple-700 mt-1">{(evaluations as Record<number, any>)[currentQuestion - 1].feedback}</p>
+                  )}
+                </div>
+              )}
               {evaluatedCountForUi > 0 && (
                 <div
                   className={
@@ -4707,8 +4737,8 @@ function MockInterviewPageContent({
                   >
                     <span>
                       {runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                        ? `✅ Score target reached! Avg: ${runningAverage.toFixed(2)} / 5`
-                        : `📊 Running avg: ${runningAverage.toFixed(2)} / 5 — need ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)} to finish early`}
+                        ? `Score target reached! Avg: ${runningAverage.toFixed(2)} / 5`
+                        : `Running avg: ${runningAverage.toFixed(2)} / 5 — need ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)} to finish early`}
                     </span>
                     <span className="ml-2 font-semibold whitespace-nowrap">
                       {evaluatedCountForUi} scored

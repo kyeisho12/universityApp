@@ -1,7 +1,47 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useMessageBox } from '../common/MessageBoxProvider'
 import { signUp } from '../../services/authService'
+
+const UNIVERSITIES = [
+  'Tarlac State University',
+  'University of the Philippines Diliman',
+  'University of the Philippines Los Baños',
+  'University of the Philippines Manila',
+  'Ateneo de Manila University',
+  'De La Salle University',
+  'University of Santo Tomas',
+  'Mapúa University',
+  'Far Eastern University',
+  'Polytechnic University of the Philippines',
+  'Technological University of the Philippines',
+  'Philippine Normal University',
+  'Adamson University',
+  'Bulacan State University',
+  'Cavite State University',
+  'Central Luzon State University',
+  'Holy Angel University',
+  'Nueva Ecija University of Science and Technology',
+  'Pampanga State Agricultural University',
+  'Saint Louis University',
+  'University of Baguio',
+  'Benguet State University',
+  'Cagayan State University',
+  'Isabela State University',
+  'Batangas State University',
+  'Laguna State Polytechnic University',
+  'Lyceum of the Philippines University',
+  'Wesleyan University Philippines',
+  'Cebu Institute of Technology - University',
+  'University of San Carlos',
+  'University of the Visayas',
+  'Visayas State University',
+  'University of San Agustin',
+  'Mindanao State University',
+  'University of Southeastern Philippines',
+  'Xavier University - Ateneo de Cagayan',
+  'Ateneo de Davao University',
+]
 
   // Password strength logic
   function getPasswordStrength(pw: string) {
@@ -46,6 +86,13 @@ const Register = () => {
     })
   // (Removed duplicate declarations above)
   const [loading, setLoading] = useState(false)
+  const [universityOpen, setUniversityOpen] = useState(false)
+  const universitySuggestions = useMemo(() => {
+    if (!universityOpen) return []
+    const query = formData.university.toLowerCase()
+    if (!query) return UNIVERSITIES.slice(0, 8)
+    return UNIVERSITIES.filter((u) => u.toLowerCase().includes(query)).slice(0, 8)
+  }, [formData.university, universityOpen])
   const [error, setError] = useState('')
   const messageBox = useMessageBox()
   const navigate = useNavigate()
@@ -248,19 +295,41 @@ const Register = () => {
 
             {formData.role === 'student' && (
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+                <div className="grid gap-1 text-sm font-semibold text-neutral-800">
                   University
-                  <input
-                    type="text"
-                    id="university"
-                    name="university"
-                    value={formData.university}
-                    onChange={handleChange}
-                    placeholder="e.g., Stanford University"
-                    disabled={loading}
-                    className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-neutral-50"
-                  />
-                </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="university"
+                      name="university"
+                      aria-label="University"
+                      value={formData.university}
+                      onChange={handleChange}
+                      onFocus={() => setUniversityOpen(true)}
+                      onBlur={() => setTimeout(() => setUniversityOpen(false), 150)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setUniversityOpen(false) }}
+                      placeholder="e.g., Tarlac State University"
+                      disabled={loading}
+                      className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-neutral-50"
+                    />
+                    {universityOpen && universitySuggestions.length > 0 && (
+                      <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
+                        {universitySuggestions.map((u) => (
+                          <li
+                            key={u}
+                            onMouseDown={() => {
+                              setFormData((prev) => ({ ...prev, university: u }))
+                              setUniversityOpen(false)
+                            }}
+                            className="cursor-pointer px-4 py-2.5 text-sm font-normal text-neutral-800 hover:bg-indigo-50 hover:text-indigo-700"
+                          >
+                            {u}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
 
                 <label className="grid gap-1 text-sm font-semibold text-neutral-800">
                   Major
