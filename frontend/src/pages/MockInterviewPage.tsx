@@ -353,14 +353,25 @@ function SessionVideoPlayer({ src, mime, loading }: { src: string | null; mime?:
   );
 }
 
+const STAR_LABEL_MAP: Record<string, string> = {
+  situation:  'Situation',
+  task:       'Task',
+  action:     'Action',
+  result:     'Result',
+  reflection: 'Reflection',
+};
+
+const STAR_DIM_ORDER = ['situation', 'task', 'action', 'result', 'reflection'];
+
 function SessionStarBar({ label, value }: { label: string; value: number | undefined }) {
-  const v = value ?? 0;
-  const color = v >= 4 ? "bg-emerald-500" : v >= 3 ? "bg-cyan-500" : v >= 2 ? "bg-yellow-400" : "bg-red-400";
+  const v = Math.min(5, Math.max(0, Number(value) || 0));
+  const displayLabel = STAR_LABEL_MAP[label.toLowerCase()] ?? label.charAt(0).toUpperCase() + label.slice(1);
+  const color = v >= 4 ? 'bg-emerald-500' : v >= 3 ? 'bg-cyan-500' : v >= 2 ? 'bg-yellow-400' : 'bg-red-400';
   return (
     <div>
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-600 capitalize">{label}</span>
-        <span className="font-medium text-gray-800">{v} / 5</span>
+        <span className="text-gray-600">{displayLabel}</span>
+        <span className="font-medium text-gray-800">{v.toFixed(0)} / 5</span>
       </div>
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${(v / 5) * 100}%` }} />
@@ -438,8 +449,9 @@ function SessionQuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; 
                       )}
                       {seg.evaluation.breakdown && (
                         <div className="space-y-2 pt-1">
-                          {Object.entries(seg.evaluation.breakdown).map(([k, v]) => (
-                            <SessionStarBar key={k} label={k} value={v as number} />
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">STAR Breakdown</p>
+                          {STAR_DIM_ORDER.map((k) => (
+                            <SessionStarBar key={k} label={k} value={(seg.evaluation.breakdown as any)[k]} />
                           ))}
                         </div>
                       )}
@@ -3280,6 +3292,7 @@ function MockInterviewPageContent({
       { Field: "Action Taken",              Value: sessionStats.evaluatedCount > 0 ? sessionStats.action.toFixed(2) : "—" },
       { Field: "Result Measurability",      Value: sessionStats.evaluatedCount > 0 ? sessionStats.result.toFixed(2) : "—" },
       { Field: "Reflection & Learning",     Value: sessionStats.evaluatedCount > 0 ? sessionStats.reflection.toFixed(2) : "—" },
+      { Field: "Note",                      Value: "STAR breakdown dimensions are scored per dimension by the ZSL classifier and scaled to align with the overall score. Minor differences between the breakdown average and the overall score may occur due to integer rounding." },
     ];
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
     wsSummary["!cols"] = [{ wch: 28 }, { wch: 60 }];
@@ -3298,11 +3311,11 @@ function MockInterviewPageContent({
         "Answer Transcript": transcript,
         "Score (1–5)":      score != null ? Number(score).toFixed(2) : "—",
         "HR Label":         ev?.hrLabel ?? "—",
-        "Situation":        bd.situation != null ? Number(bd.situation).toFixed(2) : "—",
-        "Task":             bd.task != null ? Number(bd.task).toFixed(2) : "—",
-        "Action":           bd.action != null ? Number(bd.action).toFixed(2) : "—",
-        "Result":           bd.result != null ? Number(bd.result).toFixed(2) : "—",
-        "Reflection":       bd.reflection != null ? Number(bd.reflection).toFixed(2) : "—",
+        "Situation":        bd.situation != null ? Number(bd.situation) : "—",
+        "Task":             bd.task != null ? Number(bd.task) : "—",
+        "Action":           bd.action != null ? Number(bd.action) : "—",
+        "Result":           bd.result != null ? Number(bd.result) : "—",
+        "Reflection":       bd.reflection != null ? Number(bd.reflection) : "—",
         "Feedback":         ev?.feedback || "—",
         "Dataset Similarity": ev?.datasetSimilarity != null
           ? `${(ev.datasetSimilarity * 100).toFixed(0)}%` : "—",

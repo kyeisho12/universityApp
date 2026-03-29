@@ -553,8 +553,8 @@ export async function evaluateAnswer(
 
       if (penalizedZslScore < 2.0) {
         const targetScore = isNegating ? Math.min(penalizedZslScore, 2) : penalizedZslScore;
-        const finalScore = targetScore;  // score comes from the blending formula
-        const finalBD = zslBD;           // breakdown stays as raw ZSL output 
+        const finalScore = targetScore;
+        const finalBD = scaleBDToTarget(zslBD, finalScore); // scale raw ZSL to match final score
         return {
           source: 'roberta_similarity',
           matchedQuestion: lookup.item?.question ?? null,
@@ -583,8 +583,8 @@ export async function evaluateAnswer(
 
       const cappedScore  = Math.min(blendedScore, similarityCap);
       const targetScore  = isNegating ? Math.min(cappedScore, 2) : cappedScore;
-      const finalScore = targetScore;  // score comes from the blending formula
-      const finalBD = zslBD;           // breakdown stays as raw ZSL output
+      const finalScore = targetScore;
+      const finalBD = scaleBDToTarget(zslBD, finalScore); // scale raw ZSL to match final score
 
       return {
         source: 'roberta_similarity',
@@ -628,8 +628,8 @@ export async function evaluateAnswer(
 
     const cappedTarget  = Math.min(rawTarget, path2Cap);
     const targetScore   = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
-    const finalScore = targetScore;  // score comes from the blending formula
-    const finalBD = zslBD;           // breakdown stays as raw ZSL output
+    const finalScore = targetScore;
+    const finalBD = bd ? scaleBDToTarget(bd, finalScore) : { situation: 1, task: 1, action: 1, result: 1, reflection: 1 }; // scale raw ZSL to match final score
 
     return {
       source: 'zsl_roberta',
@@ -664,8 +664,8 @@ export async function evaluateAnswer(
   ));
 
   const targetScore = isNegating ? Math.min(rawTarget, 2) : rawTarget;
-  const finalScore = targetScore;  // score comes from the blending formula
-  const finalBD = blendedBD;       // zslBD is null here (ZSL unavailable), use regex breakdown
+  const finalScore = targetScore;
+  const finalBD = scaleBDToTarget(blendedBD, finalScore); // scale regex breakdown to match final score
 
   return {
     source: 'zsl_star_fallback',
