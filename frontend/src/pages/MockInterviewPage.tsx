@@ -4652,7 +4652,7 @@ function MockInterviewPageContent({
           <div className="flex flex-col w-full lg:w-96 gap-3 sm:gap-5 lg:overflow-y-auto">
             {/* Question Card - only shown during active session */}
             {isSessionStarted && (
-            <div className={`bg-white rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-500 ${questionHighlighted ? "border-cyan-400 ring-2 ring-cyan-200" : "border-gray-100"}`}>
+            <div className={`rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-500 ${questionHighlighted ? "bg-cyan-50 border-cyan-400 ring-2 ring-cyan-200 scale-[1.01]" : "bg-white border-gray-100"}`}>
               {/* Progress bar */}
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">

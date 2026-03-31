@@ -126,7 +126,7 @@ export const AdminNavbar = ({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate capitalize">{userName}</p>
-            <p className="text-xs text-gray-400">{userID}</p>
+            <p className="text-xs text-gray-400">ADMIN</p>
           </div>
         </div>
 

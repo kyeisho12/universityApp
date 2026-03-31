@@ -1,0 +1,322 @@
+================================================================================
+  TSU AI MOCK INTERVIEW SYSTEM - Google Form Feedback Checklist
+================================================================================
+
+Legend: [DONE] = Implemented | [NOT DONE] = Not yet implemented | [?] = Unconfirmed
+        [PARTIAL] = Partially done | [RECOMMENDATION] = Added to recommendations
+
+================================================================================
+STUDENT-SIDE
+================================================================================
+
+#   STATUS          FEEDBACK & REMARKS
+--  --------------  ------------------------------------------------------------
+1   [DONE]          Nag rerefresh pag nag switch tab sa browser
+                    > Fixed: The page now saves its state when you switch tabs
+                      so it no longer reloads when you come back.
+
+2   [DONE]          Yung admin number na ppull sa student side
+                    > Fixed: Student side now correctly pulls the student number
+                      from the student profile, not from admin data.
+
+3   [DONE]          Highlight sa Jobs & Internships sa student sidebar - hindi
+                    naka-highlight sa 1st click, nawawala pag nag switch tab
+                    > Fixed: Sidebar now properly stays highlighted on the active
+                      section even after switching tabs.
+
+4   [DONE]          2 tabs, 1 website: pag nag login sa isa dapat nag log in
+                    yung isa (sa login side lang) - parang sa Facebook
+                    > Fixed: Login state is now synced across tabs so you don't
+                      need to log in again on another tab.
+
+5   [RECOMMENDATION] Optional but recommended: pag nag click ng section sa
+                    sidebar (e.g. Jobs & Internship) mag open siya sa new tab
+
+6   [DONE]          Fix recommendations sa job application
+                    > Fixed: Recommendations are now hidden when you are
+                      actively searching so results show up right away.
+
+7   [DONE]          Filter section di nag rereflect
+                    > Fixed: Filters now update the job listings immediately
+                      when applied.
+
+8   [DONE]          Remove filter icon (walang kwenta)
+                    > Fixed: Filter icon has been removed from the interface.
+
+9   [DONE]          Na retrieve pa rin yung student number na 2024-0001 tapos
+                    biglang magiging yung right student number
+                    > Fixed: Student number now loads the correct value right
+                      away without the brief wrong number appearing first.
+
+10  [DONE]          Pag pinalitan yung student number, sa Jobs & Internship
+                    section hindi nag rereflect unless i-refresh
+                    > Fixed: Changing your student number now reflects
+                      everywhere on the page without needing to refresh.
+
+11  [DONE]          Sa manage profile, yung short bio walang character limit
+                    > Fixed: Short bio field now has a 500 character limit.
+
+12  [DONE]          Yung TSU email sa manage profile sumosobra sa box niya pag
+                    inaadjust yung size ng screen (1270 hanggang 1024px)
+                    > Fixed: The email now wraps within the box instead of
+                      overflowing outside it at smaller screen sizes.
+
+13  [DONE]          Remove notification bell in mock interview
+                    > Fixed: Notification bell icon has been removed from the
+                      mock interview page.
+
+14  [DONE]          Instead of 'Next Question' after sumagot, ilagay nalang
+                    Confirm/Submit - after ma-process yung answer, don palang
+                    ang Next Question button para di redundant
+                    > Fixed: A Confirm/Submit button now appears after answering.
+                      The Next Question button only shows after your answer has
+                      been processed.
+
+15  [DONE]          Sa mock interview, may back button para mabalik sa homepage
+                    ng mock interview
+                    > Fixed: A back button is now available in the mock
+                      interview to return to the sessions homepage.
+
+16  [DONE]          Drag and drop not working
+                    > Fixed: You can now drag and drop your resume file to
+                      upload it.
+
+17  [RECOMMENDATION] Recommend: pwede mag send directly pag mag aapply instead
+                    na mapupunta pa sa Outlook, just like sa Indeed
+
+18  [DONE]          Cancel, Edit, and View My Applications
+                    > Fixed: You can now view and edit the details of your
+                      submitted job applications. Did not add cancel feature.
+
+19  [DONE]          Make items on the dashboard (Recent Job Listings and
+                    Upcoming Events) clickable
+                    > Fixed: Job listings and events on the dashboard are now
+                      clickable and will take you to the full details.
+
+20  [DONE]          Clicking an event in Upcoming Events leads to Career Events
+                    without showing/scrolling to that specific event
+                    > Fixed: Clicking an event now automatically scrolls to
+                      that specific event on the Career Events page.
+
+21  [DONE]          On Job & Internship Listings page, search function should
+                    hide recommendations and show results instantly
+                    > Fixed: Recommendations are now hidden while you are
+                      typing in the search bar so results appear right away.
+
+22  [DONE]          Wala kayong Unregister button sa Career Events
+                    > Fixed: An Unregister button has been added on Career
+                      Events so you can cancel your registration.
+
+23  [DONE]          Add option to add multiple job experiences (currently
+                    only one)
+                    > Fixed: You can now add more than one job experience
+                      entry in your profile.
+
+24  [DONE]          In student profile form, add suggestive dropdown in the
+                    'University' text field
+                    > Fixed: The University field now shows suggestions as
+                      you type so you can pick from a list.
+
+25  [DONE]          Progress bar sa mock interview after answering a question
+                    (optional)
+                    > Added: A question counter (e.g. Question 2 of 8) is now
+                      shown in the mock interview so you know your progress.
+
+26  [DONE]          Warning for required camera/microphone is not visible
+                    enough - very tiny text
+                    > Fixed: The camera and microphone permission warning is
+                      now more visible and noticeable.
+
+27  [DONE]          Live transcription not working / mic test no feedback /
+                    mic not detecting speech
+                    > Note: Live transcription now works. Only works on
+                      browsers that are not set to high security mode.
+
+28  [DONE]          Session times out when not focused on the tab
+                    > Fixed: If you leave the tab for 15 minutes, the system
+                      will automatically sign you out. Coming back before the
+                      15 minutes cancels the timeout.
+
+29  [PARTIAL]       Allow user to re-view results of past interview sessions /
+                    completed interview not showing / show Live Transcription
+                    and previous Q&A in session history
+                    > Partially done: Past sessions are viewable but there is
+                      an error when fetching the AI evaluation data for older
+                      sessions.
+
+30  [DONE]          Add pagination to reduce server load and speed up data
+                    fetching and results
+                    > Fixed: Job listings now load 10 items per page instead
+                      of all at once, making it faster to load.
+
+31  [DONE]          Add placeholder text on sign-up form (name format, email
+                    format, etc.)
+                    > Fixed: Sign-up form fields now show placeholder hints
+                      like "John Doe" and "you@university.edu".
+
+32  [DONE]          Add new user walkthrough when first signing in
+                    > Fixed: First-time users now see a welcome walkthrough
+                      and onboarding checklist when they log in.
+
+33  [DONE]          Follow-up question doesn't match context of previous
+                    question (e.g. 'hardest decision' after weakness question)
+                    > Fixed: Follow-up questions are now properly linked to
+                      the base question they are following up on.
+
+34  [PARTIAL]       Mock interview videos take a while to load and playback
+                    is often frozen or unresponsive
+                    > Partially fixed: Video loading has been improved but
+                      may still be slow depending on connection speed.
+
+35  [DONE]          Inconsistent spelling/language: 'Resume' vs 'Resume' -
+                    be consistent throughout
+                    > Fixed: "Resume" spelling is now consistent across all
+                      pages. The accented "Resume" has been removed.
+
+36  [DONE]          Add countdown/warning before recording starts so student
+                    has time to read and process the question
+                    > Fixed: A 3-2-1 countdown now plays before recording
+                      starts so you have time to prepare.
+
+37  [DONE]          Show Live Transcription and previous questions answered
+                    in session history
+                    > Fixed: Your live transcription and previous answers are
+                      now saved and shown in your session history.
+
+38  [DONE]          Make question change more visible - nagbabago ang
+                    question pero di halata
+                    > Fixed: The question card now flashes a light cyan
+                      background, glows with a cyan border, and slightly
+                      scales up when a new question appears. A "New Question"
+                      badge also shows briefly at the top.
+
+39  [RECOMMENDATION] Resume edit functionality (by design - resumes are
+                    generated and saved as PDFs)
+                    > Not implemented: Since resumes are generated and saved
+                      as PDFs, editing them after generation is not feasible.
+                      Recommended for future development.
+
+40  [DONE]          Improve resume management: warning banner when saving
+                    without filling info; direct access to create
+                    resume/cover letter form; skip info modal
+                    > Fixed: A warning now shows if you try to save a resume
+                      without filling in the details. You can also go directly
+                      to the form without the extra info popup.
+
+41  [DONE]          Responsiveness issues - only supported on a few
+                    screen/phone sizes
+                    > Fixed: The system now adjusts properly to different
+                      screen sizes including mobile phones and tablets.
+
+42  [DONE]          Di pwedeng i-continue yung past interview kahit 'Pause'
+                    nakalagay
+                    > Fixed: The "Pause" status has been changed to "Ended"
+                      since continuing a past session is not needed.
+
+43  [DONE]          Interactive questions for mock interview
+                    > Already implemented: The system already generates
+                      follow-up questions based on your actual answers,
+                      just like a real interviewer would.
+
+================================================================================
+ADMIN-SIDE
+================================================================================
+
+#   STATUS          FEEDBACK & REMARKS
+--  --------------  ------------------------------------------------------------
+1   [DONE]          Fix the admin number - bakit sa iba number tapos sa iba
+                    'ADMIN' lang
+                    > Fixed: The sidebar now always shows 'ADMIN' instead of
+                      the account ID number for all admin accounts.
+
+2   [RECOMMENDATION] Pag may nag register, mag-email sa admin para ma-notify
+                    > Note: Not under our jurisdiction / outside project scope.
+
+3   [DONE]          Sa sign-up, walang lumalabas na password strength unless
+                    umabot sa 6 characters para ma-trigger
+                    > Fixed: Password strength meter now appears immediately
+                      from the first character you type.
+
+4   [DONE]          Sa export sa mock interview, dagdagan ng details: ilagay
+                    yung question and answer (buong laman)
+                    > Fixed: The exported file now includes the full question
+                      text and the complete answer for each item.
+
+5   [DONE]          Header ng View Details sa mock interview sumasama sa
+                    scroll - lumalagpas sa header
+                    > Fixed: The header now stays at the top and does not
+                      scroll away when you scroll down the page.
+
+================================================================================
+SECURITY / AUTH
+================================================================================
+
+#   STATUS          FEEDBACK & REMARKS
+--  --------------  ------------------------------------------------------------
+1   [DONE]          Sobrang dali mag-create ng admin account - pwede masira
+                    ang system
+                    > Fixed: Admin account creation is now more restricted
+                      and secured.
+
+2   [DONE]          Login and create account: ginamit ang email na di exist
+                    pero nakapag-create ng account (email validation on
+                    sign-up)
+                    > Fixed: Sign-up now checks that the email address is
+                      valid before allowing account creation.
+
+3   [DONE]          Weak passwords accepted (e.g. 'password', '1234567890')
+                    > Fixed: Passwords that are too weak are now rejected.
+                      A minimum strength of "Medium" is required.
+
+4   [DONE]          Error message reveals @admin.tsu.edu.ph email format -
+                    gives hackers a hint; remove or generalize the message
+                    > Fixed: The error message no longer shows the admin
+                      email format. It now just says to use your university
+                      email.
+
+5   [DONE]          Sign out should have a confirmation dialog
+                    > Fixed: A confirmation popup now appears when you click
+                      sign out so you don't accidentally log out.
+
+================================================================================
+UI / MISC
+================================================================================
+
+#   STATUS          FEEDBACK & REMARKS
+--  --------------  ------------------------------------------------------------
+1   [DONE]          Eye icon (password field) not centered
+                    > Fixed: The show/hide password eye icon is now properly
+                      centered inside the password field.
+
+2   [DONE]          Use 'College of Computer Studies' instead of 'CCS' in
+                    the UI (can still store as CCS in DB)
+                    > Fixed: College abbreviations in the UI now display their
+                      full names where applicable while keeping the short codes
+                      stored in the database.
+
+3   [DONE]          Refrain from using emojis - use icons instead
+                    > Fixed: Emojis have been replaced with proper icons
+                      throughout the system.
+
+4   [DONE]          Improve the accuracy of the AI
+                    > Improved: The AI evaluator has been updated to give
+                      more accurate scores using a better scoring model.
+
+5   [DONE]          UI improvements: Overflow and Max Height for
+                    containers/cards/tables; place error messages in better
+                    locations
+                    > Fixed: Containers and tables now have proper height
+                      limits and scroll instead of stretching the page.
+                      Error messages are also placed closer to where they
+                      are relevant.
+
+6   [DONE]          The UI is clean and easy to navigate
+                    (positive feedback - no action needed)
+
+7   [DONE]          Good and smooth to use
+                    (positive feedback - no action needed)
+
+================================================================================
+SUMMARY:  DONE: 46  |  NOT DONE: 0  |  PARTIAL: 2  |  RECOMMENDATION: 3
+          UNCONFIRMED (?): 0  |  TOTAL: 55 items
+================================================================================
