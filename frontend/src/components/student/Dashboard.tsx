@@ -39,7 +39,7 @@ interface EventData {
 export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, onNavigate }: { email: string; fullName?: string; displayName?: string; studentId?: string; onLogout: () => void; onNavigate: (route: string) => void }) => {
   const messageBox = useMessageBox();
   const userName = displayName?.trim() || fullName?.trim() || email.split("@")[0];
-  const userID = studentId || "2024-00001";
+  const userID = studentId || "";
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
   
   // State for dashboard data

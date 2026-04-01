@@ -7,6 +7,7 @@ import Register from './components/auth/Register'
 import AdminPage from './pages/AdminPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
 import JobsPage from './pages/JobsPage'
+import JobDetailPage from './pages/JobDetailPage'
 import ResumesPage from './pages/ResumesPage'
 import EventsPage from './pages/EventsPage'
 import MockInterviewPage from './pages/MockInterviewPage'
@@ -304,6 +305,16 @@ export default function App() {
               <RequireStudent>
                 <RequireProfile>
                   <JobsPage />
+                </RequireProfile>
+              </RequireStudent>
+            }
+          />
+          <Route
+            path="/student/jobs/:id"
+            element={
+              <RequireStudent>
+                <RequireProfile>
+                  <JobDetailPage />
                 </RequireProfile>
               </RequireStudent>
             }

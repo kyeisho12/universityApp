@@ -507,9 +507,15 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
       ...resumeKeywords,
     ]);
 
-    const preferredJobType = userData?.preferred_job_type;
-    const preferredLocation = userData?.preferred_location;
-    const preferredCategory = userData?.preferred_category;
+    const preferredJobTypes: string[] = Array.isArray(userData?.preferred_job_types)
+      ? userData.preferred_job_types.filter(Boolean)
+      : [];
+    const preferredLocations: string[] = Array.isArray(userData?.preferred_locations)
+      ? userData.preferred_locations.filter(Boolean)
+      : [];
+    const preferredIndustries: string[] = Array.isArray(userData?.preferred_industries)
+      ? userData.preferred_industries.filter(Boolean)
+      : [];
 
     return filteredJobs
       .map((job) => {
@@ -523,21 +529,21 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
 
         let preferenceMatches = 0;
         let preferenceTotal = 0;
-        if (preferredJobType) {
+        if (preferredJobTypes.length) {
           preferenceTotal += 1;
-          if (preferredJobType === job.job_type) preferenceMatches += 1;
+          if (preferredJobTypes.some((t) => t === job.job_type)) preferenceMatches += 1;
         }
-        if (preferredLocation) {
+        if (preferredLocations.length) {
           preferenceTotal += 1;
-          if (String(job.location).toLowerCase().includes(String(preferredLocation).toLowerCase())) {
-            preferenceMatches += 1;
-          }
+          if (preferredLocations.some((loc) =>
+            String(job.location).toLowerCase().includes(loc.toLowerCase())
+          )) preferenceMatches += 1;
         }
-        if (preferredCategory) {
+        if (preferredIndustries.length) {
           preferenceTotal += 1;
-          if (String(job.category).toLowerCase() === String(preferredCategory).toLowerCase()) {
-            preferenceMatches += 1;
-          }
+          if (preferredIndustries.some((ind) =>
+            String(job.category).toLowerCase().includes(ind.toLowerCase())
+          )) preferenceMatches += 1;
         }
         const preferenceScore = preferenceTotal ? preferenceMatches / preferenceTotal : 0;
 
@@ -860,12 +866,8 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
                       {recommendedJobs.map(({ job, score, matchedSkills }) => (
                         <button
                           key={`recommended-${job.id}`}
-                          onClick={() => setSelectedJob(job.id || null)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all ${
-                            selectedJob === job.id
-                              ? "border-[#1B2744] bg-gray-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
+                          onClick={() => window.open(`/student/jobs/${job.id}`, "_blank")}
+                          className="w-full text-left p-3 rounded-xl border border-gray-200 hover:border-[#00B4D8] hover:bg-cyan-50 transition-all"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -903,12 +905,8 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
                           <button
                             type="button"
                             key={`all-${job.id}`}
-                            onClick={() => setSelectedJob(job.id || null)}
-                            className={`w-full text-left p-3 rounded-xl border transition-all ${
-                              selectedJob === job.id
-                                ? "border-[#1B2744] bg-gray-50"
-                                : "border-gray-200 hover:border-gray-300"
-                            }`}
+                            onClick={() => window.open(`/student/jobs/${job.id}`, "_blank")}
+                            className="w-full text-left p-3 rounded-xl border border-gray-200 hover:border-[#00B4D8] hover:bg-cyan-50 transition-all"
                           >
                             <div className="flex items-start gap-2">
                               <div className="min-w-0 flex-1">

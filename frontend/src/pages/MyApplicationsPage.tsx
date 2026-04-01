@@ -18,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import axios from "axios";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
 
 interface Application {
@@ -160,38 +159,6 @@ const MyApplicationsPage: React.FC = () => {
 
   const { confirm, alert, toast } = useMessageBox();
 
-  const handleCancelApplication = async (applicationId: string) => {
-    const confirmed = await confirm({
-      title: "Cancel Application",
-      message: "Are you sure you want to cancel (withdraw) this application? This action cannot be undone.",
-      tone: "warning",
-      confirmText: "Yes, Cancel",
-      cancelText: "No, Keep Application",
-    });
-    if (!confirmed) return;
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error || !data.session) throw new Error("Could not get access token");
-      const accessToken = data.session.access_token;
-      await axios.delete(`${API_BASE_URL}/applications/${applicationId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      toast({
-        title: "Application Cancelled",
-        message: "Your application has been successfully cancelled.",
-        tone: "success",
-      });
-      refetch();
-    } catch (err) {
-      alert({
-        title: "Failed to Cancel",
-        message: "Failed to cancel application. Please try again.",
-        tone: "error",
-      });
-    }
-  };
 
   const filteredApplications = useMemo(() => 
     applications.filter((app) => {
@@ -479,23 +446,15 @@ const MyApplicationsPage: React.FC = () => {
                         <div className="flex flex-col items-end gap-2">
                           {getStatusBadge(app.status)}
                           {app.status.toLowerCase() === "pending" && (
-                            <div className="flex gap-2">
-                              <button
-                                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
-                                onClick={() => {
-                                  setEditApp(app);
-                                  setEditCoverLetter(app.cover_letter || "");
-                                }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium"
-                                onClick={() => handleCancelApplication(app.id)}
-                              >
-                                Cancel Application
-                              </button>
-                            </div>
+                            <button
+                              className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
+                              onClick={() => {
+                                setEditApp(app);
+                                setEditCoverLetter(app.cover_letter || "");
+                              }}
+                            >
+                              Edit
+                            </button>
                           )}
                         </div>
                       </div>

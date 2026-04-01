@@ -645,10 +645,31 @@ function MockInterviewPageContent({
   const [questionRatings, setQuestionRatings] = useState<Record<string, "good" | "bad">>({});
   const [questionHighlighted, setQuestionHighlighted] = useState(false);
   const [recordingCountdown, setRecordingCountdown] = useState<number | null>(null);
+  const [questionPillExpanded, setQuestionPillExpanded] = useState(false);
+  const [showTipToast, setShowTipToast] = useState(false);
+  const [showSessionToast, setShowSessionToast] = useState(false);
+  const [showInstructionToast, setShowInstructionToast] = useState(false);
+  const tipToastDismissed = useRef(false);
+  const sessionToastDismissed = useRef(false);
+  const instructionToastDismissed = useRef(false);
   const prevQuestionForHighlightRef = useRef<number | null>(null);
   useEffect(() => {
     setIsNextConfirmed(false);
   }, [preparedNextAction, currentQuestion, isSessionStarted]);
+
+  // Mobile toasts: show when question changes or session starts, auto-dismiss
+  // Only shows if user hasn't manually closed them
+  useEffect(() => {
+    if (!isSessionStarted) return;
+    setQuestionPillExpanded(false);
+    if (!tipToastDismissed.current) setShowTipToast(true);
+    if (!sessionToastDismissed.current) setShowSessionToast(true);
+    if (!instructionToastDismissed.current) setShowInstructionToast(true);
+    const t1 = setTimeout(() => setShowTipToast(false), 6000);
+    const t2 = setTimeout(() => setShowSessionToast(false), 8000);
+    const t3 = setTimeout(() => setShowInstructionToast(false), 5000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [currentQuestion, isSessionStarted]);
 
   // Highlight question card when question changes during active session
   useEffect(() => {
@@ -4283,9 +4304,86 @@ function MockInterviewPageContent({
           </button>
         </div>
         {/* Recording Interface */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-6 p-3 sm:p-4 lg:p-6 overflow-y-auto relative">
+        <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 p-3 sm:p-4 lg:p-6 overflow-y-auto relative">
+
+          {/* Mobile sticky question pill - lg:hidden */}
+          {isSessionStarted && (
+            <div className="lg:hidden sticky top-0 z-20 -mx-3 -mt-3 sm:-mx-4 sm:-mt-4 px-3 sm:px-4 pt-3 sm:pt-4 pb-2 bg-gray-50/95 backdrop-blur-sm shadow-sm">
+              {/* Question counter + progress bar */}
+              <div className="flex items-center justify-between mb-1 px-0.5">
+                <span className="text-xs text-gray-500 font-medium">Question {askedQuestionCountForUi} of {MAX_SESSION_QUESTION_COUNT}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1 mb-2 overflow-hidden">
+                <div
+                  className="bg-cyan-500 h-1 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (askedQuestionCountForUi / MAX_SESSION_QUESTION_COUNT) * 100)}%` }}
+                />
+              </div>
+              {/* Question pill toggle */}
+              <button
+                type="button"
+                onClick={() => setQuestionPillExpanded(v => !v)}
+                className={`w-full text-left rounded-xl px-4 py-2.5 flex items-start gap-2.5 shadow-sm border transition-all duration-500 ${
+                  questionHighlighted
+                    ? "bg-cyan-500 border-cyan-400 text-white"
+                    : "bg-gray-900 border-gray-700 text-white"
+                }`}
+              >
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${questionHighlighted ? "bg-white/20" : "bg-cyan-500"}`}>
+                  Q{askedQuestionCountForUi}
+                </span>
+                <span className="text-sm font-medium flex-1 leading-snug">
+                  {questionPillExpanded
+                    ? questions[currentQuestion]?.question || "Loading question..."
+                    : `${(questions[currentQuestion]?.question || "Loading question...").slice(0, 45)}${(questions[currentQuestion]?.question || "").length > 45 ? "..." : ""}`
+                  }
+                </span>
+                {questionPillExpanded
+                  ? <ChevronUp className="w-4 h-4 flex-shrink-0 opacity-60 mt-0.5" />
+                  : <ChevronDown className="w-4 h-4 flex-shrink-0 opacity-60 mt-0.5" />
+                }
+              </button>
+            </div>
+          )}
+
+          {/* Mobile toast notifications - fixed overlay, lg:hidden */}
+          {isSessionStarted && (
+            <div className="lg:hidden fixed top-16 left-3 right-3 z-50 flex flex-col gap-2 pointer-events-none">
+              <div className={`pointer-events-auto transition-all duration-300 ${showTipToast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-3 py-2.5 shadow-lg flex items-start gap-2">
+                  <span className="text-base leading-none mt-0.5">💡</span>
+                  <p className="text-xs text-yellow-800 flex-1">{questions[currentQuestion]?.tip || ""}</p>
+                  <button type="button" title="Dismiss" onClick={() => { tipToastDismissed.current = true; setShowTipToast(false); }} className="flex-shrink-0 text-yellow-400 hover:text-yellow-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className={`pointer-events-auto transition-all duration-300 ${showSessionToast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+                <div className={`rounded-xl px-3 py-2.5 shadow-lg border flex items-start gap-2 ${hasMetMinimumQuestionRequirement ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                  <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${hasMetMinimumQuestionRequirement ? "text-emerald-600" : "text-amber-600"}`} />
+                  <p className={`text-xs flex-1 ${hasMetMinimumQuestionRequirement ? "text-emerald-800" : "text-amber-900"}`}>
+                    {hasMetMinimumQuestionRequirement
+                      ? `Minimum met: ${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} questions completed.`
+                      : `${askedQuestionCountForUi}/${MIN_SESSION_QUESTION_COUNT} done — answer ${remainingQuestionsForCount} more or session will be voided.`}
+                  </p>
+                  <button type="button" title="Dismiss" onClick={() => { sessionToastDismissed.current = true; setShowSessionToast(false); }} className={`flex-shrink-0 ${hasMetMinimumQuestionRequirement ? "text-emerald-400 hover:text-emerald-600" : "text-amber-400 hover:text-amber-600"}`}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className={`pointer-events-auto transition-all duration-300 ${showInstructionToast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"}`}>
+                <div className="bg-cyan-50 border border-cyan-200 rounded-xl px-3 py-2.5 shadow-lg flex items-start gap-2">
+                  <p className="text-xs text-cyan-800 flex-1">Click <strong>Next Question</strong> to finalize your answer. When the done badge appears, you can restart or move on.</p>
+                  <button type="button" title="Dismiss" onClick={() => { instructionToastDismissed.current = true; setShowInstructionToast(false); }} className="flex-shrink-0 text-cyan-400 hover:text-cyan-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Left - Camera Preview */}
-          <div className="flex-1 flex flex-col min-h-0 lg:flex-1">
+          <div className="flex flex-col lg:flex-1 lg:min-h-0">
             {/* Recording Status and Controls */}
             <div className="bg-white rounded-2xl border border-gray-200 flex flex-col p-3 sm:p-4 relative shadow-sm lg:flex-1 lg:min-h-0">
               {/* Recording Badges */}
@@ -4650,9 +4748,9 @@ function MockInterviewPageContent({
 
           {/* Right - Question and Transcription */}
           <div className="flex flex-col w-full lg:w-96 gap-3 sm:gap-5 lg:overflow-y-auto">
-            {/* Question Card - only shown during active session */}
+            {/* Question Card - only shown during active session, hidden on mobile (pill handles it) */}
             {isSessionStarted && (
-            <div className={`rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-500 ${questionHighlighted ? "bg-cyan-50 border-cyan-400 ring-2 ring-cyan-200 scale-[1.01]" : "bg-white border-gray-100"}`}>
+            <div className={`hidden lg:block rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-500 ${questionHighlighted ? "bg-cyan-50 border-cyan-400 ring-2 ring-cyan-200 scale-[1.01]" : "bg-white border-gray-100"}`}>
               {/* Progress bar */}
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">
@@ -4694,7 +4792,7 @@ function MockInterviewPageContent({
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 leading-snug">
                 {questions[currentQuestion]?.question || "Loading question..."}
               </h3>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="hidden lg:block bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800 flex items-start gap-2">
                   <span className="text-lg">💡</span>
                   <span>{questions[currentQuestion]?.tip || "Please wait while we fetch your question."}</span>
@@ -4703,8 +4801,8 @@ function MockInterviewPageContent({
               <div
                 className={
                   hasMetMinimumQuestionRequirement
-                    ? "mt-2.5 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5"
-                    : "mt-2.5 bg-amber-50 border border-amber-200 rounded-lg p-2.5"
+                    ? "hidden lg:block mt-2.5 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5"
+                    : "hidden lg:block mt-2.5 bg-amber-50 border border-amber-200 rounded-lg p-2.5"
                 }
               >
                 <p
@@ -4759,7 +4857,7 @@ function MockInterviewPageContent({
                   </p>
                 </div>
               )}
-              <div className="mt-2.5 bg-cyan-50 border border-cyan-200 rounded-lg p-2.5">
+              <div className="hidden lg:block mt-2.5 bg-cyan-50 border border-cyan-200 rounded-lg p-2.5">
                 <p className="text-xs text-cyan-800">
                   Click Next Question to finalize this answer. When the done badge appears, you can either Restart Answer or click Next Question again to continue.
                 </p>

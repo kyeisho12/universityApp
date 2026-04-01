@@ -2,14 +2,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useStudent } from '../context/StudentContext'
-import { useStudentId } from '../hooks/useStudentId'
 import { Dashboard } from '../components/student/Dashboard'
 
 export default function StudentDashboardPage() {
   const { user, signOut } = useAuth()
   const { profile, isProfileComplete, isProfileLoading } = useStudent()
   const navigate = useNavigate()
-  const studentId = useStudentId(user?.id)
+  const studentId = profile?.student_number != null ? String(profile.student_number) : ''
   const fullName = profile?.full_name ? String(profile.full_name) : ''
 
   useEffect(() => {

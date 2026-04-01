@@ -18,6 +18,12 @@ STUDENT-SIDE
 2   [DONE]          Yung admin number na ppull sa student side
                     > Fixed: Student side now correctly pulls the student number
                       from the student profile, not from admin data.
+                    > Additional fix: The dashboard was briefly flashing
+                      "2024-00001" before the real number loaded. This was
+                      fixed by reading the student number directly from the
+                      already-loaded profile context instead of making a
+                      separate database fetch — so by the time the dashboard
+                      renders, the correct number is already available.
 
 3   [DONE]          Highlight sa Jobs & Internships sa student sidebar - hindi
                     naka-highlight sa 1st click, nawawala pag nag switch tab
@@ -29,12 +35,40 @@ STUDENT-SIDE
                     > Fixed: Login state is now synced across tabs so you don't
                       need to log in again on another tab.
 
-5   [RECOMMENDATION] Optional but recommended: pag nag click ng section sa
+5   [DONE]          Optional but recommended: pag nag click ng section sa
                     sidebar (e.g. Jobs & Internship) mag open siya sa new tab
+                    > Fixed: Clicking any sidebar section (Jobs & Internships,
+                      My Applications, My Documents, Career Events, Mock
+                      Interview, Profile) now opens it in a new tab so you
+                      can browse without losing your current page. Dashboard
+                      is the only item that stays in the same tab since it
+                      is the home page.
 
 6   [DONE]          Fix recommendations sa job application
                     > Fixed: Recommendations are now hidden when you are
                       actively searching so results show up right away.
+                    > Additional fix: Recommendations are now properly based
+                      on the student's manage profile data. The system scores
+                      each job using four factors:
+                        - Skill match (50%): compares job requirements
+                          against skills listed in the student's profile
+                          and parsed resume
+                        - Preference match (20%): checks if the job's
+                          type, location, and industry match the student's
+                          preferred job types, locations, and industries
+                          set in their profile
+                        - Resume overlap (20%): matches keywords from the
+                          job description against the student's resume,
+                          education, work experience, and bio
+                        - Skill rating (10%): factors in proficiency
+                          ratings from the student's parsed resume
+                      The bug was that the preference matching was reading
+                      wrong field names (singular instead of plural arrays),
+                      so career preferences were never used. This is now
+                      fixed to correctly read preferred_job_types,
+                      preferred_locations, and preferred_industries from
+                      the profile. The top 4 highest-scoring unapplied
+                      jobs are shown as recommendations.
 
 7   [DONE]          Filter section di nag rereflect
                     > Fixed: Filters now update the job listings immediately
@@ -86,7 +120,10 @@ STUDENT-SIDE
 
 18  [DONE]          Cancel, Edit, and View My Applications
                     > Fixed: You can now view and edit the details of your
-                      submitted job applications. Did not add cancel feature.
+                      submitted job applications.
+                    > Update: The Cancel Application button has been removed
+                      from the UI since cancelling was never implemented.
+                      Only the Edit button remains for pending applications.
 
 19  [DONE]          Make items on the dashboard (Recent Job Listings and
                     Upcoming Events) clickable
@@ -157,6 +194,21 @@ STUDENT-SIDE
 32  [DONE]          Add new user walkthrough when first signing in
                     > Fixed: First-time users now see a welcome walkthrough
                       and onboarding checklist when they log in.
+                    > How it works:
+                      When you log in for the very first time, a welcome
+                      popup appears that introduces the main features of
+                      the system — Browse Jobs, Mock Interviews, Career
+                      Events, and Resume Builder. You click "Get Started"
+                      to close it. After that, a "Getting Started" card
+                      appears on your dashboard showing a checklist of
+                      steps: create your account, complete your profile,
+                      build your first resume, and start a mock interview.
+                      Each step has a checkmark once done, and there's a
+                      progress bar showing how far along you are. You can
+                      click on a step to go directly to that page. Once
+                      you've dismissed the card, it won't show again. The
+                      system remembers that you've seen it using your
+                      browser's local storage.
 
 33  [DONE]          Follow-up question doesn't match context of previous
                     question (e.g. 'hardest decision' after weakness question)
@@ -202,6 +254,12 @@ STUDENT-SIDE
                     > Fixed: A warning now shows if you try to save a resume
                       without filling in the details. You can also go directly
                       to the form without the extra info popup.
+                    > Additional fix: The validation message was too generic
+                      — it always said "fill in the resume name, full name,
+                      and email" even if only one field was missing. Each
+                      required field (resume name, full name, email) now
+                      shows its own specific error message so the user knows
+                      exactly which field to fill in.
 
 41  [DONE]          Responsiveness issues - only supported on a few
                     screen/phone sizes
@@ -257,12 +315,36 @@ SECURITY / AUTH
                     ang system
                     > Fixed: Admin account creation is now more restricted
                       and secured.
+                    > How it works:
+                      When someone signs up, the system automatically
+                      assigns them a role (student, admin, or recruiter).
+                      Student accounts are created in a "not yet verified"
+                      state — meaning they cannot log in at all until an
+                      admin manually approves their account. Admin and
+                      recruiter accounts are controlled separately and
+                      cannot be created through the normal sign-up page.
+                      On top of that, database-level security rules
+                      (Row Level Security) check the user's role before
+                      allowing access to any sensitive data, so even if
+                      someone somehow got in, they would only see what
+                      their role permits.
 
 2   [DONE]          Login and create account: ginamit ang email na di exist
                     pero nakapag-create ng account (email validation on
                     sign-up)
                     > Fixed: Sign-up now checks that the email address is
                       valid before allowing account creation.
+                    > How it works:
+                      The system only accepts official TSU university
+                      email addresses. Students must use an email ending
+                      in @student.tsu.edu.ph, and admins must use
+                      @admin.tsu.edu.ph. If you try to sign up or log in
+                      with any other email format (like Gmail, Yahoo, or
+                      a made-up address), the form immediately rejects it
+                      and shows "Please use your university email." This
+                      check happens on the front-end before anything is
+                      even sent to the server, so invalid emails are
+                      blocked right away.
 
 3   [DONE]          Weak passwords accepted (e.g. 'password', '1234567890')
                     > Fixed: Passwords that are too weak are now rejected.
@@ -297,6 +379,12 @@ UI / MISC
 3   [DONE]          Refrain from using emojis - use icons instead
                     > Fixed: Emojis have been replaced with proper icons
                       throughout the system.
+                    > Additional fix: The Create Resume form still had 6
+                      emoji section headers (Personal Information, Education,
+                      Work Experience, Skills, Projects, Certifications &
+                      Awards). All have been replaced with matching lucide-
+                      react icons (User, GraduationCap, Briefcase, Zap,
+                      Rocket, Award).
 
 4   [DONE]          Improve the accuracy of the AI
                     > Improved: The AI evaluator has been updated to give

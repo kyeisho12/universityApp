@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X, Menu } from "lucide-react";
+import { Upload, Download, Trash2, FileText, AlertCircle, CheckCircle2, Eye, Plus, X, Menu, Award, User, GraduationCap, Briefcase, Zap, Rocket } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
@@ -626,8 +626,16 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       setErrorMessage("You must be signed in to save a resume.");
       return;
     }
-    if (!resumeName.trim() || !personalInfo.fullName.trim() || !personalInfo.email.trim()) {
-      setResumeBuilderError("Please fill in the resume name, full name, and email.");
+    if (!resumeName.trim()) {
+      setResumeBuilderError("Please fill in a resume name.");
+      return;
+    }
+    if (!personalInfo.fullName.trim()) {
+      setResumeBuilderError("Please fill in your full name.");
+      return;
+    }
+    if (!personalInfo.email.trim()) {
+      setResumeBuilderError("Please fill in your email address.");
       return;
     }
     setResumeBuilderError(null);
@@ -1062,7 +1070,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {/* Personal Information */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>👤</span> Personal Information
+                    <User className="w-5 h-5" /> Personal Information
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1148,7 +1156,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {/* Education */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>🎓</span> Education
+                    <GraduationCap className="w-5 h-5" /> Education
                   </h3>
                   {educationEntries.map((entry, index) => (
                     <div key={entry.id} className="space-y-4 mb-6">
@@ -1267,7 +1275,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {/* Work Experience */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>💼</span> Work Experience
+                    <Briefcase className="w-5 h-5" /> Work Experience
                   </h3>
                   {experienceEntries.map((entry, index) => (
                     <div key={entry.id} className="space-y-4 mb-6">
@@ -1385,7 +1393,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {/* Skills */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>⚡</span> Skills
+                    <Zap className="w-5 h-5" /> Skills
                   </h3>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Skills (comma-separated)</label>
@@ -1404,7 +1412,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {/* Projects */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>🚀</span> Projects
+                    <Rocket className="w-5 h-5" /> Projects
                   </h3>
                   {projectEntries.map((entry, index) => (
                     <div key={entry.id} className="space-y-4 mb-6">
@@ -1495,7 +1503,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 {/* Certifications & Awards */}
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <span>🏆</span> Certifications & Awards
+                    <Award className="w-5 h-5" /> Certifications & Awards
                   </h3>
                   {certificationEntries.map((entry, index) => (
                     <div key={entry.id} className="space-y-4 mb-6">
