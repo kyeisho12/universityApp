@@ -37,12 +37,15 @@ STUDENT-SIDE
 
 5   [DONE]          Optional but recommended: pag nag click ng section sa
                     sidebar (e.g. Jobs & Internship) mag open siya sa new tab
-                    > Fixed: Clicking any sidebar section (Jobs & Internships,
-                      My Applications, My Documents, Career Events, Mock
-                      Interview, Profile) now opens it in a new tab so you
-                      can browse without losing your current page. Dashboard
-                      is the only item that stays in the same tab since it
-                      is the home page.
+                    > Fixed: Implemented as a dedicated Job Detail page
+                      instead of opening sidebar links in new tabs.
+                      Clicking any job card (recommended or all-jobs list)
+                      now opens the full job detail in a new tab at
+                      /student/jobs/:id. The page shows the complete job
+                      info — title, employer, type, location, salary,
+                      description, requirements, deadline — and has a
+                      working Apply Now button with resume and cover letter
+                      selection, same as the main jobs page.
 
 6   [DONE]          Fix recommendations sa job application
                     > Fixed: Recommendations are now hidden when you are
@@ -241,6 +244,23 @@ STUDENT-SIDE
                       background, glows with a cyan border, and slightly
                       scales up when a new question appears. A "New Question"
                       badge also shows briefly at the top.
+                    > Additional fix (mobile): On small screens, the question
+                      was disappearing because it was pushed below the camera
+                      feed and required scrolling. Fixed with two additions:
+                        1. Sticky question pill — a dark bar pinned to the
+                           top of the screen showing "Question X of 20",
+                           a progress bar, and the question text. Tap it
+                           to expand/collapse the full question. Glows
+                           cyan when a new question appears.
+                        2. Toast notifications — the tip, session count
+                           requirement, and instruction messages now appear
+                           as floating pop-ups that auto-dismiss after a
+                           few seconds. Each has an X button. If you
+                           manually close one it stays closed for the
+                           rest of the session. The original alert boxes
+                           and the redundant question card below the
+                           controls are hidden on mobile since the pill
+                           handles everything.
 
 39  [RECOMMENDATION] Resume edit functionality (by design - resumes are
                     generated and saved as PDFs)
@@ -405,6 +425,6 @@ UI / MISC
                     (positive feedback - no action needed)
 
 ================================================================================
-SUMMARY:  DONE: 46  |  NOT DONE: 0  |  PARTIAL: 2  |  RECOMMENDATION: 3
+SUMMARY:  DONE: 47  |  NOT DONE: 0  |  PARTIAL: 2  |  RECOMMENDATION: 2
           UNCONFIRMED (?): 0  |  TOTAL: 55 items
 ================================================================================

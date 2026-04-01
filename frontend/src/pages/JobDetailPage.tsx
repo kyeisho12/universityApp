@@ -11,7 +11,6 @@ import {
 import { Sidebar } from "../components/common/Sidebar";
 import { useAuth } from "../hooks/useAuth";
 import { useStudent } from "../context/StudentContext";
-import { useStudentId } from "../hooks/useStudentId";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { supabase } from "../lib/supabaseClient";
 import { submitJobApplication } from "../services/applicationService";
@@ -31,7 +30,7 @@ export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, signOut } = useAuth();
   const { profile } = useStudent();
-  const studentId = useStudentId(user?.id);
+  const studentId = profile?.student_number != null ? String(profile.student_number) : '';
   const navigate = useNavigate();
 
   const [job, setJob] = useState<JobWithEmployer | null>(null);

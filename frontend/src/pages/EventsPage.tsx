@@ -13,7 +13,6 @@ import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
-import { useStudentId } from "../hooks/useStudentId";
 import { useStudent } from "../context/StudentContext";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -663,7 +662,7 @@ export default function EventsPage() {
   const { user, signOut } = useAuth();
   const { profile } = useStudent();
   const navigate = useNavigate();
-  const studentId = useStudentId(user?.id);
+  const studentId = profile?.student_number != null ? String(profile.student_number) : '';
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";
 
   async function handleLogout() {

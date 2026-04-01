@@ -83,17 +83,8 @@ function LoginForm({ onLogin, onSignUpClick, onForgotClick }: LoginFormProps) {
   return (
     <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 md:p-12 w-full max-w-md">
       <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-12">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#1B2744] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 sm:h-8 sm:w-8 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
-          </svg>
+        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <img src="/UnivOfficeLogo.png" alt="TSU Career Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
         </div>
         <div>
           <h1 className="text-[#1B2744] text-base sm:text-xl font-bold font-serif leading-tight">TSU Career</h1>
@@ -251,17 +242,8 @@ function SignUpForm({ onSignUp, onBack }: SignUpFormProps) {
   <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 w-full max-w-sm sm:max-w-md mx-auto">
     {/* Header */}
     <div className="flex items-start gap-3 mb-6 sm:mb-8 lg:mb-10">
-      <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-[#1B2744] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 text-white"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
-        </svg>
+      <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <img src="/UnivOfficeLogo.png" alt="TSU Career Logo" className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 object-contain" />
       </div>
       <div className="min-w-0 flex-1 pt-1">
         <h1 className="text-[#1B2744] text-sm sm:text-base lg:text-lg font-bold font-serif leading-tight truncate">
@@ -433,11 +415,8 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   return (
     <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 md:p-12 w-full max-w-md">
       <div className="flex items-center gap-2 sm:gap-3 mb-8 sm:mb-12">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#1B2744] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
-          </svg>
+        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <img src="/UnivOfficeLogo.png" alt="TSU Career Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
         </div>
         <div>
           <h1 className="text-[#1B2744] text-base sm:text-xl font-bold font-serif leading-tight">TSU Career</h1>

@@ -190,11 +190,8 @@ export const Dashboard = ({ email, fullName, displayName, studentId, onLogout, o
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8">
           <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-[#1B2744] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" />
-              </svg>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+              <img src="/UnivOfficeLogo.png" alt="TSU Career Logo" className="w-14 h-14 object-contain" />
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Welcome to TSU Career Management System!</h2>
             <p className="text-gray-500 text-sm">Here's what you can do with your account</p>

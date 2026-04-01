@@ -6,7 +6,6 @@ import { useMessageBox } from "../components/common/MessageBoxProvider";
 import { useAuth } from "../hooks/useAuth";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { useStudent } from "../context/StudentContext";
-import { useStudentId } from "../hooks/useStudentId";
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
 import { generateCoverLetterPDF, generateResumePDF } from "../utils/pdfGenerator";
@@ -1913,7 +1912,7 @@ export default function ResumesPage() {
   const { user, signOut } = useAuth();
   const { profile } = useStudent();
   const navigate = useNavigate();
-  const studentId = useStudentId(user?.id);
+  const studentId = profile?.student_number != null ? String(profile.student_number) : '';
 
   const userId = user?.id || "";
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Student";

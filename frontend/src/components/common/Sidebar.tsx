@@ -39,27 +39,8 @@ export const Sidebar = ({
       {/* Logo */}
       <div className="p-6 border-b border-gray-700">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#00B4D8] rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 14l9-5-9-5-9 5 9 5z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z"
-              />
-            </svg>
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <img src="/UnivOfficeLogo.png" alt="TSU Career Logo" className="w-10 h-10 object-contain" />
           </div>
           <div>
             <h1 className="font-bold leading-tight">TSU Career</h1>
