@@ -3734,7 +3734,7 @@ function MockInterviewPageContent({
       return (
         <div className="flex h-screen bg-gray-50">
           {/* Sidebar (desktop) */}
-          <div className="flex-shrink-0">
+          <div className="hidden md:block flex-shrink-0">
             <Sidebar
               userName={userName}
               userID={userID}
@@ -3744,7 +3744,45 @@ function MockInterviewPageContent({
             />
           </div>
 
-          <div className="flex-1 overflow-auto">
+          {/* Mobile sidebar overlay */}
+          {mobileOpen && (
+            <div className="fixed inset-0 z-50 md:hidden">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+              <div className="relative h-full">
+                <div className="absolute left-0 top-0 bottom-0">
+                  <Sidebar
+                    userName={userName}
+                    userID={userID}
+                    onLogout={() => { setMobileOpen(false); onLogout(); }}
+                    onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                    activeNav="student/interview"
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close sidebar"
+                  className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <X className="w-5 h-5 text-gray-800" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Mobile top bar with hamburger */}
+            <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-2 sticky top-0 z-10">
+              <button
+                type="button"
+                aria-label="Open sidebar"
+                onClick={() => setMobileOpen(true)}
+                className="p-2 rounded-md hover:bg-gray-100"
+              >
+                <Menu className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
             <div className="p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-8">
               <div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Mock Interview Sessions</h1>
@@ -3916,6 +3954,7 @@ function MockInterviewPageContent({
               </div>
             </div>
           )}
+          </div>
         </div>
       );
     }
@@ -3923,7 +3962,7 @@ function MockInterviewPageContent({
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
-        <div className="flex-shrink-0">
+        <div className="hidden md:block flex-shrink-0">
           <Sidebar
             userName={userName}
             userID={userID}
@@ -3933,8 +3972,46 @@ function MockInterviewPageContent({
           />
         </div>
 
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+            <div className="relative h-full">
+              <div className="absolute left-0 top-0 bottom-0">
+                <Sidebar
+                  userName={userName}
+                  userID={userID}
+                  onLogout={() => { setMobileOpen(false); onLogout(); }}
+                  onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                  activeNav="student/interview"
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Close sidebar"
+                className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="w-5 h-5 text-gray-800" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Mobile top bar with hamburger */}
+          <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-2 sticky top-0 z-10">
+            <button
+              type="button"
+              aria-label="Open sidebar"
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto">
           {/* Content Area */}
           <div className="p-4 sm:p-6 lg:p-8">
             {/* Back button */}
@@ -4052,6 +4129,7 @@ function MockInterviewPageContent({
               </button>
             </div>
           </div>
+          </div>
         </div>
       </div>
     );
@@ -4064,7 +4142,7 @@ function MockInterviewPageContent({
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
-        <div className="flex-shrink-0">
+        <div className="hidden md:block flex-shrink-0">
           <Sidebar
             userName={userName}
             userID={userID}
@@ -4074,8 +4152,46 @@ function MockInterviewPageContent({
           />
         </div>
 
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+            <div className="relative h-full">
+              <div className="absolute left-0 top-0 bottom-0">
+                <Sidebar
+                  userName={userName}
+                  userID={userID}
+                  onLogout={() => { setMobileOpen(false); onLogout(); }}
+                  onNavigate={(r) => { setMobileOpen(false); onNavigate(r); }}
+                  activeNav="student/interview"
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Close sidebar"
+                className="absolute top-4 right-4 p-2 rounded-md bg-white/90"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="w-5 h-5 text-gray-800" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Mobile top bar with hamburger */}
+          <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-2 sticky top-0 z-10">
+            <button
+              type="button"
+              aria-label="Open sidebar"
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto">
           {/* Content Area */}
           <div className="p-4 sm:p-6 lg:p-8">
             {/* Completion Card */}
@@ -4231,6 +4347,7 @@ function MockInterviewPageContent({
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
