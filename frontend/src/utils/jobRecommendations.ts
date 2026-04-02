@@ -133,8 +133,10 @@ export function computeJobRecommendations(
     userParts.push(...userResumes[0].resume_text.split(/\s+/).slice(0, 500));
   }
 
-  // Guard: if user has no skills from profile or resume, skip recommendations
-  if (allSkills.length === 0) return [];
+  // Guard: need at least skills OR meaningful resume text to make recommendations
+  const hasResumeText = typeof userResumes[0]?.resume_text === 'string'
+    && userResumes[0].resume_text.trim().length > 100;
+  if (allSkills.length === 0 && !hasResumeText) return [];
 
   const userTokens = userParts.flatMap(p => tokenize(p));
   const uniqueUserTokens = new Set(userTokens);
