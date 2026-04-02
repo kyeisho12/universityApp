@@ -946,8 +946,8 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
               </div>
             </div>
 
-            {/* Job Details */}
-            <div className="lg:col-span-2 h-full overflow-y-auto">
+            {/* Job Details — hidden on mobile since tapping opens new tab */}
+            <div className="hidden lg:block lg:col-span-2 h-full overflow-y-auto">
               {currentJob ? (
                 <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100">
                   {/* Header */}

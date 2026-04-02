@@ -183,13 +183,15 @@ export default function JobDetailPage() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar
-        userName={displayName}
-        userID={studentId}
-        onLogout={handleLogout}
-        onNavigate={handleNavigate}
-        activeNav="student/jobs"
-      />
+      <div className="hidden md:block">
+        <Sidebar
+          userName={displayName}
+          userID={studentId}
+          onLogout={handleLogout}
+          onNavigate={handleNavigate}
+          activeNav="student/jobs"
+        />
+      </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
