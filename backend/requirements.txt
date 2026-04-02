@@ -7,3 +7,5 @@ gunicorn
 numpy<2
 sentence-transformers==2.7.0
 torch==2.2.2
+pdfplumber==0.11.0
+python-docx==1.1.2

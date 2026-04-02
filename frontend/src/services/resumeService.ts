@@ -27,11 +27,13 @@ type ResumeInsertPayload = {
   status: string
   skills?: string[]
   ratings?: Record<string, unknown>
+  resume_text?: string
 }
 
 const MISSING_COLUMN_ERRORS = [
   "Could not find the 'skills' column",
   "Could not find the 'ratings' column",
+  "Could not find the 'resume_text' column",
 ] as const
 
 function isMissingOptionalColumnError(error: unknown): boolean {
@@ -54,6 +56,7 @@ async function insertResumeMetadata(payload: ResumeInsertPayload) {
     ...basePayload,
     skills: payload.skills,
     ratings: payload.ratings,
+    resume_text: payload.resume_text,
   }
 
   const firstAttempt = await supabase.from('resumes').insert(enrichedPayload).select().single()
@@ -130,10 +133,12 @@ export async function uploadResume(file: File, userId: string) {
   // Call backend resume parsing API
   let skills: string[] = [];
   let ratings: any = {};
+  let resume_text = '';
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const resp = await fetch('/api/resume/parse', {
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    const resp = await fetch(`${apiBase}/resumes/parse`, {
       method: 'POST',
       body: formData,
     });
@@ -141,6 +146,7 @@ export async function uploadResume(file: File, userId: string) {
       const result = await resp.json();
       skills = Array.isArray(result.skills) ? result.skills : [];
       ratings = result.ratings || {};
+      resume_text = typeof result.resume_text === 'string' ? result.resume_text : '';
     }
   } catch (e) {
     console.warn('Resume parsing failed:', e);
@@ -155,6 +161,7 @@ export async function uploadResume(file: File, userId: string) {
     status: 'active',
     skills,
     ratings,
+    resume_text,
   })
 
   if (error) {

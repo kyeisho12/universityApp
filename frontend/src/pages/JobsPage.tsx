@@ -18,6 +18,7 @@ import { getAllJobs, type JobWithEmployer } from "../services/jobService";
 import { submitJobApplication } from "../services/applicationService";
 import { supabase } from "../lib/supabaseClient";
 import { queryCache } from "../utils/queryCache";
+import { computeJobRecommendations } from "../utils/jobRecommendations";
 
 const STOPWORDS = new Set([
   "and",
@@ -463,132 +464,8 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
   const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
 
   const recommendedJobs = useMemo(() => {
-    if (!jobs.length) return [];
-
-    // Profile skills (handle both string and array formats)
-    let profileSkills = extractSkills(userData?.skills);
-    if (Array.isArray(userData?.skills_entries)) {
-      profileSkills = [
-        ...profileSkills,
-        ...userData.skills_entries.flatMap((entry: any) => tokenize(entry.skill || entry))
-      ];
-    }
-
-    // Profile keywords from education, work experience, bio, major, etc.
-    const educationKeywords = Array.isArray(userData?.education_entries)
-      ? userData.education_entries.flatMap((e: any) => tokenize([e.degree, e.field, e.school].join(' ')))
-      : tokenize(userData?.major || '');
-    
-    const workKeywords = Array.isArray(userData?.work_experience_entries)
-      ? userData.work_experience_entries.flatMap((w: any) => tokenize([w.title, w.company, w.description].join(' ')))
-      : tokenize(userData?.work_experience || '');
-
-    const profileKeywords = uniqueTokens([
-      userData?.major,
-      userData?.bio,
-      userData?.university,
-      ...educationKeywords,
-      ...workKeywords,
-    ]);
-
-    // Resume skills and ratings (from parsed upload)
-    const resumeSkills = Array.isArray(userResumes[0]?.skills) ? userResumes[0].skills : [];
-    const resumeRatings = userResumes[0]?.ratings || {};
-    const resumeKeywords = uniqueTokens([
-      userResumes[0]?.file_name,
-      userResumes[0]?.file_type,
-      ...resumeSkills,
-    ]);
-
-    // Combine all keywords for matching
-    const keywordSet = new Set([
-      ...profileSkills,
-      ...profileKeywords,
-      ...resumeKeywords,
-    ]);
-
-    const preferredJobTypes: string[] = Array.isArray(userData?.preferred_job_types)
-      ? userData.preferred_job_types.filter(Boolean)
-      : [];
-    const preferredLocations: string[] = Array.isArray(userData?.preferred_locations)
-      ? userData.preferred_locations.filter(Boolean)
-      : [];
-    const preferredIndustries: string[] = Array.isArray(userData?.preferred_industries)
-      ? userData.preferred_industries.filter(Boolean)
-      : [];
-
-    return filteredJobs
-      .map((job) => {
-        const requirements = Array.isArray(job.requirements) ? job.requirements : [];
-        const requirementMatches = requirements.filter((req) =>
-          tokenize(req).some((token) => keywordSet.has(token))
-        );
-        const skillScore = requirements.length
-          ? requirementMatches.length / requirements.length
-          : 0.5; // No requirements = open to everyone, give a neutral base score
-
-        let preferenceMatches = 0;
-        let preferenceTotal = 0;
-        if (preferredJobTypes.length) {
-          preferenceTotal += 1;
-          if (preferredJobTypes.some((t) => t === job.job_type)) preferenceMatches += 1;
-        }
-        if (preferredLocations.length) {
-          preferenceTotal += 1;
-          if (preferredLocations.some((loc) =>
-            String(job.location).toLowerCase().includes(loc.toLowerCase())
-          )) preferenceMatches += 1;
-        }
-        if (preferredIndustries.length) {
-          preferenceTotal += 1;
-          if (preferredIndustries.some((ind) =>
-            String(job.category).toLowerCase().includes(ind.toLowerCase())
-          )) preferenceMatches += 1;
-        }
-        const preferenceScore = preferenceTotal ? preferenceMatches / preferenceTotal : 0;
-
-        const jobTextTokens = tokenize(
-          [job.title, job.description, job.category, job.location].join(" ")
-        );
-        const resumeOverlap = jobTextTokens.filter((token) => keywordSet.has(token));
-        const resumeScore = jobTextTokens.length
-          ? Math.min(resumeOverlap.length / jobTextTokens.length, 1)
-          : 0;
-
-        // Optionally factor in ratings (e.g., if job requires a skill with a rating)
-        let ratingScore = 0;
-        if (requirements.length && Object.keys(resumeRatings).length) {
-          for (const req of requirements) {
-            for (const [key, value] of Object.entries(resumeRatings)) {
-              if (tokenize(req).includes(key.toLowerCase())) {
-                // Simple: if rating is "4/5" or "90", normalize to 0-1
-                let num = 0;
-                if (typeof value === 'string' && value.includes('/')) {
-                  const [v, max] = value.split('/').map(Number);
-                  if (max && v) num = v / max;
-                } else if (!isNaN(Number(value))) {
-                  num = Math.min(Number(value) / 100, 1);
-                }
-                ratingScore += num;
-              }
-            }
-          }
-          ratingScore = ratingScore / requirements.length;
-        }
-
-        // Blend scores: skillScore, preferenceScore, resumeScore, ratingScore
-        const score = 0.5 * skillScore + 0.2 * preferenceScore + 0.2 * resumeScore + 0.1 * ratingScore;
-
-        return {
-          job,
-          score,
-          matchedSkills: requirementMatches.slice(0, 3),
-        };
-      })
-      .filter(({ job }) => !appliedJobs.has(job.id ?? ''))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4);
-  }, [filteredJobs, userData, userResumes, appliedJobs]);
+    return computeJobRecommendations(jobs, userData, userResumes, appliedJobs);
+  }, [jobs, userData, userResumes, appliedJobs]);
 
   const currentJob = selectedJob
     ? filteredJobs.find((j) => j.id === selectedJob)
