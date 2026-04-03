@@ -559,7 +559,7 @@ export default function StudentAnalytics() {
                 const data = await fetchStudentAnalyticsData();
 
                 setStats([
-                    { label: "Active Students", value: data.activeStudents.toString(), icon: <Users className="w-5 h-5 text-[#00B4D8]" /> },
+                    { label: "All Students", value: data.activeStudents.toString(), icon: <Users className="w-5 h-5 text-[#00B4D8]" /> },
                     { label: "Interviews", value: data.interviews.toString(), icon: <ClipboardList className="w-5 h-5 text-[#00B4D8]" /> },
                     { label: "Avg Score", value: `${data.avgScore.toFixed(1)}/5`, icon: <TrendingUp className="w-5 h-5 text-[#00B4D8]" /> },
                     { label: "Events", value: data.events.toString(), icon: <Calendar className="w-5 h-5 text-[#00B4D8]" /> },
@@ -568,12 +568,6 @@ export default function StudentAnalytics() {
                         value: `${data.completionRate}%`,
                         icon: <Award className="w-5 h-5 text-emerald-500" />,
                         sub: "interviews finished",
-                    },
-                    {
-                        label: "Inactive Students",
-                        value: data.inactiveStudentCount.toString(),
-                        icon: <UserX className="w-5 h-5 text-red-400" />,
-                        sub: "no activity recorded",
                     },
                 ]);
 
