@@ -45,6 +45,7 @@ import {
   updateInterviewSessionStatus,
   uploadInterviewRecordingSegment,
   voidInterviewSession,
+  deleteSegmentsForQuestion,
 } from "../services/interviewService";
 import {
   getSpeechRecognitionAPI,
@@ -626,6 +627,8 @@ function MockInterviewPageContent({
   const [loadingHistorySegments, setLoadingHistorySegments] = useState(false);
   const [loadingHistoryVideos, setLoadingHistoryVideos] = useState(false);
   const [exportingHistoryId, setExportingHistoryId] = useState<string | null>(null);
+  const prefetchedUrlsRef = useRef<Record<string, Record<string, string>>>({});
+  const prefetchedSessionsRef = useRef<Set<string>>(new Set());
   const [questions, setQuestions] = useState<Question[]>(
     initialStateRef.current?.questions ?? []
   );
@@ -866,6 +869,53 @@ function MockInterviewPageContent({
     }
   }, [fetchSessionHistory, hasStarted, isCompleted, showHistoryView]);
 
+  // Prefetch signed video URLs for recent sessions in the background so
+  // videos are ready immediately when the user opens a session modal.
+  useEffect(() => {
+    if (!historySessions.length) return;
+    const PREFETCH_LIMIT = 5;
+    const toPrefetch = historySessions.slice(0, PREFETCH_LIMIT);
+
+    void (async () => {
+      for (const session of toPrefetch) {
+        if (prefetchedSessionsRef.current.has(session.id)) continue;
+        prefetchedSessionsRef.current.add(session.id);
+        try {
+          const { data: segs } = await supabase
+            .from("interview_recording_segments")
+            .select("id, question_index, segment_order, storage_path, metadata")
+            .eq("session_id", session.id)
+            .order("question_index", { ascending: true })
+            .order("segment_order", { ascending: true });
+
+          if (!segs?.length) continue;
+
+          // Keep only final segment per question (mirrors display logic)
+          const finalByQ: Record<string, any> = {};
+          for (const seg of segs) {
+            finalByQ[String(seg.question_index ?? 0)] = seg;
+          }
+
+          const urlMap: Record<string, string> = {};
+          for (const seg of Object.values(finalByQ)) {
+            if (!seg.storage_path) continue;
+            const bucket = seg.metadata?.storage_bucket || seg.metadata?.bucket || "interview-recordings";
+            const rawPath = String(seg.storage_path).trim();
+            const paths = Array.from(new Set([rawPath, rawPath.replace(/^\/+/, ""), rawPath.replace(/^interview-recordings\//, "")]));
+            for (const path of paths) {
+              try {
+                // eslint-disable-next-line no-await-in-loop
+                const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+                if (data?.signedUrl) { urlMap[seg.id] = data.signedUrl; break; }
+              } catch {}
+            }
+          }
+          prefetchedUrlsRef.current = { ...prefetchedUrlsRef.current, [session.id]: urlMap };
+        } catch {}
+      }
+    })();
+  }, [historySessions]);
+
   async function handleViewHistorySession(session: SessionHistoryItem) {
     setSelectedHistorySession(session);
     setLoadingHistorySegments(true);
@@ -895,7 +945,8 @@ function MockInterviewPageContent({
       const getSegEvalCache = (segId: string) => { try { const r = localStorage.getItem(`seg_eval_${segId}`); return r ? JSON.parse(r) : null; } catch { return null; } };
       const setSegEvalCache = (segId: string, ev: any) => { try { localStorage.setItem(`seg_eval_${segId}`, JSON.stringify(ev)); } catch {} };
 
-      // Phase 1: build with cached evaluations where available → render immediately
+      // Phase 1: group all segments, then keep only the final (highest segment_order) per question
+      // Segments are ordered ASC by segment_order, so last in array = final answer
       const grouped: Record<string, StudentSegment[]> = {};
       for (const seg of segments) {
         const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
@@ -903,12 +954,16 @@ function MockInterviewPageContent({
         if (!grouped[qk]) grouped[qk] = [];
         grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation: getSegEvalCache(seg.id) });
       }
+      for (const qk of Object.keys(grouped)) {
+        grouped[qk] = [grouped[qk][grouped[qk].length - 1]];
+      }
 
       setHistorySegmentsByQuestion({ ...grouped });
       setLoadingHistorySegments(false);
 
-      // Phase 1b: evaluate only segments not yet cached, then cache results
-      for (const seg of segments) {
+      // Phase 1b: evaluate only the kept (final) segments not yet cached, then cache results
+      const keptSegments = Object.values(grouped).map((segs) => segs[0]).filter(Boolean);
+      for (const seg of keptSegments) {
         if (!seg.transcript_text?.trim()) continue;
         if (getSegEvalCache(seg.id)) continue;
         const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
@@ -938,8 +993,19 @@ function MockInterviewPageContent({
         } catch { return null; }
       };
 
-      for (const seg of segments) {
-        if (!seg.storage_path) continue;
+      // Phase 2 only processes the kept (final) segment per question
+      for (const [qk, qSegs] of Object.entries(grouped)) {
+        const seg = qSegs[0];
+        if (!seg || !seg.storage_path) continue;
+
+        // Check prefetch cache first — avoids a live Supabase Storage call
+        const cachedUrl = prefetchedUrlsRef.current[session.id]?.[seg.id];
+        if (cachedUrl) {
+          grouped[qk] = [{ ...seg, signedUrl: cachedUrl }];
+          setHistorySegmentsByQuestion({ ...grouped });
+          continue;
+        }
+
         const bucketFromMeta = typeof seg.metadata?.storage_bucket === "string" ? seg.metadata.storage_bucket : typeof seg.metadata?.bucket === "string" ? seg.metadata.bucket : null;
         const bucketCandidates = Array.from(new Set([bucketFromMeta, "interview-recordings"].filter(Boolean) as string[]));
         const rawPath = String(seg.storage_path).trim();
@@ -964,8 +1030,7 @@ function MockInterviewPageContent({
           }
         }
 
-        const qk = String(seg.question_index ?? 0);
-        grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, signedUrl } : s));
+        grouped[qk] = [{ ...seg, signedUrl }];
         setHistorySegmentsByQuestion({ ...grouped });
       }
     } catch (err) {
@@ -3229,6 +3294,15 @@ function MockInterviewPageContent({
       await updateInterviewSessionStatus(sessionId, "in_progress", {
         resumed_at: new Date().toISOString(),
       });
+
+      // Delete all previously saved segments for this question (rejected attempts)
+      const { deletedCount } = await deleteSegmentsForQuestion({
+        sessionId,
+        questionIndex: currentQuestion,
+      });
+      if (deletedCount > 0) {
+        setSavedSegmentCount((prev) => Math.max(0, prev - deletedCount));
+      }
     }
 
     setRecordingError("Current answer restarted. Record your response again and wait for automatic capture.");

@@ -462,6 +462,32 @@ export async function insertRecordingSegmentMetadata({
 	return { data: { id: createdId }, error: null }
 }
 
+export async function deleteSegmentsForQuestion({ sessionId, questionIndex, bucket = 'interview-recordings' }) {
+	if (!sessionId || questionIndex == null) return { deletedCount: 0, error: null }
+
+	const { data: segs, error: fetchError } = await supabase
+		.from('interview_recording_segments')
+		.select('id, storage_path')
+		.eq('session_id', sessionId)
+		.eq('question_index', questionIndex)
+
+	if (fetchError) return { deletedCount: 0, error: fetchError }
+	if (!segs?.length) return { deletedCount: 0, error: null }
+
+	const storagePaths = segs.map(s => s.storage_path).filter(Boolean)
+	if (storagePaths.length > 0) {
+		await supabase.storage.from(bucket).remove(storagePaths)
+	}
+
+	const { error: dbError } = await supabase
+		.from('interview_recording_segments')
+		.delete()
+		.eq('session_id', sessionId)
+		.eq('question_index', questionIndex)
+
+	return { deletedCount: segs.length, error: dbError }
+}
+
 export async function getLatestQuestionTranscript({ sessionId, questionIndex }) {
 	if (!sessionId) {
 		return { data: null, error: new Error('Missing session id') }
