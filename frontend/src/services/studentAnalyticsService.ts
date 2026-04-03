@@ -17,37 +17,27 @@ function isMissingEventRegistrationsTableError(error: any): boolean {
 }
 
 export type MonthlyTrendPoint = { month: string; interviews: number; applications: number };
-export type ActivityTrendPoint = { month: string; newStudents: number; registrations: number };
 export type CountPoint = { label: string; count: number };
 export type EventPoint = { id: string; title: string; eventType: string; registrations: number };
+export type TopStudentPoint = { userId: string; userName: string; interviewCount: number; avgScore: number | null };
+export type ScoreTrendPoint = { month: string; avgScore: number | null; count: number };
 
 export type StudentAnalyticsData = {
   activeStudents: number;
   interviews: number;
   avgScore: number;
   events: number;
+  completionRate: number;
+  inactiveStudentCount: number;
   monthlyTrends: MonthlyTrendPoint[];
   scoreDistribution: CountPoint[];
-  monthlyActivityTrends: ActivityTrendPoint[];
-  applicationStatus: CountPoint[];
-  eventsByType: CountPoint[];
+  scoreTrend: ScoreTrendPoint[];
+  sessionStatusBreakdown: CountPoint[];
+  engagementFunnel: { totalStudents: number; withInterview: number; withApplication: number };
+  topStudents: TopStudentPoint[];
   topEvents: EventPoint[];
 };
 
-const STATUS_ORDER = ["pending", "accepted", "rejected", "withdrawn"];
-
-const EMPTY_DATA: StudentAnalyticsData = {
-  activeStudents: 0,
-  interviews: 0,
-  avgScore: 0,
-  events: 0,
-  monthlyTrends: [],
-  scoreDistribution: [],
-  monthlyActivityTrends: [],
-  applicationStatus: [],
-  eventsByType: [],
-  topEvents: [],
-};
 
 type ProfileRow = {
   id: string;
@@ -59,6 +49,7 @@ type ProfileRow = {
 type SessionRow = {
   id: string;
   user_id: string;
+  user_name: string | null;
   status: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -67,6 +58,7 @@ type SessionRow = {
 
 type ApplicationRow = {
   id: string;
+  student_id: string | null;
   status: string | null;
   created_at: string | null;
 };
@@ -85,21 +77,11 @@ type RegistrationRow = {
 
 export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData> {
   const [profilesRes, sessionsRes, applicationsRes, eventsRes, registrationsRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, role, is_active, created_at"),
-    supabase
-      .from("interview_sessions")
-      .select("id, user_id, status, metadata, created_at, ended_at"),
-    supabase
-      .from("applications")
-      .select("id, status, created_at"),
-    supabase
-      .from("career_events")
-      .select("id, title, event_type, created_at"),
-    supabase
-      .from("event_registrations")
-      .select("event_id, registered_at"),
+    supabase.from("profiles").select("id, role, is_active, created_at"),
+    supabase.from("interview_sessions").select("id, user_id, user_name, status, metadata, created_at, ended_at"),
+    supabase.from("applications").select("id, student_id, status, created_at"),
+    supabase.from("career_events").select("id, title, event_type, created_at"),
+    supabase.from("event_registrations").select("event_id, registered_at"),
   ]);
 
   if (profilesRes.error) throw profilesRes.error;
@@ -133,14 +115,19 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
   const monthlyTrendMap = new Map(
     monthMeta.map((item) => [item.key, { month: item.label, interviews: 0, applications: 0 }])
   );
-  const activityMap = new Map(
-    monthMeta.map((item) => [item.key, { month: item.label, newStudents: 0, registrations: 0 }])
+  const scoreTrendMap = new Map(
+    monthMeta.map((item) => [item.key, { month: item.label, scores: [] as number[], count: 0 }])
   );
 
   completedSessions.forEach((session) => {
     const key = toMonthKey(session.ended_at || session.created_at);
-    if (!key || !monthlyTrendMap.has(key)) return;
-    monthlyTrendMap.get(key)!.interviews += 1;
+    if (!key) return;
+    if (monthlyTrendMap.has(key)) monthlyTrendMap.get(key)!.interviews += 1;
+    const score = getSessionScore(session.metadata);
+    if (scoreTrendMap.has(key) && score !== null) {
+      scoreTrendMap.get(key)!.scores.push(score);
+      scoreTrendMap.get(key)!.count += 1;
+    }
   });
 
   applications.forEach((app) => {
@@ -149,23 +136,16 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
     monthlyTrendMap.get(key)!.applications += 1;
   });
 
-  students.forEach((student) => {
-    const key = toMonthKey(student.created_at);
-    if (!key || !activityMap.has(key)) return;
-    activityMap.get(key)!.newStudents += 1;
-  });
-
-  registrations.forEach((reg) => {
-    const key = toMonthKey(reg.registered_at);
-    if (!key || !activityMap.has(key)) return;
-    activityMap.get(key)!.registrations += 1;
+  const scoreTrend: ScoreTrendPoint[] = monthMeta.map((item) => {
+    const d = scoreTrendMap.get(item.key)!;
+    const avg = d.scores.length > 0 ? d.scores.reduce((a, b) => a + b, 0) / d.scores.length : null;
+    return { month: item.label, avgScore: avg, count: d.count };
   });
 
   const scoreBuckets = [0, 0, 0, 0, 0];
   scoredSessions.forEach((score) => {
     const normalized = Math.max(0, Math.min(4.999, score));
-    const index = Math.floor(normalized);
-    scoreBuckets[index] += 1;
+    scoreBuckets[Math.floor(normalized)] += 1;
   });
 
   const scoreDistribution: CountPoint[] = [
@@ -176,36 +156,62 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
     { label: "4-5", count: scoreBuckets[4] },
   ];
 
-  const statusMap = new Map<string, number>();
-  STATUS_ORDER.forEach((status) => statusMap.set(status, 0));
-
-  applications.forEach((app) => {
-    const status = String(app.status || "unknown").toLowerCase();
-    statusMap.set(status, (statusMap.get(status) || 0) + 1);
+  // Session status breakdown
+  const statusCounts = { completed: 0, voided: 0, in_progress: 0 };
+  sessions.forEach((s) => {
+    const st = String(s.status || "").toLowerCase();
+    if (st === "completed") statusCounts.completed++;
+    else if (st === "voided") statusCounts.voided++;
+    else statusCounts.in_progress++;
   });
-
-  const unknownStatuses = Array.from(statusMap.keys()).filter((status) => !STATUS_ORDER.includes(status));
-  const applicationStatus: CountPoint[] = [
-    ...STATUS_ORDER.map((status) => ({
-      label: status.charAt(0).toUpperCase() + status.slice(1),
-      count: statusMap.get(status) || 0,
-    })),
-    ...unknownStatuses.map((status) => ({
-      label: status.charAt(0).toUpperCase() + status.slice(1),
-      count: statusMap.get(status) || 0,
-    })),
+  const sessionStatusBreakdown: CountPoint[] = [
+    { label: "Completed", count: statusCounts.completed },
+    { label: "In Progress", count: statusCounts.in_progress },
+    { label: "Voided", count: statusCounts.voided },
   ].filter((item) => item.count > 0);
 
-  const eventTypeMap = new Map<string, number>();
-  events.forEach((event) => {
-    const type = String(event.event_type || "Other");
-    eventTypeMap.set(type, (eventTypeMap.get(type) || 0) + 1);
+  const completionRate =
+    sessions.length > 0 ? Math.round((statusCounts.completed / sessions.length) * 100) : 0;
+
+  // Engagement funnel
+  const studentsWithInterview = new Set(completedSessions.map((s) => s.user_id));
+  const studentsWithApplication = new Set(
+    applications.map((a) => a.student_id).filter(Boolean) as string[]
+  );
+  const engagementFunnel = {
+    totalStudents: students.length,
+    withInterview: studentsWithInterview.size,
+    withApplication: studentsWithApplication.size,
+  };
+
+  // Inactive students (no completed interview AND no application)
+  const activeStudentIds = new Set([...studentsWithInterview, ...studentsWithApplication]);
+  const inactiveStudentCount = students.filter((s) => !activeStudentIds.has(s.id)).length;
+
+  // Top students by avg score
+  const studentSessionMap = new Map<string, { userName: string; scores: number[]; count: number }>();
+  completedSessions.forEach((s) => {
+    if (!studentSessionMap.has(s.user_id)) {
+      studentSessionMap.set(s.user_id, { userName: s.user_name || s.user_id, scores: [], count: 0 });
+    }
+    const entry = studentSessionMap.get(s.user_id)!;
+    entry.count++;
+    const score = getSessionScore(s.metadata);
+    if (score !== null) entry.scores.push(score);
   });
+  const topStudents: TopStudentPoint[] = Array.from(studentSessionMap.entries())
+    .map(([userId, data]) => ({
+      userId,
+      userName: data.userName,
+      interviewCount: data.count,
+      avgScore: data.scores.length > 0
+        ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length
+        : null,
+    }))
+    .sort((a, b) => (b.avgScore ?? -1) - (a.avgScore ?? -1))
+    .slice(0, 10);
 
-  const eventsByType = Array.from(eventTypeMap.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
-
+  // Top events
   const registrationCountByEvent = new Map<string, number>();
   registrations.forEach((reg) => {
     const eventId = String(reg.event_id || "");
@@ -224,16 +230,18 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
     .slice(0, 6);
 
   return {
-    ...EMPTY_DATA,
     activeStudents,
     interviews: completedSessions.length,
     avgScore,
     events: events.length,
+    completionRate,
+    inactiveStudentCount,
     monthlyTrends: monthMeta.map((item) => monthlyTrendMap.get(item.key)!),
     scoreDistribution,
-    monthlyActivityTrends: monthMeta.map((item) => activityMap.get(item.key)!),
-    applicationStatus,
-    eventsByType,
+    scoreTrend,
+    sessionStatusBreakdown,
+    engagementFunnel,
+    topStudents,
     topEvents,
   };
 }
@@ -245,11 +253,9 @@ function getSessionScore(metadata: Record<string, unknown> | null): number | nul
     Number(summary?.average_score),
     Number(metadata?.session_score),
   ];
-
   for (const value of candidates) {
     if (Number.isFinite(value)) return value;
   }
-
   return null;
 }
 
@@ -264,13 +270,11 @@ function toMonthKey(dateStr?: string | null): string | null {
 function getLastMonths(count: number): { key: string; label: string }[] {
   const now = new Date();
   const out: { key: string; label: string }[] = [];
-
   for (let i = count - 1; i >= 0; i -= 1) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const label = d.toLocaleString("en-US", { month: "short" });
     out.push({ key, label });
   }
-
   return out;
 }
