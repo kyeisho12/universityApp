@@ -70,7 +70,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [user?.id])
 
   async function refreshProfile() {
     if (!user) return null
