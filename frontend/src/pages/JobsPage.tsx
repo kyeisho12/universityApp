@@ -731,9 +731,9 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
             {/* Jobs List - Left Side */}
             <div className="lg:col-span-1 flex flex-col gap-8 overflow-y-auto h-full">
-              {/* Recommended Jobs Section - hidden when searching */}
+              {/* Recommended Jobs Section - hidden when searching or filtering */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                {recommendedJobs.length > 0 && searchTerm === "" && (
+                {recommendedJobs.length > 0 && searchTerm === "" && filterType === "All" && filterCategory === "All Types" && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-900">Recommended for you</h3>
@@ -974,7 +974,7 @@ function JobsPageContent({ email, onLogout, onNavigate }: { email: string; onLog
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Select Resume to Attach
+                  Select Document to Attach
                 </label>
                 {resumeDocs.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">

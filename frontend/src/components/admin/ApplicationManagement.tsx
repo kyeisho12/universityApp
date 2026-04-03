@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Search, Check, X, Clock, Eye, FileText, ExternalLink } from "lucide-react";
 import { getAllApplications } from "../../services/applicationService";
 import { supabase } from "../../lib/supabaseClient";
@@ -349,7 +350,7 @@ export function ApplicationManagement() {
       </div>
 
       {/* Review Modal */}
-      {modalOpen && selectedApp && (
+      {modalOpen && selectedApp && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
@@ -512,7 +513,7 @@ export function ApplicationManagement() {
                       className="px-4 py-2 rounded-lg bg-[#E0F7FA] text-[#00B4D8] hover:bg-[#B3E5FC] transition-colors flex items-center gap-2 font-medium"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      View Resume
+                      View
                     </button>
                   </div>
                 </div>
@@ -538,7 +539,8 @@ export function ApplicationManagement() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

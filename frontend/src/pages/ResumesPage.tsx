@@ -541,7 +541,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     } else {
       queryCache.invalidate(`resumes-list-${userId}`);
       refetch();
-      setStatusMessage("Resume uploaded successfully.");
+      setStatusMessage("Document uploaded successfully.");
     }
     setIsUploading(false);
   };
@@ -968,15 +968,11 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
                           <h4 className="font-semibold text-gray-900 truncate">{resume.file_name}</h4>
-                          <span
-                            className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${
-                              getDocumentType(resume) === "Cover Letter"
-                                ? "bg-indigo-100 text-indigo-700"
-                                : "bg-teal-100 text-teal-700"
-                            }`}
-                          >
-                            {getDocumentType(resume)}
-                          </span>
+                          {getDocumentType(resume) === "Cover Letter" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap bg-indigo-100 text-indigo-700">
+                              Cover Letter
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500">
                           Uploaded {formatDate(resume.created_at)} · {formatSize(resume.file_size)}
@@ -988,10 +984,10 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                       <button
                         onClick={() => handleDownload(resume)}
                         className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
-                        title={`View ${getDocumentType(resume).toLowerCase()}`}
+                        title="View document"
                       >
                         <Eye className="w-4 h-4" />
-                        View {getDocumentType(resume)}
+                        View
                       </button>
                       <button
                         onClick={() => handleDelete(resume)}

@@ -16,6 +16,7 @@ import StudentProfilePage from './pages/StudentProfilePage.tsx'
 import ApplicationsPage from './pages/ApplicationsPage'
 import MyApplicationsPage from './pages/MyApplicationsPage'
 import ApplyOutlookPage from './pages/ApplyOutlookPage'
+import ResumeViewPage from './pages/ResumeViewPage'
 import MessagePreviewPage from './pages/MessagePreviewPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import EmployerPartners from './components/admin/EmployerPartners'
@@ -284,6 +285,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/resume/view/:resumeId" element={<ResumeViewPage />} />
           <Route path="/test/events" element={<TestEventsPage />} />
           <Route path="/test/admin/events" element={<TestAdminEventsPage />} />
           <Route path="/test/messages" element={<MessagePreviewPage />} />

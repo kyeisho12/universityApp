@@ -146,24 +146,33 @@ export default function ApplyOutlookPage() {
       : `Application for ${state.jobTitle}`;
     
     const bodyLines = [
-      `Hello ${state.employerName || "Employer"},`,
+      `Dear ${state.employerName ? `${state.employerName} Hiring Team` : "Hiring Team"},`,
       "",
-      "Please find my application below.",
+      `I am writing to express my interest in the ${state.jobTitle}${state.jobType ? ` (${state.jobType})` : ""} position. Please find my application materials below for your consideration.`,
       "",
     ];
 
+    const baseUrl = window.location.origin;
+
     // Add cover letter (text or attachment info)
-    if (coverLetterUrl) {
-      bodyLines.push("Cover Letter (attached):", coverLetterUrl, "");
+    if (state.coverLetterId) {
+      bodyLines.push("Cover Letter:", "Please find my cover letter at the link below:", `${baseUrl}/resume/view/${state.coverLetterId}`, "");
     } else if (state.coverLetter) {
       bodyLines.push("Cover Letter:", state.coverLetter, "");
     }
 
     // Add resume
+    if (state.resumeId) {
+      bodyLines.push("Resume:", "Please find my resume at the link below:", `${baseUrl}/resume/view/${state.resumeId}`, "");
+    } else {
+      bodyLines.push("Resume:", "(Please attach resume before sending.)", "");
+    }
+
     bodyLines.push(
-      resumeUrl
-        ? `Resume: ${resumeUrl}`
-        : "Resume: Please attach my resume manually before sending. You may remove this note after attaching."
+      "Thank you for your time and consideration. I look forward to the opportunity to discuss my application further.",
+      "",
+      "Best regards,",
+      userName,
     );
 
     const body = bodyLines.join("\n");
@@ -173,7 +182,7 @@ export default function ApplyOutlookPage() {
     )}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     setOutlookUrl(url);
-  }, [state?.jobTitle, state?.jobType, state?.employerName, state?.coverLetter, employerEmail, manualEmail, resumeUrl, coverLetterUrl]);
+  }, [state?.jobTitle, state?.jobType, state?.employerName, state?.coverLetter, employerEmail, manualEmail, resumeUrl, coverLetterUrl, userName]);
 
   React.useEffect(() => {
     if (outlookUrl && !openedOutlook) {
