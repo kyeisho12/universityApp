@@ -50,6 +50,16 @@ interface Segment {
 }
 
 // ---------------------------------------------------------------------------
+// Evaluation localStorage cache
+// ---------------------------------------------------------------------------
+const getSegEvalCache = (segId: string) => {
+  try { const r = localStorage.getItem(`seg_eval_${segId}`); return r ? JSON.parse(r) : null; } catch { return null; }
+};
+const setSegEvalCache = (segId: string, ev: any) => {
+  try { localStorage.setItem(`seg_eval_${segId}`, JSON.stringify(ev)); } catch {}
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function scoreBadgeClass(score: number | null | undefined) {
@@ -387,7 +397,7 @@ export default function AdminMockInterview() {
         } catch (e) { console.warn("fetchQuestions:", e); }
       }
 
-      // Phase 1: build grouped WITHOUT evaluations → render immediately
+      // Phase 1: build grouped WITHOUT evaluations → render immediately, keep only final segment per question
       const grouped: Record<string, Segment[]> = {};
       for (const seg of segments) {
         const questionText =
@@ -398,13 +408,25 @@ export default function AdminMockInterview() {
         if (!grouped[qk]) grouped[qk] = [];
         grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation: null });
       }
+      // Keep only the last segment per question (discard rejected/restarted attempts)
+      for (const qk of Object.keys(grouped)) {
+        grouped[qk] = [grouped[qk][grouped[qk].length - 1]];
+      }
 
       setSegmentsByQuestion({ ...grouped });
       setLoadingSegments(false);
 
-      // Phase 1b: run evaluations in background, update per segment
-      for (const seg of segments) {
+      // Phase 1b: run evaluations in background (with localStorage cache), update per segment
+      const keptSegments = Object.values(grouped).map((segs) => segs[0]).filter(Boolean);
+      for (const seg of keptSegments) {
         if (!seg.transcript_text?.trim()) continue;
+        const cached = getSegEvalCache(seg.id);
+        if (cached) {
+          const qk = String(seg.question_index ?? 0);
+          grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation: cached } : s));
+          setSegmentsByQuestion({ ...grouped });
+          continue;
+        }
         const questionText =
           (seg.metadata?.question_text) ||
           questionMap[String(seg.question_id)] ||
@@ -412,6 +434,7 @@ export default function AdminMockInterview() {
         try {
           // eslint-disable-next-line no-await-in-loop
           const evaluation = await evaluateAnswer(questionText, seg.transcript_text);
+          setSegEvalCache(seg.id, evaluation);
           const qk = String(seg.question_index ?? 0);
           grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
           setSegmentsByQuestion({ ...grouped });
@@ -444,7 +467,7 @@ export default function AdminMockInterview() {
         }
       };
 
-      for (const seg of segments) {
+      for (const seg of keptSegments) {
         if (!seg.storage_path) continue;
 
         const bucketFromMeta =
