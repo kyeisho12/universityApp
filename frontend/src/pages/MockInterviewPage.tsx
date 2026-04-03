@@ -892,25 +892,30 @@ function MockInterviewPageContent({
         } catch (e) { console.warn("fetchQuestions:", e); }
       }
 
-      // Phase 1: build WITHOUT evaluations or video URLs → render immediately
+      const getSegEvalCache = (segId: string) => { try { const r = localStorage.getItem(`seg_eval_${segId}`); return r ? JSON.parse(r) : null; } catch { return null; } };
+      const setSegEvalCache = (segId: string, ev: any) => { try { localStorage.setItem(`seg_eval_${segId}`, JSON.stringify(ev)); } catch {} };
+
+      // Phase 1: build with cached evaluations where available → render immediately
       const grouped: Record<string, StudentSegment[]> = {};
       for (const seg of segments) {
         const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
         const qk = String(seg.question_index ?? 0);
         if (!grouped[qk]) grouped[qk] = [];
-        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation: null });
+        grouped[qk].push({ ...seg, signedUrl: null, questionText, evaluation: getSegEvalCache(seg.id) });
       }
 
       setHistorySegmentsByQuestion({ ...grouped });
       setLoadingHistorySegments(false);
 
-      // Phase 1b: run evaluations in background, update per segment
+      // Phase 1b: evaluate only segments not yet cached, then cache results
       for (const seg of segments) {
         if (!seg.transcript_text?.trim()) continue;
+        if (getSegEvalCache(seg.id)) continue;
         const questionText = seg.metadata?.question_text || questionMap[String(seg.question_id)] || `Question #${(seg.question_index ?? 0) + 1}`;
         try {
           // eslint-disable-next-line no-await-in-loop
           const evaluation = await evaluateAnswer(questionText, seg.transcript_text);
+          setSegEvalCache(seg.id, evaluation);
           const qk = String(seg.question_index ?? 0);
           grouped[qk] = grouped[qk].map((s) => (s.id === seg.id ? { ...s, evaluation } : s));
           setHistorySegmentsByQuestion({ ...grouped });
