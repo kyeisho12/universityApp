@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   Loader2,
   Download,
+  ShieldAlert,
 } from "lucide-react";
 import evaluateAnswer from "../utils/robertaEvaluator";
 import { Sidebar } from "../components/common/Sidebar";
@@ -4090,11 +4091,11 @@ function MockInterviewPageContent({
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
           </div>
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto lg:overflow-hidden">
           {/* Content Area */}
-          <div className="p-4 sm:p-6 lg:p-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 lg:h-full lg:flex lg:flex-col">
             {/* Back button */}
-            <div className="mb-4">
+            <div className="mb-1.5">
               <button
                 type="button"
                 onClick={handleBackToDashboard}
@@ -4104,48 +4105,38 @@ function MockInterviewPageContent({
                 Back to Sessions
               </button>
             </div>
-            {/* Page Header */}
-            <div className="mb-5 sm:mb-8">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
-                  AI Mock Interview
-                </h1>
-                <span className="inline-flex items-center gap-2 bg-cyan-50 text-cyan-700 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold w-fit">
-                  <Sparkles className="w-4 h-4" />
-                  AI-Powered
-                </span>
-              </div>
-              <p className="text-gray-500">
-                Practice your interview skills with AI-evaluated feedback
-              </p>
-            </div>
 
             {/* Main Content Card */}
-            <div className="bg-white rounded-2xl p-4 sm:p-8 lg:p-12 shadow-sm border border-gray-100 max-w-3xl mx-auto">
-              {/* Video Icon */}
-              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Bot className="w-8 h-8 sm:w-12 sm:h-12 text-cyan-700" />
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 max-w-3xl w-full mx-auto lg:flex-1 flex flex-col">
+              {/* Card Header */}
+              <div className="text-center mb-4 pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Bot className="w-5 h-5 text-cyan-700" />
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    AI Mock Interview
+                  </h1>
+                  <span className="inline-flex items-center gap-1.5 bg-cyan-50 text-cyan-700 px-2.5 py-1 rounded-full text-xs font-semibold">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    AI-Powered
+                  </span>
+                </div>
+                <p className="text-gray-500 text-sm">
+                  Practice your interview skills with AI-evaluated feedback
+                </p>
               </div>
 
-              {/* Title */}
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 text-center mb-3 sm:mb-4">
+              {/* Ready to Practice label */}
+              <p className="text-base font-semibold text-gray-800 mb-3">
                 Ready to Practice?
-              </h2>
-
-              {/* Description */}
-              <p className="text-gray-600 text-center mb-6 sm:mb-8 text-sm sm:text-base lg:text-lg leading-relaxed">
-                This AI-powered mock interview will help you practice answering
-                common interview questions. Your responses will be recorded,
-                transcribed, and evaluated based on HR-validated criteria.
               </p>
 
               {/* Browser/transcription compatibility warning */}
               {(!isSpeechRecognitionSupported() || isBraveBrowser()) && (
-                <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="mb-3 bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-amber-800 text-sm">Live transcription not supported in this browser</p>
-                    <p className="text-amber-700 text-sm mt-1">
+                    <p className="font-semibold text-amber-800 text-xs">Live transcription not supported in this browser</p>
+                    <p className="text-amber-700 text-xs mt-0.5">
                       {isBraveBrowser()
                         ? "Brave browser blocks the microphone API needed for live transcription. Please use Chrome or Edge for the best experience."
                         : "Your browser does not support live transcription. Please use Chrome or Edge for the best experience."}
@@ -4154,17 +4145,39 @@ function MockInterviewPageContent({
                 </div>
               )}
 
-              {/* Checklist */}
-              <div className="bg-cyan-50 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  Before You Start
-                </h3>
-                <ul className="space-y-3">
-                  <ChecklistItem text="Allow microphone and camera access when prompted by your browser" />
-                  <ChecklistItem text="Find a quiet environment" />
-                  <ChecklistItem text="Respond in English for accurate transcription" />
-                  <ChecklistItem text="Speak clearly and at a moderate pace" />
-                </ul>
+              {/* Checklist + Privacy side by side */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 lg:flex-1">
+                {/* Checklist */}
+                <div className="bg-cyan-50 rounded-xl p-3 sm:p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-sm">
+                    Before You Start
+                  </h3>
+                  <ul className="space-y-1.5">
+                    <ChecklistItem text="Allow microphone and camera access when prompted" />
+                    <ChecklistItem text="Find a quiet environment" />
+                    <ChecklistItem text="Respond in English for accurate transcription" />
+                    <ChecklistItem text="Speak clearly and at a moderate pace" />
+                  </ul>
+                </div>
+
+                {/* Data Privacy Notice */}
+                <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <h3 className="font-semibold text-amber-900 text-sm">
+                      Data Privacy Notice
+                    </h3>
+                  </div>
+                  <ul className="space-y-1 text-amber-800 text-xs leading-relaxed">
+                    <li>• Your <strong>video, audio, and transcriptions</strong> will be recorded and stored on secure university servers.</li>
+                    <li>• Accessible to authorized <strong>Career Services staff</strong> for review and improvement.</li>
+                    <li>• Used solely for <strong>career development</strong> per the university's data privacy policy.</li>
+                    <li>• Request data deletion by contacting the Career Services office.</li>
+                  </ul>
+                  <p className="mt-2 text-xs text-amber-700 font-medium border-t border-amber-200 pt-2">
+                    By clicking "Start", you consent to the above.
+                  </p>
+                </div>
               </div>
 
               {/* Start Button */}
