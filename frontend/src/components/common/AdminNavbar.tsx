@@ -25,6 +25,7 @@ export const AdminNavbar = ({
   activeNav?: string;
 }) => {
   const [activeNav, setActiveNav] = React.useState<string>(initialActive || "dashboard");
+  const [showSignOutConfirm, setShowSignOutConfirm] = React.useState(false);
 
   React.useEffect(() => {
     if (initialActive) {
@@ -113,13 +114,39 @@ export const AdminNavbar = ({
 
         {/* Sign Out */}
         <button
-          onClick={onLogout}
+          onClick={() => setShowSignOutConfirm(true)}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-white transition-colors"
         >
           <LogOut className="w-5 h-5" />
           <span>Sign Out</span>
         </button>
       </div>
+
+      {/* Sign Out Confirmation Dialog */}
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Sign out?</h3>
+            <p className="text-sm text-gray-500 mb-6">Are you sure you want to sign out of the admin portal?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSignOutConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowSignOutConfirm(false); onLogout(); }}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

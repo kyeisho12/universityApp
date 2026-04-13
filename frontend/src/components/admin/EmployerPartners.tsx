@@ -606,7 +606,27 @@ const EmployerPartners = () => {
                 <p className="text-gray-500 mt-1">Manage verified employer profiles and job postings</p>
               </div>
               <button
-                onClick={() => activeTab === 'companies' ? setShowAddModal(true) : setShowAddJobModal(true)}
+                onClick={() => {
+                  if (activeTab === 'companies') {
+                    setFormData({ name: '', website: '', industry: '', contact_email: '' });
+                    setCustomIndustry('');
+                    setShowAddModal(true);
+                  } else {
+                    setJobFormData({
+                      title: '',
+                      employer_id: '',
+                      location: '',
+                      job_type: 'Full-time',
+                      category: 'Information Technology',
+                      salary_range: '',
+                      deadline: '',
+                      description: '',
+                      requirements: '',
+                    });
+                    setCustomJobCategory('');
+                    setShowAddJobModal(true);
+                  }
+                }}
                 className="bg-[#1e293b] hover:bg-[#2d3a4f] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
               >
                 <Plus className="w-5 h-5" />
@@ -620,10 +640,10 @@ const EmployerPartners = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search companies..."
+                  placeholder={activeTab === 'companies' ? 'Search companies...' : 'Search jobs...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  aria-label="Search companies"
+                  aria-label={activeTab === 'companies' ? 'Search companies' : 'Search jobs'}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 />
               </div>
@@ -791,19 +811,6 @@ const EmployerPartners = () => {
             {/* Job Listings Table */}
             {activeTab === 'jobs' && (
             <div className="bg-white rounded-b-lg overflow-hidden">
-              {/* Search Bar */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="relative max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search jobs..."
-                    aria-label="Search jobs"
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -843,7 +850,18 @@ const EmployerPartners = () => {
                         </td>
                       </tr>
                     ) : (
-                      jobs.map((job) => (
+                      jobs
+                        .filter((job) => {
+                          if (!searchQuery) return true;
+                          const q = searchQuery.toLowerCase();
+                          return (
+                            job.title.toLowerCase().includes(q) ||
+                            (job.employer_name || '').toLowerCase().includes(q) ||
+                            job.category.toLowerCase().includes(q) ||
+                            job.location.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((job) => (
                         <tr key={job.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="font-medium text-gray-900">{job.title}</div>
@@ -884,6 +902,7 @@ const EmployerPartners = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                type="button"
                                 onClick={() => openEditJobModal(job)}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Edit"
@@ -892,6 +911,7 @@ const EmployerPartners = () => {
                                 <Edit className="w-4 h-4 text-gray-600" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => openDeleteJobConfirm(job)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
@@ -921,6 +941,7 @@ const EmployerPartners = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Edit Company</h2>
               <button
+                type="button"
                 onClick={() => {
                   setShowEditModal(false);
                   setSelectedCompany(null);
@@ -1019,6 +1040,7 @@ const EmployerPartners = () => {
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
               <button
+                type="button"
                 onClick={() => {
                   setShowEditModal(false);
                   setSelectedCompany(null);
@@ -1029,6 +1051,7 @@ const EmployerPartners = () => {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleEditCompany}
                 disabled={loading}
                 className="px-4 py-2 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
@@ -1048,6 +1071,7 @@ const EmployerPartners = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Delete Company</h2>
               <button
+                type="button"
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   setSelectedCompany(null);
@@ -1069,6 +1093,7 @@ const EmployerPartners = () => {
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
               <button
+                type="button"
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   setSelectedCompany(null);
@@ -1078,6 +1103,7 @@ const EmployerPartners = () => {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleDeleteCompany}
                 disabled={loading}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
@@ -1097,6 +1123,7 @@ const EmployerPartners = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Add New Company</h2>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Close dialog"
@@ -1191,12 +1218,14 @@ const EmployerPartners = () => {
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddCompany}
                 disabled={loading}
                 className="px-4 py-2 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
@@ -1216,6 +1245,7 @@ const EmployerPartners = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
               <h2 className="text-xl font-bold text-gray-900">Add Job Listing</h2>
               <button
+                type="button"
                 onClick={() => setShowAddJobModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Close dialog"
@@ -1396,12 +1426,14 @@ const EmployerPartners = () => {
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 sticky bottom-0 bg-white">
               <button
+                type="button"
                 onClick={() => setShowAddJobModal(false)}
                 className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddJob}
                 disabled={loading}
                 className="px-6 py-2.5 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
@@ -1421,6 +1453,7 @@ const EmployerPartners = () => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
               <h2 className="text-xl font-bold text-gray-900">Edit Job Listing</h2>
               <button
+                type="button"
                 onClick={() => setShowEditJobModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Close dialog"
@@ -1595,12 +1628,14 @@ const EmployerPartners = () => {
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 sticky bottom-0 bg-white">
               <button
+                type="button"
                 onClick={() => setShowEditJobModal(false)}
                 className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleUpdateJob}
                 disabled={loading}
                 className="px-6 py-2.5 bg-[#1e293b] hover:bg-[#2d3a4f] text-white rounded-lg transition-colors font-medium disabled:opacity-50"
@@ -1631,12 +1666,14 @@ const EmployerPartners = () => {
 
               <div className="flex items-center justify-end gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowDeleteJobConfirm(false)}
                   className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDeleteJob}
                   disabled={loading}
                   className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
