@@ -137,7 +137,7 @@ export async function uploadResume(file: File, userId: string) {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const apiBase = import.meta.env.VITE_API_URL || '';
+    const apiBase = (import.meta.env.VITE_BACKEND_URL as string | undefined)?.replace(/\/$/, '') || '';
     const resp = await fetch(`${apiBase}/resumes/parse`, {
       method: 'POST',
       body: formData,
