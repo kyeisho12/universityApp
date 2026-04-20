@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Calendar,
@@ -8,6 +8,8 @@ import {
   ClipboardList,
   X,
   Menu,
+  Bell,
+  ChevronRight,
 } from "lucide-react";
 import { Sidebar } from "../components/common/Sidebar";
 import { useMessageBox } from "../components/common/MessageBoxProvider";
@@ -54,8 +56,12 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
   const [eventsView, setEventsView] = useState<EventWithRegistration[]>([]);
   const [showMyRegistrations, setShowMyRegistrations] = useState(false);
   const [spotlightEventId, setSpotlightEventId] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+  const notifBellRef = useRef<HTMLDivElement>(null);
   const filterStorageKey = `student_events_active_filter_${userId || "anon"}`;
   const registrationStorageKey = `student_events_registered_${userId || "anon"}`;
+  const notifStorageKey = `student_events_notif_read_${userId || "anon"}`;
 
   const readPersistedRegistered = () => {
     try {
@@ -99,6 +105,27 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
   useEffect(() => {
     setRegisteredEvents(readPersistedRegistered());
   }, [registrationStorageKey]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(notifStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setReadNotifications(new Set(parsed));
+    } catch {}
+  }, [notifStorageKey]);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    if (!showNotifications) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (notifBellRef.current && !notifBellRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showNotifications]);
 
   async function getSupabaseUserId(): Promise<string | null> {
     try {
@@ -160,11 +187,46 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
 
   const error = eventsError?.message || null;
 
+  const getDaysUntil = (dateStr: string): { label: string; urgent: boolean } => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(dateStr);
+    eventDate.setHours(0, 0, 0, 0);
+    const diff = Math.round((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { label: "Past event", urgent: false };
+    if (diff === 0) return { label: "Today!", urgent: true };
+    if (diff === 1) return { label: "Tomorrow", urgent: true };
+    if (diff <= 7) return { label: `In ${diff} days`, urgent: true };
+    return { label: `In ${diff} days`, urgent: false };
+  };
+
+  const persistReadNotifs = (next: Set<string>) => {
+    try {
+      window.localStorage.setItem(notifStorageKey, JSON.stringify(Array.from(next)));
+    } catch {}
+  };
+
+  const markAllRead = () => {
+    const allIds = new Set(upcomingRegisteredEvents.map((e) => e.id));
+    setReadNotifications(allIds);
+    persistReadNotifs(allIds);
+  };
+
+  const handleNotifItemClick = (eventId: string) => {
+    const next = new Set(readNotifications);
+    next.add(eventId);
+    setReadNotifications(next);
+    persistReadNotifs(next);
+    setShowNotifications(false);
+    handleViewRegisteredEvent(eventId);
+  };
+
   async function handleRegister(eventId: string) {
     if (registeredEvents.has(eventId)) {
       return;
     }
 
+    const eventDetails = eventsView.find((e) => e.id === eventId);
     const previousRegistered = new Set(registeredEvents);
     const optimisticRegistered = new Set(previousRegistered);
     optimisticRegistered.add(eventId);
@@ -181,6 +243,14 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
           : event
       )
     );
+
+    if (eventDetails) {
+      messageBox.toast({
+        title: "Registration Confirmed!",
+        message: `You have registered for "${eventDetails.title}" happening on ${eventDetails.date}${eventDetails.time ? ` at ${eventDetails.time}` : ""}.`,
+        tone: "success",
+      });
+    }
 
     try {
       const supabaseUserId = await getSupabaseUserId();
@@ -316,6 +386,22 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
     return eventsView.filter((event) => registeredEvents.has(event.id) || event.isRegistered);
   }, [eventsView, registeredEvents]);
 
+  const upcomingRegisteredEvents = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return myRegisteredEvents
+      .filter((e) => {
+        const d = new Date(e.date);
+        return !isNaN(d.getTime()) && d >= today;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [myRegisteredEvents]);
+
+  const unreadCount = useMemo(
+    () => upcomingRegisteredEvents.filter((e) => !readNotifications.has(e.id)).length,
+    [upcomingRegisteredEvents, readNotifications]
+  );
+
   const handleViewRegisteredEvent = (eventId: string) => {
     setActiveFilter("all");
     setShowMyRegistrations(false);
@@ -386,6 +472,121 @@ function CareerEventsPageContent({ userName, userId, studentId, onLogout, onNavi
           >
             <Menu className="w-5 h-5 text-gray-700" />
           </button>
+
+          {/* Notification Bell */}
+          <div ref={notifBellRef} className="relative ml-auto">
+            <button
+              aria-label="Event notifications"
+              onClick={() => setShowNotifications((v) => !v)}
+              className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <Bell className={`w-5 h-5 ${unreadCount > 0 ? "text-[#1B2744]" : "text-gray-500"}`} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-200 z-30 overflow-hidden">
+                {/* Dropdown Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[#1B2744]" />
+                    <span className="font-semibold text-sm text-gray-900">Event Reminders</span>
+                    {unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllRead}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                {/* Notification List */}
+                <div className="max-h-96 overflow-y-auto">
+                  {upcomingRegisteredEvents.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                      <Bell className="w-8 h-8 text-gray-300 mb-2" />
+                      <p className="text-sm font-medium text-gray-500">No upcoming registered events</p>
+                      <p className="text-xs text-gray-400 mt-1">Register for an event to get reminders here</p>
+                    </div>
+                  ) : (
+                    upcomingRegisteredEvents.map((event, idx) => {
+                      const { label: daysLabel, urgent } = getDaysUntil(event.date);
+                      const isUnread = !readNotifications.has(event.id);
+                      const isNearest = idx === 0;
+                      return (
+                        <button
+                          type="button"
+                          key={event.id}
+                          onClick={() => handleNotifItemClick(event.id)}
+                          className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex items-start gap-3 ${isUnread ? "bg-blue-50/40" : ""}`}
+                        >
+                          {/* Unread dot */}
+                          <div className="mt-1.5 flex-shrink-0">
+                            {isUnread ? (
+                              <span className="w-2 h-2 bg-blue-500 rounded-full block" />
+                            ) : (
+                              <span className="w-2 h-2 rounded-full block" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              {isNearest && (
+                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase tracking-wide">
+                                  Next Up
+                                </span>
+                              )}
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                event.event_type.toLowerCase() === "job fair" ? "bg-blue-50 text-blue-700" :
+                                event.event_type.toLowerCase() === "workshop" ? "bg-cyan-50 text-cyan-700" :
+                                event.event_type.toLowerCase() === "seminar" ? "bg-green-50 text-green-700" :
+                                event.event_type.toLowerCase() === "webinar" ? "bg-purple-50 text-purple-700" :
+                                "bg-gray-100 text-gray-600"
+                              }`}>
+                                {event.event_type}
+                              </span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{event.title}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <Calendar className="w-3 h-3" />
+                                {event.date}
+                              </span>
+                              <span className={`text-xs font-semibold ${urgent ? "text-amber-600" : "text-gray-500"}`}>
+                                {daysLabel}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer */}
+                {upcomingRegisteredEvents.length > 0 && (
+                  <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
+                    <p className="text-xs text-gray-400 text-center">
+                      {upcomingRegisteredEvents.length} upcoming registered event{upcomingRegisteredEvents.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Content Area */}
