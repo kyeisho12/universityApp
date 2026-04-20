@@ -1110,7 +1110,6 @@ function MockInterviewPageContent({
           "Action": evaluation?.breakdown?.action ?? "—",
           "Result": evaluation?.breakdown?.result ?? "—",
           "Reflection": evaluation?.breakdown?.reflection ?? "—",
-          "Dataset Similarity": evaluation?.datasetSimilarity != null ? `${(evaluation.datasetSimilarity * 100).toFixed(0)}%` : "—",
           "Evaluated At": createdAt ? new Date(createdAt).toLocaleString() : "—",
         });
       }
@@ -1130,7 +1129,7 @@ function MockInterviewPageContent({
       wbSummary["!cols"] = [{ wch: 28 }, { wch: 60 }];
 
       const wbDetail = XLSX.utils.json_to_sheet(questionRows);
-      wbDetail["!cols"] = [{ wch: 4 }, { wch: 45 }, { wch: 60 }, { wch: 12 }, { wch: 30 }, { wch: 11 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 22 }];
+      wbDetail["!cols"] = [{ wch: 4 }, { wch: 45 }, { wch: 60 }, { wch: 12 }, { wch: 30 }, { wch: 11 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 22 }];
 
       const range = XLSX.utils.decode_range(wbDetail["!ref"]);
       for (let R = range.s.r; R <= range.e.r; ++R) {
@@ -3416,9 +3415,6 @@ function MockInterviewPageContent({
         "Action":           bd.action != null ? Number(bd.action) : "—",
         "Result":           bd.result != null ? Number(bd.result) : "—",
         "Reflection":       bd.reflection != null ? Number(bd.reflection) : "—",
-        "Feedback":         ev?.feedback || "—",
-        "Dataset Similarity": ev?.datasetSimilarity != null
-          ? `${(ev.datasetSimilarity * 100).toFixed(0)}%` : "—",
         "Evaluated At":     ev?.evaluatedAt ? new Date(ev.evaluatedAt).toLocaleString() : "—",
       };
     });
@@ -3426,7 +3422,7 @@ function MockInterviewPageContent({
     wsDetail["!cols"] = [
       { wch: 4 }, { wch: 45 }, { wch: 60 }, { wch: 12 }, { wch: 30 },
       { wch: 11 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
-      { wch: 40 }, { wch: 18 }, { wch: 22 },
+      { wch: 22 },
     ];
 
     // Apply formatting (wrap text + center + bold header)

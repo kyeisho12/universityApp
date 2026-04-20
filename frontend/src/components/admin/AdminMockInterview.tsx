@@ -620,8 +620,6 @@ export default function AdminMockInterview() {
           "Action": evaluation?.breakdown?.action ?? "—",
           "Result": evaluation?.breakdown?.result ?? "—",
           "Reflection": evaluation?.breakdown?.reflection ?? "—",
-          "Dataset Similarity": evaluation?.datasetSimilarity != null
-            ? `${(evaluation.datasetSimilarity * 100).toFixed(0)}%` : "—",
           "Evaluated At": createdAt ? new Date(createdAt).toLocaleString() : "—",
         });
       }
@@ -660,7 +658,6 @@ export default function AdminMockInterview() {
         { wch: 10 },
         { wch: 10 },
         { wch: 12 },
-        { wch: 18 },
         { wch: 22 }
       ];
 
