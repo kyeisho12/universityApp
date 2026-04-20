@@ -1630,39 +1630,39 @@ function MockInterviewPageContent({
           const isFollowUp = questions[qIndex]?.source === 'followup';
           const result = await evaluateAnswer(questionText, transcriptText, isFollowUp);
 
-          // ── Evaluation result console log ────────────────────────────
-          console.log(
-            `%c[Evaluation] Q${qIndex + 1}: "${questionText.slice(0, 50)}..."`,
-            'color: #6366f1; font-weight: bold'
-          );
-          console.log(
-            `%c  Source:     ${
-              result.source === 'roberta_similarity' ? '✅ RoBERTa Semantic Similarity' :
-              result.source === 'zsl_roberta'        ? '🟡 ZSL RoBERTa Classification' :
-                                                        '⚠️  Regex STAR Fallback'
-            }`,
-            result.source === 'roberta_similarity' ? 'color: #22c55e' :
-            result.source === 'zsl_roberta'        ? 'color: #eab308' : 'color: #f59e0b'
-          );
-          console.log(
-            `%c  Score:      ${result.score} / 5  (${result.hrLabel})`,
-            'color: #e2e8f0'
-          );
-          if (result.source === 'roberta_similarity') {
-            console.log(
-              `%c  RoBERTa Similarity: ${(result.roberta_similarity * 100).toFixed(1)}%`,
-              'color: #e2e8f0'
-            );
-          }
-          console.log(
-            `%c  Anchor Score: ${result.datasetAnchorScore ?? 'N/A'}  |  Dataset Similarity: ${(result.datasetSimilarity * 100).toFixed(1)}%`,
-            'color: #94a3b8'
-          );
-          console.log(`%c  STAR Breakdown:`, 'color: #94a3b8', result.breakdown);
-          if (result.error) {
-            console.warn(`  [Fallback reason] ${result.error}`);
-          }
-          // ─────────────────────────────────────────────────────────────
+          // // ── Evaluation result console log ────────────────────────────
+          // console.log(
+          //   `%c[Evaluation] Q${qIndex + 1}: "${questionText.slice(0, 50)}..."`,
+          //   'color: #6366f1; font-weight: bold'
+          // );
+          // console.log(
+          //   `%c  Source:     ${
+          //     result.source === 'roberta_similarity' ? '✅ RoBERTa Semantic Similarity' :
+          //     result.source === 'zsl_roberta'        ? '🟡 ZSL RoBERTa Classification' :
+          //                                               '⚠️  Regex STAR Fallback'
+          //   }`,
+          //   result.source === 'roberta_similarity' ? 'color: #22c55e' :
+          //   result.source === 'zsl_roberta'        ? 'color: #eab308' : 'color: #f59e0b'
+          // );
+          // console.log(
+          //   `%c  Score:      ${result.score} / 5  (${result.hrLabel})`,
+          //   'color: #e2e8f0'
+          // );
+          // if (result.source === 'roberta_similarity') {
+          //   console.log(
+          //     `%c  RoBERTa Similarity: ${(result.roberta_similarity * 100).toFixed(1)}%`,
+          //     'color: #e2e8f0'
+          //   );
+          // }
+          // console.log(
+          //   `%c  Anchor Score: ${result.datasetAnchorScore ?? 'N/A'}  |  Dataset Similarity: ${(result.datasetSimilarity * 100).toFixed(1)}%`,
+          //   'color: #94a3b8'
+          // );
+          // console.log(`%c  STAR Breakdown:`, 'color: #94a3b8', result.breakdown);
+          // if (result.error) {
+          //   console.warn(`  [Fallback reason] ${result.error}`);
+          // }
+          // // ─────────────────────────────────────────────────────────────
 
           setEvaluations((prev) => {
             const next = { ...(prev || {}), [qIndex]: { ...result, evaluatedAt: new Date().toISOString(), transcript: transcriptText } };
