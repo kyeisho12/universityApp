@@ -233,3 +233,64 @@ export async function getDownloadUrl(filePath: string) {
   if (!filePath) return null
   return getSignedUrl(filePath)
 }
+
+export interface StructuredResumeData {
+  personalInfo: {
+    fullName: string
+    email: string
+    phone: string
+    address: string
+    linkedin: string
+    portfolio: string
+    summary: string
+  }
+  skills: string
+  educationEntries: { id: number; school: string; degree: string; field: string; gpa: string; startDate: string; endDate: string }[]
+  experienceEntries: { id: number; company: string; position: string; startDate: string; endDate: string; current: boolean; description: string }[]
+  projectEntries: { id: number; name: string; technologies: string; link: string; description: string }[]
+  certificationEntries: { id: number; name: string; organization: string; dateIssued: string; credentialId: string }[]
+}
+
+export type StructuredResumeRecord = {
+  id: string
+  user_id: string
+  title: string
+  resume_data: StructuredResumeData
+  created_at: string
+}
+
+export async function saveStructuredResume(userId: string, title: string, resumeData: StructuredResumeData) {
+  const { data, error } = await supabase
+    .from('structured_resumes')
+    .insert({ user_id: userId, title, resume_data: resumeData })
+    .select()
+    .single()
+  return { data, error }
+}
+
+export async function updateStructuredResume(id: string, title: string, resumeData: StructuredResumeData) {
+  const { data, error } = await supabase
+    .from('structured_resumes')
+    .update({ title, resume_data: resumeData })
+    .eq('id', id)
+    .select()
+    .single()
+  return { data, error }
+}
+
+export async function listStructuredResumes(userId: string) {
+  const { data, error } = await supabase
+    .from('structured_resumes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  return { data: data as StructuredResumeRecord[] | null, error }
+}
+
+export async function deleteStructuredResume(id: string) {
+  const { error } = await supabase
+    .from('structured_resumes')
+    .delete()
+    .eq('id', id)
+  return { error }
+}

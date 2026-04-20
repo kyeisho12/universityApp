@@ -18,7 +18,12 @@ import {
   listResumes,
   uploadResume,
   validateResumeFile,
+  saveStructuredResume,
+  updateStructuredResume,
+  listStructuredResumes,
+  deleteStructuredResume,
   type ResumeWithUrl,
+  type StructuredResumeRecord,
 } from "../services/resumeService";
 
 type NavigateHandler = (route: string) => void;
@@ -39,7 +44,12 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showResumeBuilder, setShowResumeBuilder] = useState(false);
+  const [showResumePreview, setShowResumePreview] = useState(false);
   const [resumeBuilderError, setResumeBuilderError] = useState<string | null>(null);
+  const [structuredResumes, setStructuredResumes] = useState<StructuredResumeRecord[]>([]);
+  const [isLoadingStructured, setIsLoadingStructured] = useState(false);
+  const [viewingStructuredResume, setViewingStructuredResume] = useState<StructuredResumeRecord | null>(null);
+  const [editingStructuredResumeId, setEditingStructuredResumeId] = useState<string | null>(null);
   const [showCoverLetterBuilder, setShowCoverLetterBuilder] = useState(false);
   const [coverLetterDocumentIds, setCoverLetterDocumentIds] = useState<string[]>([]);
   const [resumeName, setResumeName] = useState("");
@@ -112,6 +122,18 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
 
   const isLoadingResumes = isLoading;
 
+  const fetchStructuredResumes = async () => {
+    if (!userId) return;
+    setIsLoadingStructured(true);
+    const { data } = await listStructuredResumes(userId);
+    setStructuredResumes(data ?? []);
+    setIsLoadingStructured(false);
+  };
+
+  useEffect(() => {
+    fetchStructuredResumes();
+  }, [userId]);
+
   const openResumeBuilder = () => {
     try {
       localStorage.setItem(MODAL_KEY, "true");
@@ -128,6 +150,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
       console.error("Failed to clear modal state:", error);
     }
     setResumeBuilderError(null);
+    setEditingStructuredResumeId(null);
     setShowResumeBuilder(false);
   };
 
@@ -620,7 +643,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     return lines.join("\n");
   };
 
-  const handleSaveResume = async () => {
+  const handlePreviewResume = () => {
     if (!userId) {
       setErrorMessage("You must be signed in to save a resume.");
       return;
@@ -635,6 +658,104 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
     }
     if (!personalInfo.email.trim()) {
       setResumeBuilderError("Please fill in your email address.");
+      return;
+    }
+    setResumeBuilderError(null);
+    setShowResumePreview(true);
+  };
+
+  const handleSaveStructuredResume = async () => {
+    if (!userId) {
+      setErrorMessage("You must be signed in to save a resume.");
+      return;
+    }
+    if (!resumeName.trim() || !personalInfo.fullName.trim() || !personalInfo.email.trim()) {
+      setResumeBuilderError("Please fill in all required fields.");
+      return;
+    }
+    setResumeBuilderError(null);
+    setIsUploading(true);
+    setErrorMessage(null);
+    setStatusMessage(null);
+    const resumeData = { personalInfo, skills, educationEntries, experienceEntries, projectEntries, certificationEntries };
+    try {
+      const { error } = editingStructuredResumeId
+        ? await updateStructuredResume(editingStructuredResumeId, resumeName.trim(), resumeData)
+        : await saveStructuredResume(userId, resumeName.trim(), resumeData);
+      if (error) {
+        setErrorMessage(error.message || "Failed to save resume. Please try again.");
+      } else {
+        setStatusMessage(editingStructuredResumeId ? "Resume updated successfully." : "Resume saved successfully.");
+        setEditingStructuredResumeId(null);
+        resetResumeBuilder();
+        closeResumeBuilder();
+        setShowResumePreview(false);
+        fetchStructuredResumes();
+      }
+    } catch (err) {
+      setErrorMessage("An unexpected error occurred. Please try again.");
+      console.error("Save structured resume error:", err);
+    }
+    setIsUploading(false);
+  };
+
+  const handleOpenEditStructuredResume = (record: StructuredResumeRecord) => {
+    const d = record.resume_data;
+    setResumeName(record.title);
+    setPersonalInfo(d.personalInfo);
+    setSkills(d.skills);
+    setEducationEntries(d.educationEntries.length ? d.educationEntries : [{ id: 1, school: "", degree: "", field: "", gpa: "", startDate: "", endDate: "" }]);
+    setExperienceEntries(d.experienceEntries.length ? d.experienceEntries : [{ id: 1, company: "", position: "", startDate: "", endDate: "", current: false, description: "" }]);
+    setProjectEntries(d.projectEntries.length ? d.projectEntries : [{ id: 1, name: "", technologies: "", link: "", description: "" }]);
+    setCertificationEntries(d.certificationEntries.length ? d.certificationEntries : [{ id: 1, name: "", organization: "", dateIssued: "", credentialId: "" }]);
+    setEditingStructuredResumeId(record.id);
+    setShowResumeBuilder(true);
+    setShowResumePreview(true);
+  };
+
+  const handleDownloadStructuredResume = (record: StructuredResumeRecord) => {
+    const d = record.resume_data;
+    const pdfBlob = generateResumePDF({
+      personalInfo: d.personalInfo,
+      skills: d.skills,
+      educationEntries: d.educationEntries,
+      experienceEntries: d.experienceEntries,
+      projectEntries: d.projectEntries,
+      certificationEntries: d.certificationEntries,
+    });
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement("a");
+    const safeName = record.title.replace(/\s+/g, "_").replace(/[^A-Za-z0-9._-]/g, "");
+    a.href = url;
+    a.download = `${safeName || "resume"}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteStructuredResume = async (record: StructuredResumeRecord) => {
+    const confirmed = await messageBox.confirm({
+      title: "Delete Resume?",
+      message: `Delete "${record.title}"? This action cannot be undone.`,
+      tone: "warning",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+    if (!confirmed) return;
+    const { error } = await deleteStructuredResume(record.id);
+    if (error) {
+      setErrorMessage(error.message || "Failed to delete resume.");
+    } else {
+      setStructuredResumes((prev) => prev.filter((r) => r.id !== record.id));
+    }
+  };
+
+  const handleSaveResume = async () => {
+    if (!userId) {
+      setErrorMessage("You must be signed in to save a resume.");
+      return;
+    }
+    if (!resumeName.trim() || !personalInfo.fullName.trim() || !personalInfo.email.trim()) {
+      setResumeBuilderError("Please fill in all required fields.");
       return;
     }
     setResumeBuilderError(null);
@@ -677,6 +798,7 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
         setStatusMessage("Resume saved successfully.");
         resetResumeBuilder(); // This also clears the draft
         closeResumeBuilder();
+        setShowResumePreview(false);
       }
     } catch (err) {
       setErrorMessage("Failed to generate PDF. Please try again.");
@@ -895,8 +1017,15 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
               </button>
               <button
                 onClick={async () => {
-                  // Check if there's a draft before clearing
-                  const hasDraft = localStorage.getItem(DRAFT_KEY);
+                  // Check if there's a draft with actual content before offering to restore
+                  const rawDraft = localStorage.getItem(DRAFT_KEY);
+                  let hasDraft = false;
+                  if (rawDraft) {
+                    try {
+                      const parsed = JSON.parse(rawDraft);
+                      hasDraft = !!(parsed.resumeName?.trim() || parsed.personalInfo?.fullName?.trim() || parsed.personalInfo?.email?.trim());
+                    } catch { hasDraft = false; }
+                  }
                   if (hasDraft) {
                     const shouldContinue = await messageBox.confirm({
                       title: "Unsaved Resume Draft",
@@ -945,9 +1074,69 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
             </div>
           </div>
 
-          {/* My Documents */}
+          {/* Resume Builder */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">My Documents ({resumes.length})</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Resume Builder ({structuredResumes.length})</h2>
+            {isLoadingStructured ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-4 text-gray-600">Loading your resumes...</div>
+            ) : structuredResumes.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-600">
+                <FileText className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                <p className="font-semibold text-gray-800 mb-1">No resumes created yet</p>
+                <p className="text-gray-500 text-sm">Use "Create New Resume" to build one.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {structuredResumes.map((record) => (
+                  <div key={record.id} className="bg-white rounded-xl p-4 border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h4 className="font-semibold text-gray-900 truncate">{record.title}</h4>
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap bg-blue-100 text-blue-700">Builder</span>
+                        </div>
+                        <p className="text-sm text-gray-500">Created {formatDate(record.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                      <button
+                        onClick={() => setViewingStructuredResume(record)}
+                        className="px-3 py-1.5 bg-[#1B2744] text-white text-sm font-medium rounded-lg hover:bg-[#131d33] transition-colors flex items-center gap-1.5"
+                        title="View resume"
+                      >
+                        <Eye className="w-4 h-4" /> View
+                      </button>
+                      <button
+                        onClick={() => handleOpenEditStructuredResume(record)}
+                        className="px-3 py-1.5 border border-[#1B2744] text-[#1B2744] text-sm font-medium rounded-lg hover:bg-[#1B2744] hover:text-white transition-colors flex items-center gap-1.5"
+                        title="Edit resume"
+                      >
+                        <FileText className="w-4 h-4" /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDownloadStructuredResume(record)}
+                        className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+                        title="Download as PDF"
+                      >
+                        <Download className="w-4 h-4" /> Download
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStructuredResume(record)}
+                        className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+                        title="Delete resume"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Uploaded Documents */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Uploaded Documents ({resumes.length})</h2>
 
             {isLoading ? (
               <div className="bg-white rounded-xl border border-gray-200 p-4 text-gray-600">Loading your resumes...</div>
@@ -1601,13 +1790,301 @@ function ResumesPageContent({ userId, userName, studentId, onLogout, onNavigate 
                 Cancel
               </button>
               <button
-                onClick={handleSaveResume}
-                disabled={isUploading}
-                className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium flex items-center gap-2 disabled:opacity-60"
+                onClick={handlePreviewResume}
+                className="px-6 py-2.5 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] transition-colors font-medium flex items-center gap-2"
               >
-                <FileText className="w-4 h-4" />
-                {isUploading ? "Saving..." : "Save Resume"}
+                <Eye className="w-4 h-4" />
+                Preview Resume
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only view modal for saved structured resumes */}
+      {viewingStructuredResume && (() => {
+        const d = viewingStructuredResume.resume_data;
+        const pi = d.personalInfo;
+        return (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{viewingStructuredResume.title}</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Created {formatDate(viewingStructuredResume.created_at)}</p>
+                </div>
+                <button type="button" aria-label="Close" onClick={() => setViewingStructuredResume(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
+                <div className="bg-white shadow-lg mx-auto max-w-2xl px-12 py-10 text-gray-800 text-sm" style={{ fontFamily: 'Georgia, serif', minHeight: '500px' }}>
+                  <h1 className="text-2xl font-bold text-center mb-1">{pi.fullName}</h1>
+                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-xs text-gray-500 mb-4">
+                    {pi.email && <span>{pi.email}</span>}
+                    {pi.phone && <><span className="text-gray-300">|</span><span>{pi.phone}</span></>}
+                    {pi.address && <><span className="text-gray-300">|</span><span>{pi.address}</span></>}
+                    {pi.linkedin && <><span className="text-gray-300">|</span><span>{pi.linkedin}</span></>}
+                    {pi.portfolio && <><span className="text-gray-300">|</span><span>{pi.portfolio}</span></>}
+                  </div>
+                  <hr className="border-gray-700 mb-4" />
+                  {pi.summary && (
+                    <section className="mb-4">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Summary</h3>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{pi.summary}</p>
+                    </section>
+                  )}
+                  {d.educationEntries.some((e) => e.school || e.degree) && (
+                    <section className="mb-4">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Education</h3>
+                      {d.educationEntries.filter((e) => e.school || e.degree).map((e, i) => (
+                        <div key={i} className="mb-3 flex justify-between items-start gap-4">
+                          <div>
+                            <p className="font-semibold text-sm">{e.school}</p>
+                            <p className="text-xs text-gray-500">{[e.degree, e.field].filter(Boolean).join(" in ")}{e.gpa ? ` • GPA: ${e.gpa}` : ""}</p>
+                          </div>
+                          {(e.startDate || e.endDate) && <p className="text-xs text-gray-500 shrink-0">{e.startDate} – {e.endDate || "Present"}</p>}
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  {d.experienceEntries.some((e) => e.company || e.position) && (
+                    <section className="mb-4">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Work Experience</h3>
+                      {d.experienceEntries.filter((e) => e.company || e.position).map((e, i) => (
+                        <div key={i} className="mb-3">
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <p className="font-semibold text-sm">{[e.position, e.company].filter(Boolean).join(" | ")}</p>
+                              {e.description && <p className="text-xs text-gray-600 leading-relaxed mt-0.5 whitespace-pre-wrap">{e.description}</p>}
+                            </div>
+                            {(e.startDate || e.endDate) && <p className="text-xs text-gray-500 shrink-0">{e.startDate} – {e.current ? "Present" : e.endDate}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  {d.skills.trim() && (
+                    <section className="mb-4">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Skills</h3>
+                      <p className="text-sm leading-relaxed">{d.skills}</p>
+                    </section>
+                  )}
+                  {d.projectEntries.some((e) => e.name) && (
+                    <section className="mb-4">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Projects</h3>
+                      {d.projectEntries.filter((e) => e.name).map((e, i) => (
+                        <div key={i} className="mb-3">
+                          <p className="font-semibold text-sm">{e.name}{e.technologies ? ` | ${e.technologies}` : ""}{e.link ? ` • ${e.link}` : ""}</p>
+                          {e.description && <p className="text-xs text-gray-600 leading-relaxed mt-0.5 whitespace-pre-wrap">{e.description}</p>}
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  {d.certificationEntries.some((e) => e.name) && (
+                    <section className="mb-4">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Certifications & Awards</h3>
+                      {d.certificationEntries.filter((e) => e.name).map((e, i) => (
+                        <div key={i} className="mb-2 flex justify-between items-start gap-4">
+                          <div>
+                            <p className="font-semibold text-sm">{e.name}</p>
+                            <p className="text-xs text-gray-500">{e.organization}{e.credentialId ? ` • ID: ${e.credentialId}` : ""}</p>
+                          </div>
+                          {e.dateIssued && <p className="text-xs text-gray-500 shrink-0">{e.dateIssued}</p>}
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-white">
+                <button type="button" onClick={() => { setViewingStructuredResume(null); handleOpenEditStructuredResume(viewingStructuredResume); }} className="px-5 py-2 border border-[#1B2744] text-[#1B2744] rounded-lg hover:bg-[#1B2744] hover:text-white font-medium text-sm transition-colors flex items-center gap-2">
+                  <FileText className="w-4 h-4" /> Edit
+                </button>
+                <button type="button" onClick={() => handleDownloadStructuredResume(viewingStructuredResume)} className="px-5 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] font-medium text-sm flex items-center gap-2 transition-colors">
+                  <Download className="w-4 h-4" /> Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {showResumePreview && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Resume Preview</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Click any field to edit before downloading</p>
+              </div>
+              <button type="button" aria-label="Close preview" onClick={() => setShowResumePreview(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Paper document */}
+            <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
+              <div className="bg-white shadow-lg mx-auto max-w-2xl px-12 py-10 text-gray-800 text-sm" style={{ fontFamily: 'Georgia, serif', minHeight: '500px' }}>
+
+                {/* Name */}
+                <div className="text-center mb-1">
+                  <input
+                    value={personalInfo.fullName}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
+                    className="text-2xl font-bold text-center w-full bg-transparent border-0 border-b-2 border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none"
+                    placeholder="Full Name"
+                  />
+                </div>
+
+                {/* Contact row */}
+                <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-gray-500 mb-4">
+                  <input value={personalInfo.email} onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-center min-w-0" placeholder="email" />
+                  <span className="text-gray-300">|</span>
+                  <input value={personalInfo.phone} onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-center min-w-0" placeholder="phone" />
+                  <span className="text-gray-300">|</span>
+                  <input value={personalInfo.address} onChange={(e) => setPersonalInfo({ ...personalInfo, address: e.target.value })} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-center min-w-0" placeholder="location" />
+                  {personalInfo.linkedin && <><span className="text-gray-300">|</span><input value={personalInfo.linkedin} onChange={(e) => setPersonalInfo({ ...personalInfo, linkedin: e.target.value })} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-center min-w-0" placeholder="linkedin" /></>}
+                  {personalInfo.portfolio && <><span className="text-gray-300">|</span><input value={personalInfo.portfolio} onChange={(e) => setPersonalInfo({ ...personalInfo, portfolio: e.target.value })} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-center min-w-0" placeholder="portfolio" /></>}
+                </div>
+
+                <hr className="border-gray-700 mb-4" />
+
+                {/* Summary */}
+                {personalInfo.summary && (
+                  <section className="mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Summary</h3>
+                    <textarea aria-label="Professional summary" value={personalInfo.summary} onChange={(e) => setPersonalInfo({ ...personalInfo, summary: e.target.value })} className="w-full text-sm leading-relaxed bg-transparent border-0 focus:outline-none resize-none" rows={3} />
+                  </section>
+                )}
+
+                {/* Education */}
+                {educationEntries.some((e) => e.school || e.degree || e.field) && (
+                  <section className="mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Education</h3>
+                    {educationEntries.map((entry, i) =>
+                      (entry.school || entry.degree || entry.field) ? (
+                        <div key={entry.id} className="mb-3">
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="flex-1 min-w-0">
+                              <input value={entry.school} onChange={(e) => { const n = [...educationEntries]; n[i] = { ...n[i], school: e.target.value }; setEducationEntries(n); }} className="font-semibold text-sm bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none w-full" placeholder="School/University" />
+                              <div className="flex flex-wrap gap-1 text-xs text-gray-500 mt-0.5">
+                                <input value={entry.degree} onChange={(e) => { const n = [...educationEntries]; n[i] = { ...n[i], degree: e.target.value }; setEducationEntries(n); }} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Degree" />
+                                {entry.degree && entry.field && <span className="self-center">in</span>}
+                                <input value={entry.field} onChange={(e) => { const n = [...educationEntries]; n[i] = { ...n[i], field: e.target.value }; setEducationEntries(n); }} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Field of Study" />
+                                {entry.gpa && <><span className="self-center">• GPA:</span><input aria-label="GPA" value={entry.gpa} onChange={(e) => { const n = [...educationEntries]; n[i] = { ...n[i], gpa: e.target.value }; setEducationEntries(n); }} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none w-16" /></>}
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500 text-right shrink-0">
+                              <input aria-label="Education start date" value={entry.startDate} onChange={(e) => { const n = [...educationEntries]; n[i] = { ...n[i], startDate: e.target.value }; setEducationEntries(n); }} type="month" className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-right w-28" />
+                              {(entry.startDate || entry.endDate) && <span> – </span>}
+                              <input aria-label="Education end date" value={entry.endDate} onChange={(e) => { const n = [...educationEntries]; n[i] = { ...n[i], endDate: e.target.value }; setEducationEntries(n); }} type="month" className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-right w-28" />
+                            </div>
+                          </div>
+                        </div>
+                      ) : null
+                    )}
+                  </section>
+                )}
+
+                {/* Experience */}
+                {experienceEntries.some((e) => e.company || e.position) && (
+                  <section className="mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Work Experience</h3>
+                    {experienceEntries.map((entry, i) =>
+                      (entry.company || entry.position) ? (
+                        <div key={entry.id} className="mb-3">
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-baseline gap-1">
+                                <input value={entry.position} onChange={(e) => { const n = [...experienceEntries]; n[i] = { ...n[i], position: e.target.value }; setExperienceEntries(n); }} className="font-semibold text-sm bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Position" />
+                                {entry.company && <span className="text-gray-400 text-sm">|</span>}
+                                <input value={entry.company} onChange={(e) => { const n = [...experienceEntries]; n[i] = { ...n[i], company: e.target.value }; setExperienceEntries(n); }} className="text-sm text-gray-600 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Company" />
+                              </div>
+                              {entry.description && (
+                                <textarea aria-label="Job description" value={entry.description} onChange={(e) => { const n = [...experienceEntries]; n[i] = { ...n[i], description: e.target.value }; setExperienceEntries(n); }} className="mt-1 w-full text-xs text-gray-600 leading-relaxed bg-transparent border-0 focus:outline-none resize-none" rows={2} />
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 text-right shrink-0">
+                              <input aria-label="Job start date" value={entry.startDate} onChange={(e) => { const n = [...experienceEntries]; n[i] = { ...n[i], startDate: e.target.value }; setExperienceEntries(n); }} type="month" className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-right w-28" />
+                              <span> – </span>
+                              {entry.current ? <span>Present</span> : <input aria-label="Job end date" value={entry.endDate} onChange={(e) => { const n = [...experienceEntries]; n[i] = { ...n[i], endDate: e.target.value }; setExperienceEntries(n); }} type="month" className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-right w-28" />}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null
+                    )}
+                  </section>
+                )}
+
+                {/* Skills */}
+                {skills.trim() && (
+                  <section className="mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Skills</h3>
+                    <textarea aria-label="Skills" value={skills} onChange={(e) => setSkills(e.target.value)} className="w-full text-sm bg-transparent border-0 focus:outline-none resize-none leading-relaxed" rows={2} />
+                  </section>
+                )}
+
+                {/* Projects */}
+                {projectEntries.some((e) => e.name) && (
+                  <section className="mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Projects</h3>
+                    {projectEntries.map((entry, i) =>
+                      entry.name ? (
+                        <div key={entry.id} className="mb-3">
+                          <div className="flex flex-wrap items-baseline gap-1">
+                            <input value={entry.name} onChange={(e) => { const n = [...projectEntries]; n[i] = { ...n[i], name: e.target.value }; setProjectEntries(n); }} className="font-semibold text-sm bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Project Name" />
+                            {entry.technologies && <><span className="text-gray-400 text-xs">|</span><input value={entry.technologies} onChange={(e) => { const n = [...projectEntries]; n[i] = { ...n[i], technologies: e.target.value }; setProjectEntries(n); }} className="text-xs text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Technologies" /></>}
+                            {entry.link && <><span className="text-gray-400 text-xs">•</span><input value={entry.link} onChange={(e) => { const n = [...projectEntries]; n[i] = { ...n[i], link: e.target.value }; setProjectEntries(n); }} className="text-xs text-blue-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Link" /></>}
+                          </div>
+                          {entry.description && (
+                            <textarea aria-label="Project description" value={entry.description} onChange={(e) => { const n = [...projectEntries]; n[i] = { ...n[i], description: e.target.value }; setProjectEntries(n); }} className="mt-1 w-full text-xs text-gray-600 leading-relaxed bg-transparent border-0 focus:outline-none resize-none" rows={2} />
+                          )}
+                        </div>
+                      ) : null
+                    )}
+                  </section>
+                )}
+
+                {/* Certifications */}
+                {certificationEntries.some((e) => e.name) && (
+                  <section className="mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 border-b border-gray-300 pb-1 mb-2">Certifications & Awards</h3>
+                    {certificationEntries.map((entry, i) =>
+                      entry.name ? (
+                        <div key={entry.id} className="mb-2">
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="flex-1 min-w-0">
+                              <input value={entry.name} onChange={(e) => { const n = [...certificationEntries]; n[i] = { ...n[i], name: e.target.value }; setCertificationEntries(n); }} className="font-semibold text-sm bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none w-full" placeholder="Certification Name" />
+                              <div className="flex flex-wrap gap-1 text-xs text-gray-500 mt-0.5">
+                                <input value={entry.organization} onChange={(e) => { const n = [...certificationEntries]; n[i] = { ...n[i], organization: e.target.value }; setCertificationEntries(n); }} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Organization" />
+                                {entry.credentialId && <><span className="self-center">• ID:</span><input value={entry.credentialId} onChange={(e) => { const n = [...certificationEntries]; n[i] = { ...n[i], credentialId: e.target.value }; setCertificationEntries(n); }} className="bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none" placeholder="Credential ID" /></>}
+                              </div>
+                            </div>
+                            <input value={entry.dateIssued} onChange={(e) => { const n = [...certificationEntries]; n[i] = { ...n[i], dateIssued: e.target.value }; setCertificationEntries(n); }} className="text-xs text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none text-right ml-4 shrink-0" placeholder="Date Issued" />
+                          </div>
+                        </div>
+                      ) : null
+                    )}
+                  </section>
+                )}
+
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-white">
+              <p className="text-xs text-gray-400">Edits here sync back to the builder</p>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowResumePreview(false)} className="px-5 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors">
+                  Back to Edit
+                </button>
+                <button type="button" onClick={handleSaveStructuredResume} disabled={isUploading} className="px-5 py-2 bg-[#1B2744] text-white rounded-lg hover:bg-[#131d33] font-medium text-sm flex items-center gap-2 disabled:opacity-60 transition-colors">
+                  <FileText className="w-4 h-4" />
+                  {isUploading ? "Saving..." : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
