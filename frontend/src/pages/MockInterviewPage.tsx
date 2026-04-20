@@ -839,19 +839,19 @@ function MockInterviewPageContent({
         };
       });
 
-      // Mark any lingering in_progress sessions as ended
+      // Mark any lingering in_progress or paused sessions as ended
       // (these are abandoned sessions where the user closed/navigated away without ending)
-      const inProgressIds = mapped
-        .filter((s) => s.status === "in_progress")
+      const abandonedIds = mapped
+        .filter((s) => s.status === "in_progress" || s.status === "paused")
         .map((s) => s.id);
 
-      if (inProgressIds.length > 0) {
+      if (abandonedIds.length > 0) {
         await supabase
           .from("interview_sessions")
           .update({ status: "ended", ended_at: new Date().toISOString() })
-          .in("id", inProgressIds);
+          .in("id", abandonedIds);
         mapped.forEach((s) => {
-          if (s.status === "in_progress") s.status = "ended";
+          if (s.status === "in_progress" || s.status === "paused") s.status = "ended";
         });
       }
 

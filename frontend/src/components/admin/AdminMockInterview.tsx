@@ -74,7 +74,9 @@ function statusBadgeClass(status: string) {
   const map: Record<string, string> = {
     completed: "bg-emerald-100 text-emerald-700",
     in_progress: "bg-yellow-100 text-yellow-700",
+    paused: "bg-yellow-100 text-yellow-700",
     voided: "bg-red-100 text-red-700",
+    ended: "bg-red-100 text-red-700",
   };
   return map[status] ?? "bg-gray-100 text-gray-600";
 }
@@ -851,9 +853,15 @@ export default function AdminMockInterview() {
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusBadgeClass(selectedSession.status)}`}>
                     {selectedSession.status}
                   </span>
-                  {selectedSession.total_questions != null && (
+                  {loadingSegments ? (
+                    selectedSession.total_questions != null && (
+                      <span className="text-xs text-gray-400">
+                        {selectedSession.total_questions} question{selectedSession.total_questions !== 1 ? "s" : ""}
+                      </span>
+                    )
+                  ) : (
                     <span className="text-xs text-gray-400">
-                      {selectedSession.total_questions} question{selectedSession.total_questions !== 1 ? "s" : ""}
+                      {Object.keys(segmentsByQuestion).length} question{Object.keys(segmentsByQuestion).length !== 1 ? "s" : ""} recorded
                     </span>
                   )}
                 </div>
