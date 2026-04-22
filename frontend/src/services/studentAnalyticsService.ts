@@ -16,7 +16,7 @@ function isMissingEventRegistrationsTableError(error: any): boolean {
   );
 }
 
-export type MonthlyTrendPoint = { month: string; interviews: number; applications: number };
+export type MonthlyTrendPoint = { month: string; interviews: number; applications: number; events: number };
 export type CountPoint = { label: string; count: number };
 export type EventPoint = { id: string; title: string; eventType: string; registrations: number };
 export type TopStudentPoint = { userId: string; userName: string; interviewCount: number; avgScore: number | null };
@@ -67,6 +67,7 @@ type EventRow = {
   id: string;
   title: string;
   event_type: string | null;
+  date: string | null;
   created_at: string | null;
 };
 
@@ -80,7 +81,7 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
     supabase.from("profiles").select("id, role, is_active, created_at"),
     supabase.from("interview_sessions").select("id, user_id, user_name, status, metadata, created_at, ended_at"),
     supabase.from("applications").select("id, student_id, status, created_at"),
-    supabase.from("career_events").select("id, title, event_type, created_at"),
+    supabase.from("career_events").select("id, title, event_type, date, created_at"),
     supabase.from("event_registrations").select("event_id, registered_at"),
   ]);
 
@@ -113,7 +114,7 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
 
   const monthMeta = getLastMonths(6);
   const monthlyTrendMap = new Map(
-    monthMeta.map((item) => [item.key, { month: item.label, interviews: 0, applications: 0 }])
+    monthMeta.map((item) => [item.key, { month: item.label, interviews: 0, applications: 0, events: 0 }])
   );
   const scoreTrendMap = new Map(
     monthMeta.map((item) => [item.key, { month: item.label, scores: [] as number[], count: 0 }])
@@ -134,6 +135,12 @@ export async function fetchStudentAnalyticsData(): Promise<StudentAnalyticsData>
     const key = toMonthKey(app.created_at);
     if (!key || !monthlyTrendMap.has(key)) return;
     monthlyTrendMap.get(key)!.applications += 1;
+  });
+
+  events.forEach((event) => {
+    const key = toMonthKey(event.date || event.created_at);
+    if (!key || !monthlyTrendMap.has(key)) return;
+    monthlyTrendMap.get(key)!.events += 1;
   });
 
   const scoreTrend: ScoreTrendPoint[] = monthMeta.map((item) => {

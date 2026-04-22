@@ -42,18 +42,25 @@ function InteractiveBarChart({
     data,
     leftKey,
     rightKey,
+    thirdKey,
     leftLabel,
     rightLabel,
+    thirdLabel,
 }: {
     data: MonthlyTrendPoint[];
     leftKey: keyof MonthlyTrendPoint;
     rightKey: keyof MonthlyTrendPoint;
+    thirdKey?: keyof MonthlyTrendPoint;
     leftLabel: string;
     rightLabel: string;
+    thirdLabel?: string;
 }) {
     const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
     const [showLeft, setShowLeft] = React.useState(true);
     const [showRight, setShowRight] = React.useState(true);
+    const [showThird, setShowThird] = React.useState(true);
+
+    const hasThirdSeries = Boolean(thirdKey && thirdLabel);
 
     if (!data || data.length === 0) return <EmptyChartState />;
 
@@ -61,7 +68,8 @@ function InteractiveBarChart({
         ...data.map((d) =>
             Math.max(
                 showLeft ? (Number(d[leftKey]) || 0) : 0,
-                showRight ? (Number(d[rightKey]) || 0) : 0
+                showRight ? (Number(d[rightKey]) || 0) : 0,
+                hasThirdSeries && showThird ? (Number(d[thirdKey!]) || 0) : 0
             )
         ),
         1
@@ -87,6 +95,16 @@ function InteractiveBarChart({
                     <span className="w-2.5 h-2.5 rounded bg-[#00B4D8]" />
                     {rightLabel}
                 </button>
+                {hasThirdSeries && (
+                    <button
+                        type="button"
+                        onClick={() => setShowThird((v) => !v)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all ${showThird ? "border-emerald-600 bg-emerald-600/10" : "border-gray-200 opacity-40"}`}
+                    >
+                        <span className="w-2.5 h-2.5 rounded bg-emerald-600" />
+                        {thirdLabel}
+                    </button>
+                )}
             </div>
 
             {/* Bars */}
@@ -94,9 +112,12 @@ function InteractiveBarChart({
                 {data.map((item, i) => {
                     const lv = Number(item[leftKey]) || 0;
                     const rv = Number(item[rightKey]) || 0;
+                    const tv = hasThirdSeries ? (Number(item[thirdKey!]) || 0) : 0;
                     const lh = showLeft ? (lv / max) * 100 : 0;
                     const rh = showRight ? (rv / max) * 100 : 0;
+                    const th = hasThirdSeries && showThird ? (tv / max) * 100 : 0;
                     const isHovered = hoveredIdx === i;
+                    const barWidth = hasThirdSeries ? "30%" : "42%";
                     return (
                         <div
                             key={item.month}
@@ -110,6 +131,7 @@ function InteractiveBarChart({
                                     <p className="font-semibold text-gray-300 mb-1">{item.month}</p>
                                     {showLeft && <p>{leftLabel}: <span className="font-bold text-white">{lv}</span></p>}
                                     {showRight && <p>{rightLabel}: <span className="font-bold text-white">{rv}</span></p>}
+                                    {hasThirdSeries && showThird && <p>{thirdLabel}: <span className="font-bold text-white">{tv}</span></p>}
                                     {/* Arrow */}
                                     <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                                 </div>
@@ -121,7 +143,7 @@ function InteractiveBarChart({
                                 <div
                                     className="rounded-t transition-all duration-500"
                                     style={{
-                                        width: "42%",
+                                        width: barWidth,
                                         height: `${lh}%`,
                                         minHeight: lv > 0 ? "4px" : "0",
                                         background: isHovered ? "#0f1a33" : "#1B2744",
@@ -130,12 +152,23 @@ function InteractiveBarChart({
                                 <div
                                     className="rounded-t transition-all duration-500"
                                     style={{
-                                        width: "42%",
+                                        width: barWidth,
                                         height: `${rh}%`,
                                         minHeight: rv > 0 ? "4px" : "0",
                                         background: isHovered ? "#00d4ff" : "#00B4D8",
                                     }}
                                 />
+                                {hasThirdSeries && (
+                                    <div
+                                        className="rounded-t transition-all duration-500"
+                                        style={{
+                                            width: barWidth,
+                                            height: `${th}%`,
+                                            minHeight: tv > 0 ? "4px" : "0",
+                                            background: isHovered ? "#059669" : "#10b981",
+                                        }}
+                                    />
+                                )}
                             </div>
                             <span className="text-xs text-gray-500">{item.month}</span>
                         </div>
@@ -654,8 +687,10 @@ export default function StudentAnalytics() {
                                 data={monthlyTrends}
                                 leftKey="interviews"
                                 rightKey="applications"
+                                thirdKey="events"
                                 leftLabel="Interviews"
                                 rightLabel="Applications"
+                                thirdLabel="Events"
                             />
                         </ChartCard>
                         <ChartCard title="Interview Session Status" subtitle="Breakdown of all sessions">

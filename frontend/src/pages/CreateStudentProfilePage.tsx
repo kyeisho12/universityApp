@@ -233,6 +233,7 @@ export default function CreateStudentProfilePage() {
   }, [formData, draftKey, isDirty])
 
   const isEditMode = new URLSearchParams(location.search).get('edit') === '1'
+  const showOptionalSections = isEditMode
 
   useEffect(() => {
     if (isProfileComplete && !isEditMode) {
@@ -672,287 +673,291 @@ export default function CreateStudentProfilePage() {
             {formData.bio.length}/500
           </span>
         </label>
-        <div className="grid gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-800">Skills & Competencies</span>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={addSkill}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                + Add Skill
-              </button>
-            )}
-          </div>
-          {formData.skills_entries.map((skill, index) => (
-            <div key={`skill-${index}`} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={skill}
-                onChange={(e) => updateSkill(index, e.target.value)}
-                placeholder="e.g., JavaScript"
-                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              />
-              {isEditMode && formData.skills_entries.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeSkill(index)}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-800">Education</span>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={addEducation}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                + Add Education
-              </button>
-            )}
-          </div>
-          {formData.education_entries.map((entry, index) => (
-            <div key={`edu-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
-              <input
-                type="text"
-                placeholder="School"
-                value={entry.school}
-                onChange={(e) => updateEducation(index, 'school', e.target.value)}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  type="text"
-                  placeholder="Degree"
-                  value={entry.degree}
-                  onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="Field of Study"
-                  value={entry.field}
-                  onChange={(e) => updateEducation(index, 'field', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
+        {showOptionalSections && (
+          <>
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-800">Skills & Competencies</span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={addSkill}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add Skill
+                  </button>
+                )}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  type="text"
-                  placeholder="Start Year"
-                  value={entry.start_year}
-                  onChange={(e) => updateEducation(index, 'start_year', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="End Year"
-                  value={entry.end_year}
-                  onChange={(e) => updateEducation(index, 'end_year', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
+              {formData.skills_entries.map((skill, index) => (
+                <div key={`skill-${index}`} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={skill}
+                    onChange={(e) => updateSkill(index, e.target.value)}
+                    placeholder="e.g., JavaScript"
+                    className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {isEditMode && formData.skills_entries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSkill(index)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-800">Education</span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={addEducation}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add Education
+                  </button>
+                )}
               </div>
-              {isEditMode && formData.education_entries.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeEducation(index)}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600 text-left"
-                >
-                  Remove Education
-                </button>
-              )}
+              {formData.education_entries.map((entry, index) => (
+                <div key={`edu-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
+                  <input
+                    type="text"
+                    placeholder="School"
+                    value={entry.school}
+                    onChange={(e) => updateEducation(index, 'school', e.target.value)}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Degree"
+                      value={entry.degree}
+                      onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Field of Study"
+                      value={entry.field}
+                      onChange={(e) => updateEducation(index, 'field', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Start Year"
+                      value={entry.start_year}
+                      onChange={(e) => updateEducation(index, 'start_year', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="End Year"
+                      value={entry.end_year}
+                      onChange={(e) => updateEducation(index, 'end_year', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  {isEditMode && formData.education_entries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeEducation(index)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600 text-left"
+                    >
+                      Remove Education
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="grid gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-800">Work Experience</span>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={addWork}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                + Add Experience
-              </button>
-            )}
-          </div>
-          {formData.work_experience_entries.map((entry, index) => (
-            <div key={`work-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  type="text"
-                  placeholder="Role"
-                  value={entry.title}
-                  onChange={(e) => updateWork(index, 'title', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="Company"
-                  value={entry.company}
-                  onChange={(e) => updateWork(index, 'company', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-800">Work Experience</span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={addWork}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add Experience
+                  </button>
+                )}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  type="text"
-                  placeholder="Start Date"
-                  value={entry.start_date}
-                  onChange={(e) => updateWork(index, 'start_date', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="End Date"
-                  value={entry.end_date}
-                  onChange={(e) => updateWork(index, 'end_date', e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-                />
+              {formData.work_experience_entries.map((entry, index) => (
+                <div key={`work-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Role"
+                      value={entry.title}
+                      onChange={(e) => updateWork(index, 'title', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Company"
+                      value={entry.company}
+                      onChange={(e) => updateWork(index, 'company', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Start Date"
+                      value={entry.start_date}
+                      onChange={(e) => updateWork(index, 'start_date', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="End Date"
+                      value={entry.end_date}
+                      onChange={(e) => updateWork(index, 'end_date', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <textarea
+                    placeholder="Describe your responsibilities"
+                    value={entry.description}
+                    onChange={(e) => updateWork(index, 'description', e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  />
+                  {isEditMode && formData.work_experience_entries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeWork(index)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600 text-left"
+                    >
+                      Remove Experience
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-800">Career Preferences</span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={() => addPreference('preferred_job_types')}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add Job Type
+                  </button>
+                )}
               </div>
-              <textarea
-                placeholder="Describe your responsibilities"
-                value={entry.description}
-                onChange={(e) => updateWork(index, 'description', e.target.value)}
-                rows={3}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              />
-              {isEditMode && formData.work_experience_entries.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeWork(index)}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600 text-left"
-                >
-                  Remove Experience
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+              {formData.preferred_job_types.map((item, index) => (
+                <div key={`job-type-${index}`} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => updatePreference('preferred_job_types', index, e.target.value)}
+                    placeholder="e.g., Internship"
+                    className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {isEditMode && formData.preferred_job_types.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePreference('preferred_job_types', index)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
 
-        <div className="grid gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-800">Career Preferences</span>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={() => addPreference('preferred_job_types')}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                + Add Job Type
-              </button>
-            )}
-          </div>
-          {formData.preferred_job_types.map((item, index) => (
-            <div key={`job-type-${index}`} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={item}
-                onChange={(e) => updatePreference('preferred_job_types', index, e.target.value)}
-                placeholder="e.g., Internship"
-                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              />
-              {isEditMode && formData.preferred_job_types.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removePreference('preferred_job_types', index)}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-800">Preferred Industries</span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={() => addPreference('preferred_industries')}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add Industry
+                  </button>
+                )}
+              </div>
+              {formData.preferred_industries.map((item, index) => (
+                <div key={`industry-${index}`} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => updatePreference('preferred_industries', index, e.target.value)}
+                    placeholder="e.g., Software Development"
+                    className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {isEditMode && formData.preferred_industries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePreference('preferred_industries', index)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
 
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-800">Preferred Industries</span>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={() => addPreference('preferred_industries')}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                + Add Industry
-              </button>
-            )}
-          </div>
-          {formData.preferred_industries.map((item, index) => (
-            <div key={`industry-${index}`} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={item}
-                onChange={(e) => updatePreference('preferred_industries', index, e.target.value)}
-                placeholder="e.g., Software Development"
-                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              />
-              {isEditMode && formData.preferred_industries.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removePreference('preferred_industries', index)}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-800">Preferred Locations</span>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={() => addPreference('preferred_locations')}
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add Location
+                  </button>
+                )}
+              </div>
+              {formData.preferred_locations.map((item, index) => (
+                <div key={`location-${index}`} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => updatePreference('preferred_locations', index, e.target.value)}
+                    placeholder="e.g., Remote"
+                    className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {isEditMode && formData.preferred_locations.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePreference('preferred_locations', index)}
+                      className="text-xs font-semibold text-red-500 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
 
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-800">Preferred Locations</span>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={() => addPreference('preferred_locations')}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                + Add Location
-              </button>
-            )}
-          </div>
-          {formData.preferred_locations.map((item, index) => (
-            <div key={`location-${index}`} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={item}
-                onChange={(e) => updatePreference('preferred_locations', index, e.target.value)}
-                placeholder="e.g., Remote"
-                className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              />
-              {isEditMode && formData.preferred_locations.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removePreference('preferred_locations', index)}
-                  className="text-xs font-semibold text-red-500 hover:text-red-600"
-                >
-                  Remove
-                </button>
-              )}
+              <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+                Expected Salary Range
+                <input
+                  type="text"
+                  name="expected_salary_range"
+                  value={formData.expected_salary_range}
+                  onChange={handleChange}
+                  placeholder="e.g., ₱15,000 - ₱30,000/month"
+                  className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                />
+              </label>
             </div>
-          ))}
-
-          <label className="grid gap-1 text-sm font-semibold text-neutral-800">
-            Expected Salary Range
-            <input
-              type="text"
-              name="expected_salary_range"
-              value={formData.expected_salary_range}
-              onChange={handleChange}
-              placeholder="e.g., ₱15,000 - ₱30,000/month"
-              className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            />
-          </label>
-        </div>
+          </>
+        )}
         <button
           type="submit"
           disabled={isProfileLoading}
