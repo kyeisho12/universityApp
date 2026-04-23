@@ -416,6 +416,12 @@ function getStarrBorderClass(score: number): string {
   return "border-red-300";
 }
 
+function getStarrBreakdownScoreClass(score: number): string {
+  if (score >= 4) return "text-emerald-700";
+  if (score === 3) return "text-amber-700";
+  return "text-red-700";
+}
+
 function SessionStarBar({ label, value }: { label: string; value: number | undefined }) {
   const v = Math.min(5, Math.max(0, Number(value) || 0));
   const displayLabel = STAR_LABEL_MAP[label.toLowerCase()] ?? label.charAt(0).toUpperCase() + label.slice(1);
@@ -5163,6 +5169,30 @@ function MockInterviewPageContent({
                     <span>Previous answer score</span>
                     <span className="font-bold">{(evaluations as Record<number, any>)[currentQuestion - 1].score} / 5</span>
                   </p>
+                  {(evaluations as Record<number, any>)[currentQuestion - 1]?.breakdown && (
+                    <details open className="mt-1">
+                      <summary className="text-[11px] text-purple-700 cursor-pointer select-none">
+                        STARR breakdown
+                      </summary>
+                      <div className="mt-1 space-y-1 pl-2">
+                        {STAR_DIM_ORDER.map((dimension) => {
+                          const rawScore = (evaluations as Record<number, any>)[currentQuestion - 1]?.breakdown?.[dimension];
+                          if (rawScore == null) return null;
+
+                          const roundedScore = Math.round(Number(rawScore) || 0);
+                          return (
+                            <p key={dimension} className="text-xs text-purple-700 flex items-center justify-between">
+                              <span>{STAR_LABEL_MAP[dimension] || dimension}</span>
+                              <span>
+                                <span className={getStarrBreakdownScoreClass(roundedScore)}>{roundedScore}</span>
+                                <span className="text-purple-600"> / 5</span>
+                              </span>
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
                   {(evaluations as Record<number, any>)[currentQuestion - 1]?.feedback && (
                     <p className="text-xs text-purple-700 mt-1">{(evaluations as Record<number, any>)[currentQuestion - 1].feedback}</p>
                   )}
