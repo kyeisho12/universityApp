@@ -364,6 +364,58 @@ const STAR_LABEL_MAP: Record<string, string> = {
 
 const STAR_DIM_ORDER = ['situation', 'task', 'action', 'result', 'reflection'];
 
+const STARR_REVIEW_TIPS: Record<string, Record<number, string>> = {
+  situation: {
+    5: "Your situation descriptions were specific and complete. Keep it up.",
+    4: "Good context overall. Try to always include when and where for full marks.",
+    3: "Your situations were somewhat general. Add more specific context about the setting and background.",
+    2: "Situations were unclear or too broad. Practice starting with \"During my OJT / thesis / group project...\" to ground your answer.",
+    1: "Most answers lacked any situational context. Always begin with a specific past event before anything else.",
+  },
+  task: {
+    5: "You clearly stated your role in every answer. Excellent ownership.",
+    4: "Your role was mostly clear. Be more explicit about your specific responsibility.",
+    3: "Your task was partially explained. Try saying \"I was responsible for...\" or \"My task was to...\" directly.",
+    2: "Your role was often vague or missing. Make sure to always state what was expected of you personally.",
+    1: "Answers lacked any statement of role or responsibility. Always clarify what your specific task was.",
+  },
+  action: {
+    5: "Your actions were specific, structured, and showed clear initiative. Well done.",
+    4: "Actions were clear but could be more detailed. Add the exact steps you personally took.",
+    3: "Actions were mentioned but generic. Instead of \"I helped,\" say \"I reorganized the workflow by doing X.\"",
+    2: "Actions were vague. Avoid \"I did my best\" - describe the concrete steps you actually took.",
+    1: "Actions were missing from most answers. Always explain what you personally did, step by step.",
+  },
+  result: {
+    5: "You provided clear, measurable outcomes consistently. Great work.",
+    4: "Results were stated but not always quantified. Try to add numbers or specific outcomes.",
+    3: "Results were vague. Instead of \"it went well,\" say \"we submitted 3 days early\" or \"our adviser approved it.\"",
+    2: "Results were mostly missing or unclear. Every answer should end with what actually happened as a consequence of your actions.",
+    1: "No results were provided. Always close your answer with a concrete outcome, even a small one.",
+  },
+  reflection: {
+    5: "You showed strong self-awareness and growth in your answers. Keep it up.",
+    4: "Some reflection was present. Try to tie your learning back to a specific moment in the experience.",
+    3: "Reflection was limited. End your answers with \"What I learned from this is...\" to make it explicit.",
+    2: "Little to no reflection. Panels value self-awareness - always share what the experience taught you.",
+    1: "No reflection was provided. Add a closing statement about what you learned or how you grew from the experience.",
+  },
+};
+
+function getStarrStatusLabel(score: number): string {
+  if (score >= 5) return "✅ Excellent";
+  if (score === 4) return "✅ Very Good";
+  if (score === 3) return "🔶 Good";
+  if (score === 2) return "⚠️ Fair";
+  return "❌ Needs Improvement";
+}
+
+function getStarrBorderClass(score: number): string {
+  if (score >= 4) return "border-emerald-300";
+  if (score === 3) return "border-amber-300";
+  return "border-red-300";
+}
+
 function SessionStarBar({ label, value }: { label: string; value: number | undefined }) {
   const v = Math.min(5, Math.max(0, Number(value) || 0));
   const displayLabel = STAR_LABEL_MAP[label.toLowerCase()] ?? label.charAt(0).toUpperCase() + label.slice(1);
@@ -652,6 +704,7 @@ function MockInterviewPageContent({
   const [showTipToast, setShowTipToast] = useState(false);
   const [showSessionToast, setShowSessionToast] = useState(false);
   const [showInstructionToast, setShowInstructionToast] = useState(false);
+  const [expandedStarrDimension, setExpandedStarrDimension] = useState<string | null>(null);
   const tipToastDismissed = useRef(false);
   const sessionToastDismissed = useRef(false);
   const instructionToastDismissed = useRef(false);
@@ -3335,6 +3388,7 @@ function MockInterviewPageContent({
     setIsPaused(false);
     setShowFinishSpeakingPrompt(false);
     setIsCompleted(false);
+    setExpandedStarrDimension(null);
     setCurrentQuestion(0);
     setIsCameraOn(false);
     setIsMicOn(true);
@@ -4234,6 +4288,34 @@ function MockInterviewPageContent({
   if (isCompleted) {
     const sessionStats = computeSessionSTARStats();
     const overallPercent = Math.max(0, Math.min(100, (sessionStats.overallAverage / 5) * 100));
+    const starrRows = [
+      {
+        key: "situation",
+        label: "Situation Clarity",
+        score: Math.round(sessionStats.situation),
+      },
+      {
+        key: "task",
+        label: "Task Ownership",
+        score: Math.round(sessionStats.task),
+      },
+      {
+        key: "action",
+        label: "Action Specificity",
+        score: Math.round(sessionStats.action),
+      },
+      {
+        key: "result",
+        label: "Result Measurability",
+        score: Math.round(sessionStats.result),
+      },
+      {
+        key: "reflection",
+        label: "Reflection & Learning",
+        score: Math.round(sessionStats.reflection),
+      },
+    ] as const;
+
     return (
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar (desktop) */}
@@ -4365,7 +4447,6 @@ function MockInterviewPageContent({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <MetricCard
                     label="Situation clarity"
-                    percentage={Math.round((sessionStats.situation / 5) * 100)}
                     score={sessionStats.situation}
                     feedbacks={{
                       5: "Clearly and fully describes the situation with all relevant details.",
@@ -4377,7 +4458,6 @@ function MockInterviewPageContent({
                   />
                   <MetricCard
                     label="Task ownership"
-                    percentage={Math.round((sessionStats.task / 5) * 100)}
                     score={sessionStats.task}
                     feedbacks={{
                       5: "Clearly defines the challenge or responsibility with precision and ownership.",
@@ -4389,7 +4469,6 @@ function MockInterviewPageContent({
                   />
                   <MetricCard
                     label="Action specificity"
-                    percentage={Math.round((sessionStats.action / 5) * 100)}
                     score={sessionStats.action}
                     feedbacks={{
                       5: "Provides detailed, relevant actions; demonstrates initiative and skills.",
@@ -4401,7 +4480,6 @@ function MockInterviewPageContent({
                   />
                   <MetricCard
                     label="Result measurability"
-                    percentage={Math.round((sessionStats.result / 5) * 100)}
                     score={sessionStats.result}
                     feedbacks={{
                       5: "Clearly explains measurable outcomes and meaningful impact.",
@@ -4413,7 +4491,6 @@ function MockInterviewPageContent({
                   />
                   <MetricCard
                     label="Reflection & learning"
-                    percentage={Math.round((sessionStats.reflection / 5) * 100)}
                     score={sessionStats.reflection}
                     feedbacks={{
                       5: "Applicant reflects meaningfully on lessons learned and demonstrates professional growth.",
@@ -4423,6 +4500,55 @@ function MockInterviewPageContent({
                       1: "No reflection provided; response is disorganized or off-topic.",
                     }}
                   />
+                </div>
+              </div>
+
+              {/* STARR Performance Review */}
+              <div className="mb-8">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
+                  Your STARR Performance Review
+                </h3>
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                  {starrRows.map((row) => {
+                    const isOpen = expandedStarrDimension === row.key;
+                    const scoreLevel = Math.max(1, Math.min(5, row.score));
+                    const status = getStarrStatusLabel(scoreLevel);
+                    const tip = STARR_REVIEW_TIPS[row.key]?.[scoreLevel] ?? "Keep practicing with specific, structured STAR responses.";
+
+                    return (
+                      <div key={row.key} className={`border-l-4 ${getStarrBorderClass(scoreLevel)}`}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedStarrDimension((prev) =>
+                              prev === row.key ? null : row.key
+                            )
+                          }
+                          className="w-full px-4 py-3 sm:px-5 sm:py-4 text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {isOpen ? (
+                                <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                              )}
+                              <span className="font-semibold text-gray-900 truncate">{row.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                              <span className="text-sm font-bold text-gray-900">{row.score} / 5</span>
+                              <span className="text-xs sm:text-sm font-medium text-gray-600">{status}</span>
+                            </div>
+                          </div>
+                        </button>
+                        {isOpen && (
+                          <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                            <p className="text-sm text-gray-700">{tip}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -5174,22 +5300,21 @@ function ChecklistItem({ text }: { text: string }) {
 
 function MetricCard({
   label,
-  percentage,
   score,
   feedbacks,
 }: {
   label: string;
-  percentage: number | null;
   score?: number | null;
   feedbacks?: Record<number, string>;
 }) {
-  const hasPercentage = typeof percentage === "number";
-  const barWidth = hasPercentage ? Math.max(0, Math.min(100, percentage)) : 0;
+  const hasScore = typeof score === "number";
+  const normalizedScore = hasScore ? Math.max(0, Math.min(5, score)) : null;
+  const roundedScore = normalizedScore != null ? Math.round(normalizedScore) : null;
+  const barWidth = normalizedScore != null ? (normalizedScore / 5) * 100 : 0;
 
   const getFeedback = () => {
     if (!feedbacks || score == null) return null;
-    const rounded = Math.round(score);
-    const key = Math.max(1, Math.min(5, rounded)) as 1 | 2 | 3 | 4 | 5;
+    const key = Math.max(1, Math.min(5, roundedScore ?? 1)) as 1 | 2 | 3 | 4 | 5;
     return feedbacks[key] ?? null;
   };
 
@@ -5209,7 +5334,7 @@ function MetricCard({
       <div className="flex items-center justify-between mb-2">
         <h4 className="font-semibold text-gray-900">{label}</h4>
         <span className="text-lg font-bold text-gray-900">
-          {hasPercentage ? `${percentage}%` : "--"}
+          {roundedScore != null ? `${roundedScore} / 5` : "--"}
         </span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
