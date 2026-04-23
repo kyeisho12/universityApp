@@ -461,6 +461,28 @@ function breakdownToScore(bd: STARBreakdown): number {
   return parseFloat(((bd.situation + bd.task + bd.action + bd.result + bd.reflection) / 5).toFixed(2));
 }
 
+// ---------------------------------------------------------------------------
+// School Likert Mapping
+//
+// The school's grading rubric adds the 5 scaled STAR dimension scores (each
+// already on a 1–5 scale, sum range 5–25) and maps the total to a final
+// 1–5 Likert grade:
+//
+//   Sum  1– 5  → 1   Sum  6–10  → 2   Sum 11–15 → 3
+//   Sum 16–20  → 4   Sum 21–25 → 5
+//
+// We use the *scaled* breakdown (post-scaleBDToTarget) so the mapping is
+// applied to the same values that are displayed in the UI breakdown bars.
+// ---------------------------------------------------------------------------
+function mapStarSumToLikert(bd: STARBreakdown): number {
+  const sum = bd.situation + bd.task + bd.action + bd.result + bd.reflection;
+  if (sum <= 5)  return 1;
+  if (sum <= 10) return 2;
+  if (sum <= 15) return 3;
+  if (sum <= 20) return 4;
+  return 5;
+}
+
 function scaleBDToTarget(bd: STARBreakdown, targetScore: number): STARBreakdown {
   const dims = ['situation', 'task', 'action', 'result', 'reflection'] as (keyof STARBreakdown)[];
   const avg = dims.reduce((s, d) => s + bd[d], 0) / 5;
@@ -509,6 +531,7 @@ export async function evaluateAnswer(
 
   if (wordCount < 15) {
     const emptyBD: STARBreakdown = { situation: 1, task: 1, action: 1, result: 1, reflection: 1 };
+    const mappedScore = mapStarSumToLikert(emptyBD); // sum=5 → 1
     return {
       source: 'zsl_star_fallback',
       matchedQuestion: null,
@@ -516,9 +539,9 @@ export async function evaluateAnswer(
       datasetAnchorScore: null,
       datasetSimilarity: 0,
       roberta_similarity: 0,
-      score: 1,
+      score: mappedScore,
       breakdown: emptyBD,
-      hrLabel: 'Needs Improvement — Unsatisfactory',
+      hrLabel: getHRLabel(mappedScore),
       error: 'Answer too short to evaluate meaningfully.',
     };
   }
@@ -553,8 +576,8 @@ export async function evaluateAnswer(
 
       if (penalizedZslScore < 2.0) {
         const targetScore = isNegating ? Math.min(penalizedZslScore, 2) : penalizedZslScore;
-        const finalScore = targetScore;
-        const finalBD = scaleBDToTarget(zslBD, finalScore); // scale raw ZSL to match final score
+        const finalBD = scaleBDToTarget(zslBD, targetScore); // scale raw ZSL to match final score
+        const mappedScore = mapStarSumToLikert(finalBD);
         return {
           source: 'roberta_similarity',
           matchedQuestion: lookup.item?.question ?? null,
@@ -562,9 +585,9 @@ export async function evaluateAnswer(
           datasetAnchorScore: lookup.anchorScore,
           datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
           roberta_similarity: parseFloat(similarity.toFixed(3)),
-          score: finalScore,
+          score: mappedScore,
           breakdown: finalBD,
-          hrLabel: getHRLabel(finalScore),
+          hrLabel: getHRLabel(mappedScore),
           ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
         };
       }
@@ -583,8 +606,8 @@ export async function evaluateAnswer(
 
       const cappedScore  = Math.min(blendedScore, similarityCap);
       const targetScore  = isNegating ? Math.min(cappedScore, 2) : cappedScore;
-      const finalScore = targetScore;
-      const finalBD = scaleBDToTarget(zslBD, finalScore); // scale raw ZSL to match final score
+      const finalBD = scaleBDToTarget(zslBD, targetScore); // scale raw ZSL to match final score
+      const mappedScore = mapStarSumToLikert(finalBD);
 
       return {
         source: 'roberta_similarity',
@@ -593,9 +616,9 @@ export async function evaluateAnswer(
         datasetAnchorScore: lookup.anchorScore,
         datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
         roberta_similarity: parseFloat(similarity.toFixed(3)),
-        score: finalScore,
+        score: mappedScore,
         breakdown: finalBD,
-        hrLabel: getHRLabel(finalScore),
+        hrLabel: getHRLabel(mappedScore),
         ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
       };
     } catch (err) {
@@ -628,8 +651,8 @@ export async function evaluateAnswer(
 
     const cappedTarget  = Math.min(rawTarget, path2Cap);
     const targetScore   = isNegating ? Math.min(cappedTarget, 2) : cappedTarget;
-    const finalScore = targetScore;
-    const finalBD = bd ? scaleBDToTarget(bd, finalScore) : { situation: 1, task: 1, action: 1, result: 1, reflection: 1 }; // scale raw ZSL to match final score
+    const finalBD = bd ? scaleBDToTarget(bd, targetScore) : { situation: 1, task: 1, action: 1, result: 1, reflection: 1 }; // scale raw ZSL to match final score
+    const mappedScore = mapStarSumToLikert(finalBD);
 
     return {
       source: 'zsl_roberta',
@@ -638,9 +661,9 @@ export async function evaluateAnswer(
       datasetAnchorScore: lookup.anchorScore,
       datasetSimilarity: parseFloat(lookup.bestAnswerSimilarity.toFixed(3)),
       roberta_similarity: 0,
-      score: finalScore,
+      score: mappedScore,
       breakdown: finalBD,
-      hrLabel: getHRLabel(finalScore),
+      hrLabel: getHRLabel(mappedScore),
       ...(isNegating && { error: 'Answer flagged as self-dismissive or negating.' }),
     };
   } catch (err) {
@@ -664,8 +687,8 @@ export async function evaluateAnswer(
   ));
 
   const targetScore = isNegating ? Math.min(rawTarget, 2) : rawTarget;
-  const finalScore = targetScore;
-  const finalBD = scaleBDToTarget(blendedBD, finalScore); // scale regex breakdown to match final score
+  const finalBD = scaleBDToTarget(blendedBD, targetScore); // scale regex breakdown to match final score
+  const mappedScore = mapStarSumToLikert(finalBD);
 
   return {
     source: 'zsl_star_fallback',
@@ -674,9 +697,9 @@ export async function evaluateAnswer(
     datasetAnchorScore: lookup.anchorScore,
     datasetSimilarity: parseFloat(jaccardSim.toFixed(3)),
     roberta_similarity: 0,
-    score: finalScore,
+    score: mappedScore,
     breakdown: finalBD,
-    hrLabel: getHRLabel(finalScore),
+    hrLabel: getHRLabel(mappedScore),
     error: isNegating
       ? 'Answer flagged as self-dismissive or negating.'
       : 'All RoBERTa paths unavailable. Regex STAR heuristic used as last resort.',

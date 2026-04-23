@@ -51,12 +51,18 @@ interface Segment {
 
 // ---------------------------------------------------------------------------
 // Evaluation localStorage cache
+// Bump CACHE_VERSION whenever the scoring algorithm changes so stale results
+// from previous deployments are ignored and re-evaluated with the new logic.
 // ---------------------------------------------------------------------------
+const EVAL_CACHE_VERSION = 2; // v2: school Likert mapping (sum→1–5)
 const getSegEvalCache = (segId: string) => {
-  try { const r = localStorage.getItem(`seg_eval_${segId}`); return r ? JSON.parse(r) : null; } catch { return null; }
+  try {
+    const r = localStorage.getItem(`seg_eval_v${EVAL_CACHE_VERSION}_${segId}`);
+    return r ? JSON.parse(r) : null;
+  } catch { return null; }
 };
 const setSegEvalCache = (segId: string, ev: any) => {
-  try { localStorage.setItem(`seg_eval_${segId}`, JSON.stringify(ev)); } catch {}
+  try { localStorage.setItem(`seg_eval_v${EVAL_CACHE_VERSION}_${segId}`, JSON.stringify(ev)); } catch {}
 };
 
 // ---------------------------------------------------------------------------
@@ -174,7 +180,7 @@ function QuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; segment
         <div className="flex items-center gap-3 shrink-0 ml-3">
           {score != null && (
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${scoreBadgeClass(score)}`}>
-              {score.toFixed(2)} / 5
+              {score} / 5
             </span>
           )}
           {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -220,7 +226,7 @@ function QuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; segment
                     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className={`text-lg font-bold px-3 py-1 rounded-lg ${scoreBadgeClass(seg.evaluation.score)}`}>
-                          {seg.evaluation.score.toFixed(2)} / 5
+                          {seg.evaluation.score} / 5
                         </span>
                         {seg.evaluation.hrLabel && (
                           <span className="text-xs text-gray-500 text-right max-w-[160px]">{seg.evaluation.hrLabel}</span>
@@ -615,7 +621,7 @@ export default function AdminMockInterview() {
           "Q#": qi + 1,
           "Question": questionText,
           "Answer Transcript": fullTranscript || "—",
-          "Score (1–5)": score != null ? score.toFixed(2) : "—",
+          "Score (1–5)": score != null ? String(score) : "—",
           "HR Label": evaluation?.hrLabel ?? "—",
           "Situation": evaluation?.breakdown?.situation ?? "—",
           "Task": evaluation?.breakdown?.task ?? "—",

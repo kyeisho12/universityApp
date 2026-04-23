@@ -402,7 +402,7 @@ function SessionQuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; 
         <div className="flex items-center gap-3 shrink-0 ml-3">
           {score != null && (
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sessionScoreBadgeClass(score)}`}>
-              {score.toFixed(2)} / 5
+              {score} / 5
             </span>
           )}
           {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -442,7 +442,7 @@ function SessionQuestionCard({ qIdx, segments, loadingVideos }: { qIdx: string; 
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-800">Overall Score</span>
                         <span className={`text-sm font-bold px-3 py-1 rounded-full ${sessionScoreBadgeClass(seg.evaluation.score)}`}>
-                          {seg.evaluation.score.toFixed(2)} / 5
+                          {seg.evaluation.score} / 5
                         </span>
                       </div>
                       {seg.evaluation.hrLabel && (
@@ -943,8 +943,9 @@ function MockInterviewPageContent({
         } catch (e) { console.warn("fetchQuestions:", e); }
       }
 
-      const getSegEvalCache = (segId: string) => { try { const r = localStorage.getItem(`seg_eval_${segId}`); return r ? JSON.parse(r) : null; } catch { return null; } };
-      const setSegEvalCache = (segId: string, ev: any) => { try { localStorage.setItem(`seg_eval_${segId}`, JSON.stringify(ev)); } catch {} };
+      const EVAL_CACHE_VERSION = 2; // v2: school Likert mapping (sum→1–5)
+      const getSegEvalCache = (segId: string) => { try { const r = localStorage.getItem(`seg_eval_v${EVAL_CACHE_VERSION}_${segId}`); return r ? JSON.parse(r) : null; } catch { return null; } };
+      const setSegEvalCache = (segId: string, ev: any) => { try { localStorage.setItem(`seg_eval_v${EVAL_CACHE_VERSION}_${segId}`, JSON.stringify(ev)); } catch {} };
 
       // Phase 1: group all segments, then keep only the final (highest segment_order) per question
       // Segments are ordered ASC by segment_order, so last in array = final answer
@@ -1103,7 +1104,7 @@ function MockInterviewPageContent({
           "Q#": qi + 1,
           "Question": questionText,
           "Answer Transcript": fullTranscript || "—",
-          "Score (1–5)": score != null ? score.toFixed(2) : "—",
+          "Score (1–5)": score != null ? String(score) : "—",
           "HR Label": evaluation?.hrLabel ?? "—",
           "Situation": evaluation?.breakdown?.situation ?? "—",
           "Task": evaluation?.breakdown?.task ?? "—",
@@ -1532,7 +1533,9 @@ function MockInterviewPageContent({
   }, [evaluations]);
 
   const computeSessionSTARStats = useCallback(() => {
-    // Returns per-dimension averages and overall average across evaluated answers
+    // Returns per-dimension averages and overall average across evaluated answers.
+    // overallAverage uses ev.score (the school's mapped Likert score) so it is
+    // consistent with calculateSessionStarAverage and what is displayed in the UI.
     const evalEntries = Object.values(evaluations || {}).filter(Boolean);
     const count = evalEntries.length;
     if (count === 0) {
@@ -1555,9 +1558,10 @@ function MockInterviewPageContent({
         acc.action += Number(bd.action) || 0;
         acc.result += Number(bd.result) || 0;
         acc.reflection += Number(bd.reflection) || 0;
+        acc.scoreSum += Number.isFinite(Number(ev?.score)) ? Number(ev.score) : 0;
         return acc;
       },
-      { situation: 0, task: 0, action: 0, result: 0, reflection: 0 }
+      { situation: 0, task: 0, action: 0, result: 0, reflection: 0, scoreSum: 0 }
     );
 
     const situation = sums.situation / count;
@@ -1566,7 +1570,9 @@ function MockInterviewPageContent({
     const result = sums.result / count;
     const reflection = sums.reflection / count;
 
-    const overallAverage = (situation + task + action + result + reflection) / 5;
+    // Use the mapped Likert scores (ev.score) for the overall average so it
+    // matches the school's rubric and the running average shown in the UI.
+    const overallAverage = sums.scoreSum / count;
     return { overallAverage, situation, task, action, result, reflection, evaluatedCount: count };
   }, [evaluations]);
 
@@ -3400,15 +3406,16 @@ function MockInterviewPageContent({
     const questionRows = questions.map((q, idx) => {
       const ev = (evaluations as Record<number, any>)[idx];
       const bd = ev?.breakdown || {};
-      const score = ev?.score ?? (Object.keys(bd).length > 0
-        ? (Object.values(bd).reduce((s: number, v) => s + (Number(v) || 0), 0) as number) / Object.keys(bd).length
-        : null);
+      // Always use ev.score (the school's mapped Likert integer 1–5).
+      // The breakdown-average fallback is removed because it would produce an
+      // unmapped float if ev.score were somehow absent.
+      const score = ev?.score ?? null;
       const transcript = lastEvaluatedTranscriptRef.current[idx] || ev?.transcript || "—";
       return {
         "Q#":               idx + 1,
         "Question":         q.question,
         "Answer Transcript": transcript,
-        "Score (1–5)":      score != null ? Number(score).toFixed(2) : "—",
+        "Score (1–5)":      score != null ? String(score) : "—",
         "HR Label":         ev?.hrLabel ?? "—",
         "Situation":        bd.situation != null ? Number(bd.situation) : "—",
         "Task":             bd.task != null ? Number(bd.task) : "—",
@@ -3927,7 +3934,7 @@ function MockInterviewPageContent({
                             <td className="px-4 py-3 text-gray-700 capitalize">{session.status.replace("_", " ")}</td>
                             <td className="px-4 py-3 text-gray-700">{session.totalQuestions || "—"}</td>
                             <td className="px-4 py-3 text-gray-700">
-                              {typeof session.score === "number" ? `${session.score.toFixed(2)} / 5` : "Not available"}
+                              {typeof session.score === "number" ? `${session.score} / 5` : "Not available"}
                               {session.evaluatedCount !== null ? (
                                 <span className="text-xs text-gray-500 ml-2">({session.evaluatedCount} answers)</span>
                               ) : null}
@@ -5028,7 +5035,7 @@ function MockInterviewPageContent({
                 <div className="mt-2.5 bg-purple-50 border border-purple-200 rounded-lg p-2.5">
                   <p className="text-xs text-purple-800 flex items-center justify-between">
                     <span>Previous answer score</span>
-                    <span className="font-bold">{Number((evaluations as Record<number, any>)[currentQuestion - 1].score).toFixed(1)} / 5</span>
+                    <span className="font-bold">{(evaluations as Record<number, any>)[currentQuestion - 1].score} / 5</span>
                   </p>
                   {(evaluations as Record<number, any>)[currentQuestion - 1]?.feedback && (
                     <p className="text-xs text-purple-700 mt-1">{(evaluations as Record<number, any>)[currentQuestion - 1].feedback}</p>
