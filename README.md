@@ -1,116 +1,177 @@
-# University Career System
+# University Career Service Management System
+### with an AI-Driven Mock Interview Module
 
-## 🚀 Sprint 1: Frontend Development
-
-A modern university career management system built with React and Supabase.
-
-### Current Status
-✅ **Frontend Active** - React + Vite + Supabase  
-⏳ **Backend** - Placeholder for future sprints
+A thesis project developed by students of the **College of Computer Studies, Tarlac State University (TSU)** in partial fulfillment of the requirements for the degree of Bachelor of Science in Computer Science, A.Y. 2025–2026.
 
 ---
 
-## Quick Start
+## 📌 Overview
 
-### Prerequisites
-- Node.js 18+ ([Download](https://nodejs.org/))
-- Git
+This system is a web-based platform designed to modernize and centralize the career service operations of Tarlac State University. It integrates traditional career management tools — such as student profiles, résumé building, job listings, and event coordination — with an AI-powered mock interview module that evaluates student responses using natural language processing.
 
-### Setup (3 steps!)
+The AI module uses a hybrid evaluation pipeline consisting of **Whisper** for speech-to-text transcription, **RoBERTa** for semantic similarity scoring against HR-validated ideal answers, **Zero-Shot Learning (ZSL)** for evaluating responses to unseen questions without retraining, and **Phi-3 Mini** for adaptive follow-up question generation. Evaluation scores are converted into a standardized TSU Likert scale (1–5) based on the STARR (Situation, Task, Action, Result, Reflection) rubric.
 
-```bash
-# 1. Clone and navigate
-git clone https://github.com/kyeisho12/universityApp.git
-cd universityApp/frontend
+---
 
-# 2. Install and configure
-npm install
-copy .env.example .env    # Windows
-# or: cp .env.example .env   # Mac/Linux
+## 🤖 AI Evaluation Pipeline
 
-# 3. Run!
-npm run dev
+```
+Student Audio
+     │
+     ▼
+Whisper (Speech-to-Text)
+     │
+     ▼
+Transcribed Text
+     │
+     ▼
+RoBERTa + ZSL
+  ├── Answer matches HR-validated bank → RoBERTa Semantic Similarity
+  └── Answer not matched → ZSL Text Classification
+     │
+     ▼
+Likert Score (1–5)
+     │
+  ┌──┴──┐
+  │     │
+Follow-Up    No Follow-Up
+Warranted    Warranted
+(4-Step      │
+Decision)    ▼
+  │       Database + Next Question
+  ▼
+Phi-3 Mini (Follow-Up Generation)
+  │
+  └──► Back to Recording
 ```
 
-Open **http://localhost:5173** 🎉
-
-📖 **Detailed setup:** See [SETUP_GUIDE.md](SETUP_GUIDE.md)
-
----
-
-## Technology Stack
-
-- **Frontend:** React 18, Vite, React Router
-- **Backend:** Supabase (Auth, Database, Storage)
-- **Future:** Flask API (planned for later sprint)
+**Follow-up decision process (4 steps):**
+1. **Hard rule check** — limits each question to at most one follow-up
+2. **Incoherence detection** — skips follow-up for vague or unclear answers
+3. **Phi-3 JSON decision** — selects between follow-up, next bank question, or new question
+4. **ZSL override** — forces follow-up if ZSL flagged missing STARR components
 
 ---
 
-## Project Structure
+## ✨ Features
+
+### Student Side
+- Manage personal profiles including education, work experience, and career preferences
+- Build and download résumés and cover letters
+- Browse and apply for job and internship opportunities
+- Register for career events, workshops, and seminars
+- Conduct AI-powered mock interview sessions with real-time speech-to-text
+- View STARR-based evaluation scores and performance metrics after each session
+- Receive personalized session feedback identifying weakest STARR dimensions
+- Track application progress, interview history, and event attendance
+
+### Admin Side
+- Manage student accounts and verify registrations
+- Post, edit, and archive job and internship listings
+- Create and manage career events and counseling sessions
+- View, analyze, and export interview performance data (with question type tagging)
+- Monitor student engagement through reports and monthly trend analytics
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Backend | Python, Flask, Gunicorn |
+| Database | Supabase (PostgreSQL, Auth, Storage) |
+| Speech Recognition | faster-whisper (OpenAI Whisper) |
+| Semantic Evaluation | RoBERTa via sentence-transformers |
+| Zero-Shot Classification | Hugging Face ZSL pipeline |
+| Follow-Up Generation | Microsoft Phi-3 Mini (via Ollama) |
+
+---
+
+## 📁 Project Structure
 
 ```
 universityApp/
-├── frontend/         # ✅ Active development
-│   ├── src/
-│   │   ├── components/  # Reusable UI components
-│   │   ├── pages/       # Page components
-│   │   ├── services/    # API and service layer
-│   │   ├── context/     # React context providers
-│   │   └── lib/         # Supabase client
-│   └── package.json
-├── backend/          # ⏳ Placeholder for future sprints
-├── docs/             # Documentation
-└── SETUP_GUIDE.md    # Detailed setup instructions
+├── frontend/               # React + TypeScript frontend
+│   └── src/
+│       ├── components/     # Reusable UI components
+│       ├── pages/          # Page-level components
+│       ├── services/       # Supabase and API service layer
+│       ├── context/        # React context providers
+│       └── lib/            # Supabase client config
+├── backend/                # Flask API + AI modules
+│   └── app/
+│       ├── ai_module/
+│       │   ├── whisper/    # Speech-to-text transcription
+│       │   ├── roberta/    # Semantic similarity scoring
+│       │   ├── zero_shot/  # ZSL classification
+│       │   ├── phi3/       # Follow-up question generation
+│       │   └── scoring/    # Likert score conversion
+│       ├── api/            # Flask route handlers
+│       ├── services/       # Business logic
+│       └── utils/          # Shared utilities
+├── database/               # Schema and migrations
+├── supabase/               # Supabase edge functions
+├── docs/                   # Documentation
+└── scripts/                # Utility scripts
 ```
 
 ---
 
-## Development
+## 🚀 Getting Started
 
-### Available Scripts
+### Prerequisites
+- Node.js 18+
+- Python 3.10+
+- Ollama (for Phi-3 local inference)
+- Supabase project (Auth, Database, Storage)
+
+### Frontend Setup
+
 ```bash
-npm run dev      # Start dev server (http://localhost:5173)
-npm run build    # Production build
-npm run preview  # Preview production build
+cd frontend
+npm install
+cp .env.example .env      # Fill in your Supabase credentials
+npm run dev               # http://localhost:5173
 ```
 
-### Troubleshooting
-- **White screen?** Check browser console (F12) for errors
-- **Port in use?** Kill process or use different port
-- **Still stuck?** See [SETUP_GUIDE.md](SETUP_GUIDE.md) troubleshooting section
+### Backend Setup
+
+```bash
+cd backend
+pip install -r requirements.txt
+cp .env.example .env      # Fill in your config
+python -m app.main
+```
+
+### Phi-3 (Ollama) Setup
+
+```bash
+ollama pull phi3
+ollama serve
+```
 
 ---
 
-## Documentation
+## 👥 Proponents
 
-- [📘 Setup Guide](SETUP_GUIDE.md) - Complete setup instructions
-- [🏗️ Architecture](docs/architecture.md) - System architecture
-- [📚 API Docs](docs/api_documentation.md) - API reference
-- [🧪 Testing Plan](docs/testing_plan.md) - Testing strategy
+- **Francisco, Guian Carlo V.**
+- **Jose, Tomas G.**
+- **Nabong, Gilber Mary Joy C.**
 
----
-
-## Contributing
-
-This is an active development project. For Sprint 1, focus is on frontend features.
-
-### Current Sprint Goals
-- Build core UI components
-- Implement authentication with Supabase
-- Create student and admin dashboards
-- Set up routing and navigation
+**Technical Adviser:** Ms. Raine Micaela Muñoz
+**Subject Teacher:** Dr. Rogel L. Quilala
 
 ---
 
-## Notes
+## 🏫 Institution
 
-- **Backend folder** is a structural placeholder - no setup needed for Sprint 1
-- Using **Supabase** for all backend services currently
-- **Flask API** will be implemented in a future sprint
-- This is a learning project - experiment and iterate!
+College of Computer Studies
+Tarlac State University
+A.Y. 2025 – 2026
 
 ---
 
-## License
+## 📄 License
 
-See [LICENSE](LICENSE) file for details.
+See [LICENSE](LICENSE) for details.
