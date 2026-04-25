@@ -580,10 +580,12 @@ export default function AdminMockInterview() {
       // Fetch question texts
       const qIds = Array.from(new Set(segs.map((s: any) => s.question_id).filter(Boolean)));
       const questionMap: Record<string, string> = {};
+      const sourceTypeMap: Record<string, string> = {};
       if (qIds.length > 0) {
         const { data: qdata } = await supabase
-          .from("interview_question_bank").select("id, question_text").in("id", qIds);
+          .from("interview_question_bank").select("id, question_text, source_type").in("id", qIds);
         if (qdata) for (const q of qdata) questionMap[String(q.id)] = q.question_text;
+        if (qdata) for (const q of qdata) sourceTypeMap[String(q.id)] = q.source_type || "bank";
       }
 
       // Group segments by question index, merge transcript segments
@@ -606,6 +608,9 @@ export default function AdminMockInterview() {
       for (const qi of sortedIndices) {
         const { questionText, transcripts, createdAt } = byQ[qi];
         const fullTranscript = transcripts.join(" ").trim();
+        const questionSeg = segs.find((seg: any) => seg.question_index === qi);
+        const questionId = questionSeg?.question_id != null ? String(questionSeg.question_id) : "";
+        const questionType = sourceTypeMap[questionId] === "generated" ? "FOLLOW UP" : "QUESTION BANK";
         let evaluation: any = null;
         try {
           if (fullTranscript) {
@@ -619,6 +624,7 @@ export default function AdminMockInterview() {
 
         questionRows.push({
           "Q#": qi + 1,
+          "Question Type": questionType,
           "Question": questionText,
           "Answer Transcript": fullTranscript || "—",
           "Score (1–5)": score != null ? String(score) : "—",
@@ -657,6 +663,7 @@ export default function AdminMockInterview() {
       // Column widths
       wbDetail["!cols"] = [
         { wch: 4 },
+        { wch: 16 },
         { wch: 45 },
         { wch: 60 },
         { wch: 12 },
