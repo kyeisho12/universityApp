@@ -5177,6 +5177,34 @@ function MockInterviewPageContent({
                     <span>Previous answer score</span>
                     <span className="font-bold">{(evaluations as Record<number, any>)[currentQuestion - 1].score} / 5</span>
                   </p>
+                  {(() => {
+                    const score = (evaluations as Record<number, any>)[currentQuestion - 1].score;
+                    let interpretation = "";
+                    switch (Math.round(score)) {
+                      case 5:
+                        interpretation = "Highly Structured";
+                        break;
+                      case 4:
+                        interpretation = "Competent";
+                        break;
+                      case 3:
+                        interpretation = "Needs Coaching";
+                        break;
+                      case 2:
+                        interpretation = "Weak";
+                        break;
+                      case 1:
+                        interpretation = "Not Demonstrated";
+                        break;
+                      default:
+                        interpretation = "";
+                    }
+                    return (
+                      <p className="text-xs text-purple-600 mt-1">
+                        {interpretation}
+                      </p>
+                    );
+                  })()}
                   {(evaluations as Record<number, any>)[currentQuestion - 1]?.breakdown && (
                     <details open className="mt-1">
                       <summary className="text-[11px] text-purple-700 cursor-pointer select-none">
