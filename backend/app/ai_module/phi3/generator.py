@@ -439,7 +439,10 @@ class Phi3FollowupGenerator:
 		# Common incoherence markers
 		incoherence_markers = [
 			"i don't know",
+			"i don't know",
 			"i don't really know",
+			"i don't really know",
+			"i'm not sure",
 			"i'm not sure",
 			"not really sure",
 			"kind of",
@@ -448,8 +451,12 @@ class Phi3FollowupGenerator:
 			"um,",
 			"er,",
 			"actually, i haven't",
+			"actually, i haven't",
+			"i haven't really thought",
 			"i haven't really thought",
 			"is that i don't",
+			"is that i don't",
+			"that i don't",
 			"that i don't",
 		]
 		if any(marker in lower for marker in incoherence_markers):

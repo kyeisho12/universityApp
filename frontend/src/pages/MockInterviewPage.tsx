@@ -3125,10 +3125,11 @@ function MockInterviewPageContent({
       if (shouldUseAIGeneratedQuestion) {
         const generatedText: string = decisionResult.data.generated_question;
         const existingKeysAI = new Set(questions.map((q) => normalizeQuestionKey(q.question)).filter(Boolean));
+        const existingIdsAI = new Set(questions.map((q) => q.id));
 
         // Check if any bank question is similar — if so, prefer the bank version
         const similarBankQ = findSimilarBankQuestion(generatedText, bankQuestionPool);
-        if (similarBankQ && !existingKeysAI.has(normalizeQuestionKey(similarBankQ.question))) {
+        if (similarBankQ && !existingIdsAI.has(similarBankQ.id) && !existingKeysAI.has(normalizeQuestionKey(similarBankQ.question))) {
           const remainingPool = bankQuestionPool.filter((q) => q.id !== similarBankQ.id);
           setPreparedNextAction({
             kind: "bank",
@@ -3173,13 +3174,20 @@ function MockInterviewPageContent({
         }
       }
 
-      if (nextPool.length > 0) {
+      // Filter out questions already asked in this session to prevent duplicates
+      const askedQuestionIds = new Set(questions.map((q) => q.id));
+      const askedQuestionKeys = new Set(questions.map((q) => normalizeQuestionKey(q.question)).filter(Boolean));
+      const filteredPool = nextPool.filter(
+        (q) => !askedQuestionIds.has(q.id) && !askedQuestionKeys.has(normalizeQuestionKey(q.question))
+      );
+
+      if (filteredPool.length > 0) {
         const selectedId = decisionResult.data?.selected_question_id;
-        const selectedIdx = selectedId ? nextPool.findIndex((q) => q.id === selectedId) : -1;
+        const selectedIdx = selectedId ? filteredPool.findIndex((q) => q.id === selectedId) : -1;
         const orderedPool =
           selectedIdx > 0
-            ? [nextPool[selectedIdx], ...nextPool.slice(0, selectedIdx), ...nextPool.slice(selectedIdx + 1)]
-            : nextPool;
+            ? [filteredPool[selectedIdx], ...filteredPool.slice(0, selectedIdx), ...filteredPool.slice(selectedIdx + 1)]
+            : filteredPool;
         const [nextBankQuestion, ...remainingPool] = orderedPool;
         setPreparedNextAction({
           kind: "bank",
