@@ -233,7 +233,7 @@ export default function CreateStudentProfilePage() {
   }, [formData, draftKey, isDirty])
 
   const isEditMode = new URLSearchParams(location.search).get('edit') === '1'
-  const showOptionalSections = isEditMode
+  const showOptionalSections = true  // Always show optional sections including career preferences
 
   useEffect(() => {
     if (isProfileComplete && !isEditMode) {
@@ -357,6 +357,32 @@ export default function CreateStudentProfilePage() {
       validationErrors.push({
         field: 'college',
         message: 'Please select a college.',
+      })
+    }
+
+    // Validate career preferences (now required)
+    const validJobTypes = formData.preferred_job_types.filter((item) => sanitizeText(item))
+    const validIndustries = formData.preferred_industries.filter((item) => sanitizeText(item))
+    const validLocations = formData.preferred_locations.filter((item) => sanitizeText(item))
+
+    if (validJobTypes.length === 0) {
+      validationErrors.push({
+        field: 'preferred_job_types',
+        message: 'Please add at least one preferred job type.',
+      })
+    }
+
+    if (validIndustries.length === 0) {
+      validationErrors.push({
+        field: 'preferred_industries',
+        message: 'Please add at least one preferred industry.',
+      })
+    }
+
+    if (validLocations.length === 0) {
+      validationErrors.push({
+        field: 'preferred_locations',
+        message: 'Please add at least one preferred location.',
       })
     }
 
@@ -514,7 +540,7 @@ export default function CreateStudentProfilePage() {
     <div className="mx-auto max-w-3xl rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-neutral-200/60">
       <div className="mb-6 space-y-2">
         <h1 className="text-2xl font-bold text-neutral-900">{pageTitle}</h1>
-        <p className="text-sm text-neutral-600">Please complete all required fields (*) including your bio to access your dashboard.</p>
+        <p className="text-sm text-neutral-600">Please complete all required fields (*) including your bio and career preferences to access your dashboard.</p>
       </div>
       <form className="grid gap-5" onSubmit={handleSubmit}>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
@@ -578,38 +604,38 @@ export default function CreateStudentProfilePage() {
           <select
             name="college"
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            value={formData.college}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Select College</option>
-            <option value="CASS">CASS</option>
-            <option value="CAFA">CAFA</option>
-            <option value="CBA">CBA</option>
-            <option value="CCS">CCS</option>
-            <option value="COE">COE</option>
-            <option value="CIT">CIT</option>
-            <option value="CCJE">CCJE</option>
-            <option value="CPAG">CPAG</option>
-            <option value="COED">COED</option>
-            <option value="COS">COS</option>
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
-          Major *
-        <input
-            type="text"
-            name="major"
-            value={formData.major}
-            onChange={handleChange}
-            required
-            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-        />
-        </label>
-        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
-          Graduation year *
-        <input
-            type="number"
+            if (!formData.college) {
+              validationErrors.push({
+                field: 'college',
+                message: 'Please select a college.',
+              })
+            }
+
+            // Validate career preferences (now required)
+            const validJobTypes = formData.preferred_job_types.filter(item => sanitizeText(item))
+            const validIndustries = formData.preferred_industries.filter(item => sanitizeText(item))
+            const validLocations = formData.preferred_locations.filter(item => sanitizeText(item))
+
+            if (validJobTypes.length === 0) {
+              validationErrors.push({
+                field: 'preferred_job_types',
+                message: 'Please add at least one preferred job type.',
+              })
+            }
+
+            if (validIndustries.length === 0) {
+              validationErrors.push({
+                field: 'preferred_industries',
+                message: 'Please add at least one preferred industry.',
+              })
+            }
+
+            if (validLocations.length === 0) {
+              validationErrors.push({
+                field: 'preferred_locations',
+                message: 'Please add at least one preferred location.',
+              })
+            }
             name="graduation_year"
             min="1900"
             max="2100"
@@ -846,8 +872,8 @@ export default function CreateStudentProfilePage() {
 
             <div className="grid gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-800">Career Preferences</span>
-                {isEditMode && (
+                <span className="text-sm font-semibold text-neutral-800">Career Preferences *</span>
+                {(
                   <button
                     type="button"
                     onClick={() => addPreference('preferred_job_types')}
@@ -879,8 +905,8 @@ export default function CreateStudentProfilePage() {
               ))}
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-800">Preferred Industries</span>
-                {isEditMode && (
+                <span className="text-sm font-semibold text-neutral-800">Preferred Industries *</span>
+                {(
                   <button
                     type="button"
                     onClick={() => addPreference('preferred_industries')}
@@ -912,8 +938,8 @@ export default function CreateStudentProfilePage() {
               ))}
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-800">Preferred Locations</span>
-                {isEditMode && (
+                <span className="text-sm font-semibold text-neutral-800">Preferred Locations *</span>
+                {(
                   <button
                     type="button"
                     onClick={() => addPreference('preferred_locations')}
