@@ -603,39 +603,28 @@ export default function CreateStudentProfilePage() {
           College *
           <select
             name="college"
+            value={formData.college}
+            onChange={handleChange}
             className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            if (!formData.college) {
-              validationErrors.push({
-                field: 'college',
-                message: 'Please select a college.',
-              })
-            }
-
-            // Validate career preferences (now required)
-            const validJobTypes = formData.preferred_job_types.filter(item => sanitizeText(item))
-            const validIndustries = formData.preferred_industries.filter(item => sanitizeText(item))
-            const validLocations = formData.preferred_locations.filter(item => sanitizeText(item))
-
-            if (validJobTypes.length === 0) {
-              validationErrors.push({
-                field: 'preferred_job_types',
-                message: 'Please add at least one preferred job type.',
-              })
-            }
-
-            if (validIndustries.length === 0) {
-              validationErrors.push({
-                field: 'preferred_industries',
-                message: 'Please add at least one preferred industry.',
-              })
-            }
-
-            if (validLocations.length === 0) {
-              validationErrors.push({
-                field: 'preferred_locations',
-                message: 'Please add at least one preferred location.',
-              })
-            }
+            required
+          >
+            <option value="">Select College</option>
+            <option value="CASS">CASS</option>
+            <option value="CAFA">CAFA</option>
+            <option value="CBA">CBA</option>
+            <option value="CCS">CCS</option>
+            <option value="COE">COE</option>
+            <option value="CIT">CIT</option>
+            <option value="CCJE">CCJE</option>
+            <option value="CPAG">CPAG</option>
+            <option value="COED">COED</option>
+            <option value="COS">COS</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+          Graduation year *
+          <input
+            type="number"
             name="graduation_year"
             min="1900"
             max="2100"
