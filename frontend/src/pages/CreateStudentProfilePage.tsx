@@ -386,6 +386,35 @@ export default function CreateStudentProfilePage() {
       })
     }
 
+    // Validate skills, education, and work experience (now required)
+    const validSkills = formData.skills_entries.map((s) => sanitizeText(s)).filter(Boolean)
+    if (validSkills.length === 0) {
+      validationErrors.push({
+        field: 'skills_entries',
+        message: 'Please add at least one skill or competency.',
+      })
+    }
+
+    const hasEducation = formData.education_entries.some(
+      (entry) => entry.school || entry.degree || entry.field || entry.start_year || entry.end_year
+    )
+    if (!hasEducation) {
+      validationErrors.push({
+        field: 'education_entries',
+        message: 'Please add at least one education entry.',
+      })
+    }
+
+    const hasWork = formData.work_experience_entries.some(
+      (entry) => entry.title || entry.company || entry.start_date || entry.end_date || entry.description
+    )
+    if (!hasWork) {
+      validationErrors.push({
+        field: 'work_experience_entries',
+        message: 'Please add at least one work experience entry.',
+      })
+    }
+
     // OPTION A: SANITIZATION + OPTION B: FIELD-SPECIFIC VALIDATION
 
     // Sanitize and validate full name
@@ -692,16 +721,14 @@ export default function CreateStudentProfilePage() {
           <>
             <div className="grid gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-800">Skills & Competencies</span>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    onClick={addSkill}
-                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                  >
-                    + Add Skill
-                  </button>
-                )}
+                <span className="text-sm font-semibold text-neutral-800">Skills & Competencies *</span>
+                <button
+                  type="button"
+                  onClick={addSkill}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                >
+                  + Add Skill
+                </button>
               </div>
               {formData.skills_entries.map((skill, index) => (
                 <div key={`skill-${index}`} className="flex items-center gap-2">
@@ -712,7 +739,7 @@ export default function CreateStudentProfilePage() {
                     placeholder="e.g., JavaScript"
                     className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                   />
-                  {isEditMode && formData.skills_entries.length > 1 && (
+                  {formData.skills_entries.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeSkill(index)}
@@ -727,16 +754,14 @@ export default function CreateStudentProfilePage() {
 
             <div className="grid gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-800">Education</span>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    onClick={addEducation}
-                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                  >
-                    + Add Education
-                  </button>
-                )}
+                <span className="text-sm font-semibold text-neutral-800">Education *</span>
+                <button
+                  type="button"
+                  onClick={addEducation}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                >
+                  + Add Education
+                </button>
               </div>
               {formData.education_entries.map((entry, index) => (
                 <div key={`edu-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
@@ -779,7 +804,7 @@ export default function CreateStudentProfilePage() {
                       className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
                     />
                   </div>
-                  {isEditMode && formData.education_entries.length > 1 && (
+                  {formData.education_entries.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeEducation(index)}
@@ -794,16 +819,14 @@ export default function CreateStudentProfilePage() {
 
             <div className="grid gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-800">Work Experience</span>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    onClick={addWork}
-                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                  >
-                    + Add Experience
-                  </button>
-                )}
+                <span className="text-sm font-semibold text-neutral-800">Work Experience *</span>
+                <button
+                  type="button"
+                  onClick={addWork}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                >
+                  + Add Experience
+                </button>
               </div>
               {formData.work_experience_entries.map((entry, index) => (
                 <div key={`work-${index}`} className="grid gap-3 rounded-xl border border-neutral-200 p-4">
@@ -846,7 +869,7 @@ export default function CreateStudentProfilePage() {
                     rows={3}
                     className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
                   />
-                  {isEditMode && formData.work_experience_entries.length > 1 && (
+                  {formData.work_experience_entries.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeWork(index)}
