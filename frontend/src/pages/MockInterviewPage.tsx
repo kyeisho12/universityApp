@@ -291,7 +291,6 @@ const OPENING_QUESTION_ID = "890b7831-97c4-4f25-bf26-590ca44fbee7";
 const RANDOM_BANK_QUESTION_COUNT = 10;
 const MIN_SESSION_QUESTION_COUNT = 10;
 const MAX_SESSION_QUESTION_COUNT = 20;
-const STAR_AVERAGE_TARGET_SCORE = 3.0;
 const AUTO_SILENCE_RMS_THRESHOLD = 0.015;
 const AUTO_SILENCE_DURATION_MS = 1700;
 const AUTO_MIN_SPEECH_MS = 800;
@@ -2935,47 +2934,8 @@ function MockInterviewPageContent({
       const askedQuestionCount = questions.length;
       const sessionStarAverage = calculateSessionStarAverage();
       const hasReachedMinimumQuestions = askedQuestionCount >= MIN_SESSION_QUESTION_COUNT;
-      const hasReachedStarAverageTarget = sessionStarAverage >= STAR_AVERAGE_TARGET_SCORE;
-
-      const evaluationEntries = Object.entries(evaluations || {});
-      const evaluatedCount = evaluationEntries.length;
-      const currentScoreSum = evaluatedCount > 0 ? sessionStarAverage * evaluatedCount : 0;
-      const mandatoryQuestionsRemaining = Math.max(
-        MIN_SESSION_QUESTION_COUNT - askedQuestionCount,
-        0
-      );
-      const projectedBestCaseAverageAtMinimum =
-        evaluatedCount + mandatoryQuestionsRemaining > 0
-          ? (currentScoreSum + mandatoryQuestionsRemaining * 5) /
-            (evaluatedCount + mandatoryQuestionsRemaining)
-          : 5;
 
       const currentEvaluation = evaluations[currentQuestion];
-      const currentBreakdown = currentEvaluation?.breakdown;
-      const currentDims = currentBreakdown
-        ? [
-            Number(currentBreakdown.situation),
-            Number(currentBreakdown.task),
-            Number(currentBreakdown.action),
-            Number(currentBreakdown.result),
-            Number(currentBreakdown.reflection),
-          ].filter(Number.isFinite)
-        : [];
-      const currentQuestionStarAverage =
-        currentDims.length === 5
-          ? currentDims.reduce((sum, value) => sum + value, 0) / 5
-          : Number.isFinite(Number(currentEvaluation?.score))
-          ? Number(currentEvaluation?.score)
-          : null;
-
-      const hasScoreDeficit = sessionStarAverage < STAR_AVERAGE_TARGET_SCORE;
-      const currentAnswerIsBelowTarget =
-        typeof currentQuestionStarAverage === "number" &&
-        currentQuestionStarAverage < STAR_AVERAGE_TARGET_SCORE;
-      const followupNeededForTarget =
-        hasScoreDeficit &&
-        (currentAnswerIsBelowTarget ||
-          projectedBestCaseAverageAtMinimum < STAR_AVERAGE_TARGET_SCORE);
 
       const preparedMessage =
         triggerSource === "auto"
@@ -2991,16 +2951,6 @@ function MockInterviewPageContent({
           kind: "complete",
           message: `Session ended after reaching the maximum of ${MAX_SESSION_QUESTION_COUNT} questions. Final STAR average: ${sessionStarAverage.toFixed(2)} / 5.`,
           completionReason: "question_cap",
-        });
-        setRecordingError(completeMessage);
-        return;
-      }
-
-      if (hasReachedMinimumQuestions && hasReachedStarAverageTarget) {
-        setPreparedNextAction({
-          kind: "complete",
-          message: `Session completed successfully after ${askedQuestionCount} questions. STAR average reached ${sessionStarAverage.toFixed(2)} / 5 (target ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)}).`,
-          completionReason: "score_threshold",
         });
         setRecordingError(completeMessage);
         return;
@@ -3035,12 +2985,10 @@ function MockInterviewPageContent({
       const shouldAskFollowup =
         !decisionResult.error &&
         decisionResult.data?.action === "follow_up" &&
-        Boolean(decisionResult.data?.followup_question) &&
-        followupNeededForTarget;
+        Boolean(decisionResult.data?.followup_question);
 
       const shouldUseEmergencyFollowup =
         Boolean(decisionResult.error) &&
-        followupNeededForTarget &&
         followupCountForCurrent < 1;
 
       if (shouldAskFollowup) {
@@ -4928,7 +4876,6 @@ function MockInterviewPageContent({
                               mode: "mock_interview",
                               min_questions: MIN_SESSION_QUESTION_COUNT,
                               max_questions: MAX_SESSION_QUESTION_COUNT,
-                              star_average_target: STAR_AVERAGE_TARGET_SCORE,
                             },
                           });
                           if (sessionResult.error || !sessionResult.data?.id) {
@@ -5236,23 +5183,11 @@ function MockInterviewPageContent({
               )}
               {evaluatedCountForUi > 0 && (
                 <div
-                  className={
-                    runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                      ? "mt-2.5 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5"
-                      : "mt-2.5 bg-indigo-50 border border-indigo-200 rounded-lg p-2.5"
-                  }
+                  className="mt-2.5 bg-indigo-50 border border-indigo-200 rounded-lg p-2.5"
                 >
-                  <p
-                    className={
-                      runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                        ? "text-xs text-emerald-800 flex items-center justify-between"
-                        : "text-xs text-indigo-800 flex items-center justify-between"
-                    }
-                  >
+                  <p className="text-xs text-indigo-800 flex items-center justify-between">
                     <span>
-                      {runningAverage >= STAR_AVERAGE_TARGET_SCORE
-                        ? `Score target reached! Avg: ${runningAverage.toFixed(2)} / 5`
-                        : `Running avg: ${runningAverage.toFixed(2)} / 5 — need ${STAR_AVERAGE_TARGET_SCORE.toFixed(1)} to finish early`}
+                      {`Running avg: ${runningAverage.toFixed(2)} / 5`}
                     </span>
                     <span className="ml-2 font-semibold whitespace-nowrap">
                       {evaluatedCountForUi} scored
