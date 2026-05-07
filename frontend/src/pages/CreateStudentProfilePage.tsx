@@ -360,6 +360,24 @@ export default function CreateStudentProfilePage() {
       })
     }
 
+    const requiredTextChecks = [
+      { field: 'student_number', label: 'Student number' },
+      { field: 'university', label: 'University' },
+      { field: 'major', label: 'Major' },
+      { field: 'address', label: 'Address' },
+      { field: 'bio', label: 'Short bio' },
+    ] as const
+
+    requiredTextChecks.forEach(({ field, label }) => {
+      const value = sanitizeText(String(formData[field] ?? ''))
+      if (!value) {
+        validationErrors.push({
+          field,
+          message: `${label} is required.`,
+        })
+      }
+    })
+
     // Validate career preferences (now required)
     const validJobTypes = formData.preferred_job_types.filter((item) => sanitizeText(item))
     const validIndustries = formData.preferred_industries.filter((item) => sanitizeText(item))
