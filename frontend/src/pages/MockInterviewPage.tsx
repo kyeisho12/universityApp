@@ -678,6 +678,7 @@ function MockInterviewPageContent({
   const [showFinishSpeakingPrompt, setShowFinishSpeakingPrompt] = useState(false);
   const [useLiveChunkFallback, setUseLiveChunkFallback] = useState(false);
   const [showHistoryView, setShowHistoryView] = useState(true);
+  const [showEndSessionWarning, setShowEndSessionWarning] = useState(false);
   const [historySessions, setHistorySessions] = useState<SessionHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] = useState<SessionHistoryItem | null>(null);
@@ -3349,6 +3350,7 @@ function MockInterviewPageContent({
     setIsSessionStarted(false);
     setIsPaused(false);
     setShowFinishSpeakingPrompt(false);
+    setShowEndSessionWarning(false);
     setIsCompleted(false);
     setExpandedStarrDimension(null);
     setCurrentQuestion(0);
@@ -3653,7 +3655,7 @@ function MockInterviewPageContent({
     void startMicLoopback();
   }, [isMicLoopbackOn, startMicLoopback, stopMicLoopback]);
 
-  const handleEndSession = useCallback(async () => {
+  const handleForceEndSession = useCallback(async () => {
     await stopActiveRecording();
 
     const askedQuestionCount = questions.length > 0
@@ -3686,6 +3688,21 @@ function MockInterviewPageContent({
 
     await completeSession(undefined, "manual");
   }, [completeSession, currentQuestion, handlePracticeAgain, questions.length, sessionId, stopActiveRecording, storagePrefix]);
+
+    const handleEndSession = useCallback(async () => {
+      await stopActiveRecording();
+
+      const askedQuestionCount = questions.length > 0
+        ? Math.max(1, Math.min(questions.length, currentQuestion + 1))
+        : 0;
+
+      if (askedQuestionCount < MIN_SESSION_QUESTION_COUNT) {
+        setShowEndSessionWarning(true);
+        return;
+      }
+
+      await handleForceEndSession();
+    }, [currentQuestion, handleForceEndSession, questions.length, stopActiveRecording]);
 
   const startCamera = useCallback(async (): Promise<MediaStream | null> => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -4404,7 +4421,7 @@ function MockInterviewPageContent({
               {/* Evaluation Metrics (STAR method) */}
               <div className="mb-8">
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
-                  Evaluation Metrics (STAR)
+                  Evaluation Metrics
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <MetricCard
@@ -4474,7 +4491,6 @@ function MockInterviewPageContent({
                   {starrRows.map((row) => {
                     const isOpen = expandedStarrDimension === row.key;
                     const scoreLevel = Math.max(1, Math.min(5, row.score));
-                    const status = getStarrStatusLabel(scoreLevel);
                     const tip = STARR_REVIEW_TIPS[row.key]?.[scoreLevel] ?? "Keep practicing with specific, structured STAR responses.";
 
                     return (
@@ -4499,7 +4515,6 @@ function MockInterviewPageContent({
                             </div>
                             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                               <span className="text-sm font-bold text-gray-900">{row.score} / 5</span>
-                              <span className="text-xs sm:text-sm font-medium text-gray-600">{status}</span>
                             </div>
                           </div>
                         </button>
@@ -5018,6 +5033,48 @@ function MockInterviewPageContent({
                     </button>
                   </div>
                 </div>
+                {showEndSessionWarning && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                    onClick={() => setShowEndSessionWarning(false)}
+                  >
+                    <div
+                      className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-full bg-amber-100 p-2 text-amber-700">
+                          <ShieldAlert className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-semibold text-neutral-900">End session early?</h3>
+                          <p className="mt-2 text-sm text-neutral-600">
+                            You have not reached the minimum of {MIN_SESSION_QUESTION_COUNT} questions yet.
+                            Ending now will void this session. You can keep answering until the minimum is met,
+                            or end anyway if you want to discard this attempt.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <button
+                          onClick={() => setShowEndSessionWarning(false)}
+                          className="rounded-xl bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-200"
+                        >
+                          Keep going
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setShowEndSessionWarning(false);
+                            await handleForceEndSession();
+                          }}
+                          className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                        >
+                          End anyway
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Toggle Button - Mobile only, placed BELOW panel so it stays in view */}
                 <button
                   onClick={() => setControlsOpen(!controlsOpen)}
