@@ -669,6 +669,17 @@ export default function CreateStudentProfilePage() {
           </select>
         </label>
         <label className="grid gap-1 text-sm font-semibold text-neutral-800">
+          Major *
+          <input
+            type="text"
+            name="major"
+            value={formData.major}
+            onChange={handleChange}
+            required
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-base font-normal text-neutral-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-neutral-800">
           Graduation year *
           <input
             type="number"
