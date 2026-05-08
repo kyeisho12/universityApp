@@ -859,12 +859,13 @@ class InterviewService:
 
             # If the frontend evaluation already flagged this answer as a quality gate
             # failure (zsl_star_fallback), override Phi3's decision to ensure a
-            # follow-up is asked — Phi3 tends to skip follow-ups on dismissive answers.
+            # follow-up is asked only when the answer is actually weak.
             if (
                 evaluation_source == "zsl_star_fallback"
                 and followup_count_for_current < 1
                 and decision_result.get("success")
                 and decision_result.get("action") == "next_bank_question"
+                and self.phi3_followup_generator.should_force_followup(current_question, candidate_answer)
             ):
                 decision_result["action"] = "follow_up"
                 decision_result["reason"] = "zsl_fallback_override"

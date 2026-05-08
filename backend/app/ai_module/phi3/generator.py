@@ -253,7 +253,7 @@ class Phi3FollowupGenerator:
 			}
 
 		if not self.is_configured():
-			default_action = self._fallback_action(candidate_answer)
+			default_action = self._fallback_action(current_question, candidate_answer)
 			return {
 				"success": True,
 				"action": default_action,
@@ -279,7 +279,7 @@ class Phi3FollowupGenerator:
 			)
 
 			if not generation.get("success"):
-				default_action = self._fallback_action(candidate_answer)
+				default_action = self._fallback_action(current_question, candidate_answer)
 				return {
 					"success": True,
 					"action": default_action,
@@ -291,7 +291,7 @@ class Phi3FollowupGenerator:
 			parsed = self._parse_decision_json(raw_text)
 
 			if parsed["action"] not in {"follow_up", "next_bank_question", "next_question_new"}:
-				parsed["action"] = self._fallback_action(candidate_answer)
+				parsed["action"] = self._fallback_action(current_question, candidate_answer)
 				parsed["reason"] = parsed.get("reason") or "unrecognized_action"
 
 			result: Dict[str, Any] = {
@@ -306,7 +306,7 @@ class Phi3FollowupGenerator:
 				result["generated_question"] = parsed["generated_question"]
 			return result
 		except Exception:
-			default_action = self._fallback_action(candidate_answer)
+			default_action = self._fallback_action(current_question, candidate_answer)
 			return {
 				"success": True,
 				"action": default_action,
@@ -329,6 +329,93 @@ class Phi3FollowupGenerator:
 			cleaned = f"{cleaned.rstrip('. ') }?" if cleaned else ""
 
 		return cleaned
+
+	def _is_opening_question(self, question: str) -> bool:
+		question_lower = (question or "").strip().lower()
+		opening_markers = [
+			"tell me about yourself",
+			"introduce yourself",
+			"walk me through your background",
+			"describe yourself",
+			"why should we hire you",
+			"what can you tell me about yourself",
+			"give me a brief introduction",
+		]
+		return any(marker in question_lower for marker in opening_markers)
+
+	def _looks_like_complete_intro(self, answer: str) -> bool:
+		answer_lower = (answer or "").strip().lower()
+		if not answer_lower:
+			return False
+
+		intro_signals = [
+			"my name is",
+			"i am",
+			"i'm",
+			"college student",
+			"university student",
+			"graduate",
+			"experience as",
+			"years of experience",
+			"team player",
+			"background",
+			"currently",
+		]
+		detail_signals = [
+			"experience",
+			"student",
+			"year",
+			"years",
+			"internship",
+			"editor",
+			"developer",
+			"team",
+			"project",
+			"work",
+		]
+		signal_hits = sum(1 for signal in intro_signals if signal in answer_lower)
+		detail_hits = sum(1 for signal in detail_signals if signal in answer_lower)
+		word_count = len(answer_lower.split())
+		return word_count >= 18 and signal_hits >= 2 and detail_hits >= 2
+
+	def should_force_followup(self, current_question: str, candidate_answer: str) -> bool:
+		answer = (candidate_answer or "").strip()
+		question = (current_question or "").strip()
+
+		if self._is_incoherent_answer(answer):
+			return True
+
+		word_count = len(answer.split())
+		if word_count < 12:
+			return True
+
+		if self._is_opening_question(question):
+			return not self._looks_like_complete_intro(answer)
+
+		if self._looks_like_complete_intro(answer):
+			return False
+
+		answer_lower = answer.lower()
+		completion_keywords = [
+			"result",
+			"outcome",
+			"impact",
+			"improved",
+			"increased",
+			"reduced",
+			"achieved",
+			"delivered",
+			"resolved",
+			"success",
+			"metric",
+			"time",
+			"step",
+			"because",
+		]
+		if any(keyword in answer_lower for keyword in completion_keywords):
+			return False
+
+		return word_count < 30
 
 	def _fallback_question(self, original_question: str, candidate_answer: str) -> str:
 		answer = (candidate_answer or "").strip().lower()
@@ -474,23 +561,32 @@ class Phi3FollowupGenerator:
 		
 		return False
 
-	def _fallback_action(self, candidate_answer: str) -> str:
+	def _fallback_action(self, current_question: str, candidate_answer: str) -> str:
 		answer = (candidate_answer or "").strip()
+		question = (current_question or "").strip()
 		
-		# Incoherent answers should NOT get follow-ups
+		# Incoherent or clearly incomplete answers should get a follow-up only
+		# when the answer really needs clarification. Otherwise, prefer moving
+		# on so the fallback does not overuse canned probing questions.
 		if self._is_incoherent_answer(answer):
 			return "next_bank_question"
 		
-		# Short but coherent answers need more detail
-		if len(answer) < 60:
+		if self._is_opening_question(question) and self._looks_like_complete_intro(answer):
+			return "next_bank_question"
+
+		if self._looks_like_complete_intro(answer):
+			return "next_bank_question"
+
+		# Short answers often need a single clarifying follow-up.
+		if len(answer.split()) < 20:
 			return "follow_up"
 		
-		# Check for results/impact - strong indicator of complete answer
-		if any(keyword in answer.lower() for keyword in ["result", "impact", "outcome", "%", "increased", "reduced", "improved", "achieved", "delivered"]):
+		# Answers with concrete outcomes should usually advance to the next bank question.
+		if any(keyword in answer.lower() for keyword in ["result", "impact", "outcome", "%", "increased", "reduced", "improved", "achieved", "delivered", "resolved", "success"]):
 			return "next_bank_question"
 		
-		# By default, follow up on longer answers without clear outcomes
-		return "follow_up"
+		# Default to moving on rather than leaning on a canned follow-up.
+		return "next_bank_question"
 
 	def _parse_decision_json(self, raw_text: str) -> Dict[str, str]:
 		if not raw_text:

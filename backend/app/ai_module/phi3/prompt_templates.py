@@ -75,6 +75,8 @@ def build_next_step_decision_prompt(
 		'- "follow_up": answer is coherent but vague or missing key details\n'
 		'- "next_bank_question": pick the most contextually relevant question from the bank list\n'
 		'- "next_question_new": generate a new contextual question when NO bank question fits the conversation topic\n\n'
+		"For opening or introduction questions (for example, tell me about yourself, introduce yourself, or walk me through your background),\n"
+		"treat a coherent self-introduction with identity, background, and experience as complete enough to move on unless it is evasive, incoherent, or extremely brief.\n\n"
 		"Prefer next_bank_question when a bank question matches the conversation topic.\n"
 		"Use next_question_new only when the topic has no match in the bank.\n"
 		"ALWAYS choose next_bank_question or next_question_new (not follow_up) if:\n"
